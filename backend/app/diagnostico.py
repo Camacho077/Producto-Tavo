@@ -4,17 +4,17 @@ el arreglo concreto para cada cosa.
 
 Uso (desde backend/, con el venv):
     python -m app.diagnostico                      # informe legible
-    python -m app.diagnostico --origen http://192.168.1.50:5173
+    python -m app.diagnostico --origen http://192.168.1.50:5175
                                                    # ¿ese origen pasa CORS?
     python -m app.diagnostico --json               # para scripts
 
 Con el backend corriendo en desarrollo también está en
-GET http://localhost:8001/diagnostico (en producción responde 404: expone
+GET http://localhost:8002/diagnostico (en producción responde 404: expone
 configuración).
 
 Revisa: archivos .env, variables cargadas (sin mostrar secretos), conexión a
 Postgres, migraciones al día, orígenes CORS permitidos, frontend/.env y los
-puertos (incluida la reserva de Windows sobre el 8000/8001). Sale con código
+puertos (incluida la reserva de Windows sobre el 8000/8002). Sale con código
 1 si hay algún error, así sirve también en scripts (setup.ps1 / setup.sh).
 """
 import argparse
@@ -29,8 +29,11 @@ from urllib.parse import urlparse
 
 BACKEND_DIR = Path(__file__).resolve().parents[1]
 RAIZ = BACKEND_DIR.parent
-PUERTO_BACKEND = 8001
-PUERTO_FRONTEND = 5173
+# Mapa de puertos del Producto Tavo (docs/DECISIONES.md §1). Ninguno se
+# repite con el Producto JS (5173 / 4173 / 8001 / 5432), que corre a la vez.
+PUERTO_BACKEND = 8002
+PUERTO_FRONTEND = 5175
+PUERTO_POSTGRES = 5433
 
 OK, AVISO, ERROR = "ok", "aviso", "error"
 
@@ -234,7 +237,7 @@ def revisar_frontend() -> list[dict]:
             _item(
                 AVISO,
                 f"VITE_API_URL={url} no apunta al puerto {PUERTO_BACKEND}",
-                "El backend de desarrollo corre en el 8001 (start-backend.ps1).",
+                f"El backend de desarrollo corre en el {PUERTO_BACKEND} (start-backend.ps1).",
                 f"VITE_API_URL=http://localhost:{PUERTO_BACKEND}/api/v1",
             )
         ]
@@ -268,14 +271,14 @@ def revisar_puertos() -> list[dict]:
                     estado,
                     f"El puerto {puerto} ({quien}) está RESERVADO por Windows (rango {rango[0]}-{rango[1]})",
                     "Hyper-V/WSL/Docker reservan rangos al arrancar; uvicorn falla con WinError 10013.",
-                    "Por eso el proyecto usa el 8001. Si el 8001 también cae en un rango: "
+                    f"Por eso el proyecto usa el {PUERTO_BACKEND}. Si el {PUERTO_BACKEND} también cae en un rango: "
                     "net stop winnat  y  net start winnat  (PowerShell como administrador).",
                 )
             )
     for puerto, nombre, comando in (
         (PUERTO_BACKEND, "Backend", "automatizaciones\\dev\\start-backend.ps1"),
         (PUERTO_FRONTEND, "Frontend", "automatizaciones\\dev\\start-frontend.ps1"),
-        (5432, "Postgres", "docker compose -f infra/docker-compose.yml up -d db"),
+        (PUERTO_POSTGRES, "Postgres", "docker compose -f infra/docker-compose.yml up -d db"),
     ):
         if _puerto_escucha("127.0.0.1", puerto):
             items.append(_item(OK, f"{nombre}: algo escucha en el puerto {puerto}"))
@@ -358,7 +361,7 @@ def main() -> int:
     except AttributeError:
         pass
     parser = argparse.ArgumentParser(description="Diagnóstico del entorno de desarrollo")
-    parser.add_argument("--origen", help="Origen a probar contra CORS, p. ej. http://192.168.1.50:5173")
+    parser.add_argument("--origen", help="Origen a probar contra CORS, p. ej. http://192.168.1.50:5175")
     parser.add_argument("--json", action="store_true", help="Salida en JSON")
     args = parser.parse_args()
     informe = diagnosticar(args.origen)

@@ -11,7 +11,7 @@
          existen (con una SECRET_KEY aleatoria en el backend).
       3. Crea backend/venv e instala las dependencias de Python.
       4. Instala las dependencias de npm del frontend.
-      5. Arranca Postgres con Docker si no hay uno escuchando en el 5432,
+      5. Arranca Postgres con Docker si no hay uno escuchando en el 5433,
          y crea la base de datos si no existe.
       6. Corre `alembic upgrade head`.
       7. Crea la empresa y el usuario de prueba, y carga los datos de
@@ -19,7 +19,7 @@
       8. Corre el diagnóstico y muestra URLs y credenciales.
 
 .PARAMETER Arrancar
-    Al terminar, abre backend (8001) y frontend (5173) en dos ventanas nuevas.
+    Al terminar, abre backend (8002) y frontend (5175) en dos ventanas nuevas.
 
 .EXAMPLE
     # Desde la raíz del repositorio:
@@ -143,13 +143,13 @@ Bien "Dependencias de npm instaladas"
 # ---------------------------------------------------------------- 5. Postgres
 Paso "5/8 Base de datos (Postgres)"
 
-if (PuertoEscucha 5432) {
-    Bien "Postgres escucha en el puerto 5432"
+if (PuertoEscucha 5433) {
+    Bien "Postgres escucha en el puerto 5433"
 } elseif (Get-Command docker -ErrorAction SilentlyContinue) {
-    Aviso "No hay Postgres en el 5432: lo arranco con Docker (infra/docker-compose.yml, servicio db)"
+    Aviso "No hay Postgres en el 5433: lo arranco con Docker (infra/docker-compose.yml, servicio db)"
     Correr "docker compose up -d db" { docker compose -f (Join-Path $raiz "infra\docker-compose.yml") up -d db }
 } else {
-    Falla "No hay Postgres escuchando en el puerto 5432 y no está Docker." "Instala Docker Desktop (y vuelve a correr este script) o PostgreSQL 16 con el usuario js_admin / clave js_admin (ver README, 'Empezar desde cero')."
+    Falla "No hay Postgres escuchando en el puerto 5433 y no está Docker." "Instala Docker Desktop (y vuelve a correr este script) o PostgreSQL 16 con el usuario tavo_admin / clave tavo_admin (ver README, 'Empezar desde cero')."
 }
 
 Push-Location $backend
@@ -186,9 +186,9 @@ Write-Host "====================================================================
 Write-Host "   Backend :  powershell -ExecutionPolicy Bypass -File automatizaciones\dev\start-backend.ps1"
 Write-Host "   Frontend:  powershell -ExecutionPolicy Bypass -File automatizaciones\dev\start-frontend.ps1"
 Write-Host ""
-Write-Host "   Aplicación:        http://localhost:5173"
-Write-Host "   API (docs):        http://localhost:8001/docs"
-Write-Host "   Diagnóstico:       http://localhost:8001/diagnostico   (o: cd backend; venv\Scripts\python -m app.diagnostico)"
+Write-Host "   Aplicación:        http://localhost:5175"
+Write-Host "   API (docs):        http://localhost:8002/docs"
+Write-Host "   Diagnóstico:       http://localhost:8002/diagnostico   (o: cd backend; venv\Scripts\python -m app.diagnostico)"
 Write-Host ""
 Write-Host "   Cuenta de prueba:  $DEMO_EMAIL" -ForegroundColor Yellow
 Write-Host "   Contraseña:        $DEMO_CLAVE" -ForegroundColor Yellow

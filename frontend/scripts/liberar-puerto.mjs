@@ -2,12 +2,12 @@
 //
 // Cierra cualquier proceso que siga escuchando en el puerto de Vite. Sin
 // esto, una instancia vieja (una terminal olvidada, un proceso de
-// verificación) deja el 5173 ocupado y, como vite.config.js usa strictPort,
+// verificación) deja el 5175 ocupado y, como vite.config.js usa strictPort,
 // el nuevo `npm run dev` falla en vez de arrancar. Con esto el puerto es
 // siempre el mismo y la página que abres es siempre la del código actual.
 import { execSync } from "node:child_process";
 
-const puerto = process.argv[2] || "5173";
+const puerto = process.argv[2] || "5175";
 
 function pidsEnPuertoWindows() {
   const salida = execSync("netstat -ano -p tcp", { encoding: "utf8" });

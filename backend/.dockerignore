@@ -1,0 +1,8 @@
+# Nada del entorno local entra en la imagen: el venv es de Windows y el .env
+# tiene secretos (en Docker las variables llegan por env_file/environment).
+venv/
+.venv/
+.env
+**/__pycache__/
+*.pyc
+.pytest_cache/

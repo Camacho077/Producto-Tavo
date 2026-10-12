@@ -1,10 +1,70 @@
-# JS Company — ERP multi-tenant
+# Producto Tavo — sistema para restaurantes (multi-tenant)
 
 ## Qué es esto
-Backend interno de gestión para negocios (no lo ve el cliente final del
-negocio, solo el equipo administrativo). Se vende por catálogo con 3 planes
-(Básico / Estándar / Pro+IA) a empresas en Colombia. Ver `README.md` para
-instrucciones de instalación y arranque.
+Sistema de gestión para restaurantes: órdenes de pedido con comanda, pantalla
+de cocina, caja, inventario de insumos con recetas (costo y margen por plato),
+dashboard e IA. Lo usa el equipo del restaurante (administrador, cajero,
+mesero, cocinero), no el comensal. **Primer cliente: "Donde Tavo"**
+(restaurante dentro de una universidad, 12 años sin sistema). Se venderá a
+otros restaurantes: Donde Tavo es su primer TENANT, nunca algo cableado en el
+código. Nombre provisional del producto: "JS Restaurante".
+
+## Derivación del Producto JS (2026-10-12)
+- Nace de una copia del **Producto JS** (ERP multi-tenant,
+  `C:\Users\camac\Desktop\Producto JS`, repo `Camacho077/Producto-JS`) en su
+  commit `8146ea0`, exportada con `git archive`. Repositorio git propio, sin
+  historial ni remoto compartido.
+- **NUNCA se escribe en la carpeta del Producto JS.** Si una tarea parece
+  requerirlo, se para y se pregunta.
+- **Se hereda sin tocar**: login y registro, alertas, validaciones (incluido
+  el bloqueo al escribir), permisos por rol (y por plan) en el backend,
+  documentos legales y política de datos, auditoría de cookies, sistema de
+  diseño monocromo, tipografías, animaciones y reglas de rendimiento,
+  gráficas, componentes compartidos, CORS y aislamiento entre empresas.
+  Todas las reglas de abajo siguen vigentes salvo lo que diga este bloque.
+- **Cambia** (fases 1–12, plan en `docs/DECISIONES.md` §0): branding (logo y
+  nombre en un archivo de branding), datos de prueba y módulos. Marcas se
+  QUITA; Compras pasa a compra de INSUMOS; Ventas → Caja; Pedidos → Órdenes
+  de pedido con comanda; Proveedores, Usuarios, Roles, Dashboard e IA se
+  adaptan. Quitar un módulo es borrarlo de verdad (rutas, tablas con su
+  migración, tests, menú): nada de código muerto.
+- Mientras no avance la fase correspondiente, el código y el texto de abajo
+  todavía hablan del ERP (Marcas, Ventas, Pedidos…): es lo heredado.
+
+## Mapa de puertos — CONFIGURACIÓN CRÍTICA (no se borra en limpiezas)
+Los dos productos corren AL MISMO TIEMPO en la misma máquina. Ningún puerto,
+contenedor, volumen ni base se comparte:
+
+| Servicio | Producto JS (no tocar) | Producto Tavo |
+|---|---|---|
+| Frontend (Vite dev) | 5173 | **5175** |
+| Vista previa compilada | 4173 | **4175** |
+| Backend (FastAPI) | 8001 | **8002** |
+| Postgres (puerto en el equipo) | 5432 | **5433** |
+| n8n | — | **5679** |
+
+- Docker: `infra/docker-compose.yml` con `name: tavo`, contenedores
+  `tavo-db` / `tavo-backend` / `tavo-n8n` (y `tavo-frontend` con el perfil
+  `frontend`), volúmenes `tavo_db_data` / `tavo_n8n_data`, base `tavo_erp`
+  con usuario `tavo_admin`. El compose del Producto JS no tiene nombre y
+  Docker lo llama `infra`: sin `name: tavo` se compartirían contenedores y
+  datos. Dentro de Docker se habla por nombre de servicio (`db:5432`,
+  `backend:8002`, `n8n:5678`).
+- `automatizaciones/dev/verificar-puertos.ps1` revisa los puertos (reserva
+  de Windows, ocupación, qué proceso o contenedor) antes de arrancar; lo
+  llaman `start-backend.ps1` y `start-frontend.ps1`.
+- Los scripts SOLO cierran procesos de este producto (por puerto o por la
+  ruta de esta carpeta), nunca "todo uvicorn" o "todo vite".
+- `uvicorn app.main:app` a secas no arranca (`app/core/arranque.py`).
+- Lo protegen `backend/tests/test_mapa_de_puertos.py`,
+  `tests/test_arranque.py`, `tests/test_config.py` y
+  `frontend/src/vite-config.test.js`.
+
+## Reglas de trabajo en este repositorio
+- Una rama por fase, commits claros, y tests + build al cerrar cada fase.
+  Nada a `main` sin aprobación explícita del usuario.
+- Cada decisión nueva va a `docs/DECISIONES.md` con fecha, en el mismo
+  trabajo en que se toma.
 
 ## LEER PRIMERO
 - **`docs/DECISIONES.md`** — registro fechado de TODAS las decisiones
@@ -180,7 +240,8 @@ instrucciones de instalación y arranque.
   respaldos y retención, y si se quiere auditoría de accesos.
 - **Entorno**: Docker Desktop debe estar encendido (Postgres). Para dejar
   el producto corriendo desde una sesión de Claude: `.claude/launch.json`
-  (`backend` en 8001, `frontend-dev` en 5173), no procesos de terminal.
+  (`tavo-backend` en 8002, `tavo-frontend-dev` en 5175), no procesos de
+  terminal.
 
 ## Próximas tareas técnicas (en orden sugerido)
 1. ~~Aplicar los permisos de rol~~ — HECHO el 2026-09-30 (ver arriba).
@@ -407,7 +468,7 @@ instrucciones de instalación y arranque.
   y `GET /diagnostico` solo con `ENV=development`.
 
 ## Rendimiento (medido, no estimado)
-Se mide SIEMPRE sobre `npm run build` + `npm run preview` (puerto 4173),
+Se mide SIEMPRE sobre `npm run build` + `npm run preview` (puerto 4175),
 nunca sobre `npm run dev`: el servidor de desarrollo es lento por diseño.
 Mediana de 3 corridas. Estado al 2026-09-25, después de llevar el dashboard
 a la maqueta:
@@ -486,18 +547,18 @@ código lo referencie. Son configuración activa del proyecto:
   `configure_cors()` para que las respuestas de error (401/409/422/500)
   también traigan `Access-Control-Allow-Origin`. No mover el catch-all de
   500 a `app.add_exception_handler(Exception, ...)`: pierde el header.
-- **Puertos fijos**: frontend `5173` y backend `8001`. Viven en
-  `frontend/vite.config.js` (`server.port` + `strictPort: true`),
-  `frontend/.env` y `.env.example` (`VITE_API_URL=http://localhost:8001/api/v1`),
-  `automatizaciones/dev/start-backend.ps1` e `infra/docker-compose.yml`. El 8001
-  del backend es además `PORT` en `Settings` (`app/core/config.py`, 8001 por
-  defecto, documentado en `backend/.env.example`), que leen
-  `python -m app.main` y `start-backend.ps1`; `.vscode/launch.json` y
-  `tasks.json` arrancan backend y frontend con un clic (2026-10-02).
-  `uvicorn app.main:app` a secas NO lo lee y se va al 8000.
-- **`strictPort: true`** en `vite.config.js`: si el 5173 está ocupado,
-  Vite debe fallar en vez de saltar a 5174 en silencio (ese salto rompe
-  CORS sin avisar).
+- **Mapa de puertos del Producto Tavo** (ver la sección del principio):
+  5175 / 4175 / 8002 / 5433 / 5679, en `frontend/vite.config.js`,
+  `frontend/.env.example`, `backend/.env.example` y `Settings.PORT`,
+  `infra/docker-compose.yml`, `automatizaciones/dev/comun.ps1`,
+  `.vscode/` y `.claude/launch.json`. Lo protege
+  `backend/tests/test_mapa_de_puertos.py`.
+- **`strictPort: true`** en `vite.config.js` (dev y preview): si el 5175
+  está ocupado, Vite debe fallar en vez de saltar al siguiente en silencio
+  (ese salto rompe CORS sin avisar).
+- **Guarda de arranque** (`app/core/arranque.py`, llamada en `app/main.py`):
+  `uvicorn` lanzado con otro puerto que `Settings.PORT` se detiene con un
+  mensaje. Lo protege `tests/test_arranque.py`.
 - **Orígenes locales de desarrollo** en `DEV_ORIGIN_REGEX`
   (`HOSTS_LOCALES` + `REDES_PRIVADAS` en `backend/app/core/cors.py`, solo
   `ENV=development`): localhost, 127.0.0.1, [::1] y la red privada, en
@@ -507,8 +568,8 @@ código lo referencie. Son configuración activa del proyecto:
   `tests/test_cors_config.py` y `tests/test_cors.py` (errores con header).
 - **Demo por túnel** (`automatizaciones/demo/start-demo-tunel.ps1`):
   `HOSTS_TUNEL`/`allowedHosts` en `server` y `preview` de
-  `frontend/vite.config.js`, `preview.port = 4173` (adicional, no
-  reemplaza al 5173), el tramo de dominios de túnel (`DOMINIOS_TUNEL`) en
+  `frontend/vite.config.js`, `preview.port = 4175` (adicional, no
+  reemplaza al 5175), el tramo de dominios de túnel (`DOMINIOS_TUNEL`) en
   `DEV_ORIGIN_REGEX` de `backend/app/core/cors.py` (solo
   `ENV=development`), el header `bypass-tunnel-reminder` en
   `frontend/src/lib/api.js` y `frontend/.env.tunnel.example`. Se comparte
@@ -526,11 +587,12 @@ limpieza del backend.
 Reload de uvicorn en Windows: `--reload` a veces detecta el cambio
 ("Reloading...") pero el worker viejo (proceso hijo `multiprocessing.spawn`,
 cuya línea de comando NO dice "uvicorn") nunca muere y sigue sirviendo
-código viejo en el 8001. Si un endpoint nuevo da 404 o un cambio no se
-refleja, reiniciar con `automatizaciones/dev/start-backend.ps1`, que ya
-mata reloaders, workers huérfanos y a quien tenga el puerto.
+código viejo. Si un endpoint nuevo da 404 o un cambio no se refleja,
+reiniciar con `automatizaciones/dev/start-backend.ps1`, que cierra el
+reloader, los workers huérfanos y a quien tenga el 8002 — y SOLO eso: nunca
+"todo python con uvicorn", que tumbaría el backend del Producto JS.
 
 Síntoma engañoso: si el backend no está corriendo (o Postgres/Docker está
 apagado), Firefox reporta la conexión rechazada como "CORS request did not
 succeed". Antes de tocar la configuración de CORS, comprobar que algo
-escucha en el 8001 (`Get-NetTCPConnection -LocalPort 8001 -State Listen`).
+escucha en el 8002 (`automatizaciones/dev/verificar-puertos.ps1`).

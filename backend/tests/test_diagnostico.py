@@ -32,7 +32,7 @@ def test_no_muestra_secretos():
 
 def test_prueba_un_origen_contra_cors():
     s = Settings(ENV="development")
-    permitido = d.revisar_cors(s, "http://[::1]:5173")[-1]
+    permitido = d.revisar_cors(s, "http://[::1]:5175")[-1]
     rechazado = d.revisar_cors(s, "http://sitio-externo.com")[-1]
     assert permitido["estado"] == d.OK and "PERMITIDO" in permitido["titulo"]
     assert rechazado["estado"] == d.ERROR and "400" in rechazado["titulo"]
@@ -50,7 +50,7 @@ def test_sin_frontend_env_dice_que_copiar(tmp_path, monkeypatch):
 
 
 def test_endpoint_de_diagnostico_en_desarrollo(client):
-    resp = client.get("/diagnostico", params={"origen": "http://192.168.1.50:5173"})
+    resp = client.get("/diagnostico", params={"origen": "http://192.168.1.50:5175"})
     assert resp.status_code == 200
     cuerpo = resp.json()
     assert "CORS" in cuerpo["secciones"]

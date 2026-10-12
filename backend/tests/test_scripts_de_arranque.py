@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 
 AUTOMATIZACIONES = Path(__file__).resolve().parents[2] / "automatizaciones"
-SCRIPTS = ["setup.ps1", "dev/start-backend.ps1", "dev/start-frontend.ps1"]
+SCRIPTS = ["setup.ps1", "dev/start-backend.ps1", "dev/start-frontend.ps1", "dev/verificar-puertos.ps1", "dev/comun.ps1"]
 
 
 @pytest.mark.parametrize("script", SCRIPTS)

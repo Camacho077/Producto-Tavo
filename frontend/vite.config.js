@@ -90,9 +90,12 @@ export default defineConfig({
   },
   server: {
     host: true,
-    port: 5173,
-    // strictPort: si el 5173 está ocupado, Vite FALLA con un mensaje claro
-    // en vez de saltar silenciosamente a 5174/5175. Ese salto silencioso ya
+    // Puertos del Producto Tavo: 5175 (dev) y 4175 (preview). El 5173 y el
+    // 4173 son del Producto JS, que corre a la vez en esta máquina (mapa en
+    // docs/DECISIONES.md §1). CONFIGURACIÓN CRÍTICA: no se borra.
+    port: 5175,
+    // strictPort: si el 5175 está ocupado, Vite FALLA con un mensaje claro
+    // en vez de saltar silenciosamente al siguiente puerto. Ese salto silencioso ya
     // rompió CORS varias veces sin avisar: el backend quedaba configurado
     // para un puerto y el navegador llamaba desde otro. Si falla acá, cierra
     // la instancia vieja de Vite (ver automatizaciones/dev/start-frontend.ps1).
@@ -103,10 +106,10 @@ export default defineConfig({
   // correctos: es lo que se expone por el túnel en las demos. Un servidor
   // de desarrollo por túnel sirve cientos de .jsx sueltos, el túnel les
   // pone text/plain y el navegador los bloquea (NS_ERROR_CORRUPTED_CONTENT).
-  // Puerto 4173, ADICIONAL al 5173 de desarrollo (no lo reemplaza).
+  // Puerto 4175, ADICIONAL al 5175 de desarrollo (no lo reemplaza).
   preview: {
     host: true,
-    port: 4173,
+    port: 4175,
     strictPort: true,
     allowedHosts: HOSTS_TUNEL,
   },

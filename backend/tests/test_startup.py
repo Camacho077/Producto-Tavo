@@ -13,6 +13,7 @@ Este test cierra ese hueco: si algo en la configuración de entorno rompe
 el arranque real del proceso, falla aquí con un mensaje claro en vez de
 descubrirse manualmente en el navegador.
 """
+import os
 import socket
 import subprocess
 import sys
@@ -36,6 +37,9 @@ def test_el_backend_arranca_como_proceso_real_y_responde_health():
     proceso = subprocess.Popen(
         [sys.executable, "-m", "uvicorn", "app.main:app", "--port", str(puerto)],
         cwd=BACKEND_DIR,
+        # Ese puerto al azar pasa a ser el del backend: sin esto, la guarda de
+        # app/core/arranque.py (con razón) se niega a arrancar fuera del 8002.
+        env={**os.environ, "PORT": str(puerto), "PYTHONIOENCODING": "utf-8"},
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         text=True,

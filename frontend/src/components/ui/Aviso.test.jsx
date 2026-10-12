@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/lib/api", () => ({
   api: {
-    defaults: { baseURL: "http://localhost:8001/api/v1" },
+    defaults: { baseURL: "http://localhost:8002/api/v1" },
     get: vi.fn(),
     post: vi.fn(),
     put: vi.fn(),
@@ -136,7 +136,7 @@ describe("Alertas de error — dicen el porqué que devuelve el backend", () => 
   it("sin respuesta del servidor dice la causa real y a qué dirección no llegó", () => {
     const texto = mensajeDeError(Object.assign(new Error("Network Error"), { code: "ERR_NETWORK" }), "eliminar la categoría");
     expect(texto).toContain("no hay conexión con el servidor");
-    expect(texto).toContain("http://localhost:8001/api/v1");
+    expect(texto).toContain("http://localhost:8002/api/v1");
   });
 
   it("nunca devuelve el genérico prohibido, ni siquiera sin datos utilizables", () => {

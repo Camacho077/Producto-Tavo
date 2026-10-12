@@ -18,7 +18,7 @@ from app.core.config import settings
 from app.core.deps import get_current_usuario
 from app.main import app
 
-ORIGIN = "http://localhost:5173"
+ORIGIN = "http://localhost:5175"
 
 
 def test_error_401_trae_header_cors(client):
@@ -39,11 +39,11 @@ def test_error_422_trae_header_cors(client):
     assert resp.headers.get("access-control-allow-origin") == ORIGIN
 
 
-ORIGIN_PUERTO_DINAMICO = "http://localhost:5174"
+ORIGIN_PUERTO_DINAMICO = "http://localhost:5176"
 
 
 def test_preflight_desde_puerto_dinamico_responde_200_con_header(client):
-    """Vite puede arrancar en 5174/5175/... si el 5173 está ocupado. Ese
+    """Vite puede arrancar en 5176/5177/... si el 5175 está ocupado. Ese
     origen NO está en CORS_ORIGINS: debe pasar igual por el regex de dev.
     Cuando esto falla, el preflight responde 400 sin header y el navegador
     lo reporta como 'CORS Failed'."""
@@ -112,7 +112,7 @@ def test_error_500_no_controlado_trae_header_cors(client):
 # ---------------------------------------------------------------------------
 # Los dos errores exactos que el usuario ve en el navegador al autenticarse:
 # credenciales malas en /login y correo duplicado en /registro, ambos desde
-# el origen fijo del frontend (5173). Si CORS se elimina o se reordena en
+# el origen fijo del frontend (5175). Si CORS se elimina o se reordena en
 # app/main.py, estos tests fallan.
 # ---------------------------------------------------------------------------
 def test_login_con_credenciales_malas_trae_header_cors(client, tenant_factory, usuario_factory):
@@ -149,7 +149,7 @@ def test_registro_con_email_duplicado_trae_header_cors(client, tenant_factory, u
     assert resp.headers.get("access-control-allow-origin") == ORIGIN
 
 
-def test_preflight_registro_desde_5173_responde_200_con_header(client):
+def test_preflight_registro_desde_5175_responde_200_con_header(client):
     """El OPTIONS que el navegador manda antes del POST de registro."""
     resp = client.options(
         "/api/v1/seguridad/registro",
@@ -208,7 +208,7 @@ def test_main_configura_cors_con_credenciales_y_regex_de_dev():
         assert "allow_origin_regex" not in kwargs
 
 
-@pytest.mark.parametrize("origen", ["http://[::1]:5173", "http://192.168.1.50:5173", "http://localhost"])
+@pytest.mark.parametrize("origen", ["http://[::1]:5175", "http://192.168.1.50:5175", "http://localhost"])
 def test_errores_desde_origenes_locales_nuevos_traen_header_cors(client, origen):
     """Preflight del login y respuestas de ERROR (401 y 422) desde IPv6,
     red local y localhost sin puerto: todas con Access-Control-Allow-Origin;

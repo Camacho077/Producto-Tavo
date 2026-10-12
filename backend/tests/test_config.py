@@ -5,22 +5,22 @@ from app.core.config import ConfiguracionInvalida, Settings, cargar_settings
 
 
 def test_cors_origins_formato_json_valido():
-    s = Settings(CORS_ORIGINS='["http://localhost:5173", "http://localhost:3000"]')
-    assert s.cors_origins == ["http://localhost:5173", "http://localhost:3000"]
+    s = Settings(CORS_ORIGINS='["http://localhost:5175", "http://localhost:3000"]')
+    assert s.cors_origins == ["http://localhost:5175", "http://localhost:3000"]
 
 
 def test_cors_origins_formato_separado_por_comas():
-    s = Settings(CORS_ORIGINS="http://localhost:5173,http://localhost:3000")
-    assert s.cors_origins == ["http://localhost:5173", "http://localhost:3000"]
+    s = Settings(CORS_ORIGINS="http://localhost:5175,http://localhost:3000")
+    assert s.cors_origins == ["http://localhost:5175", "http://localhost:3000"]
 
 
 def test_cors_origins_json_malformado_da_error_claro_en_espanol():
     with pytest.raises(ValidationError) as exc_info:
-        Settings(CORS_ORIGINS="[http://localhost:5173]")
+        Settings(CORS_ORIGINS="[http://localhost:5175]")
 
     mensaje = str(exc_info.value)
     assert "no es una lista JSON válida" in mensaje
-    assert 'CORS_ORIGINS=["http://localhost:5173"]' in mensaje
+    assert 'CORS_ORIGINS=["http://localhost:5175"]' in mensaje
 
 
 def test_cors_origins_vacio_da_error_claro_en_espanol():
@@ -148,13 +148,14 @@ def test_env_example_carga_sin_errores(tmp_path):
     assert s.DATABASE_URL.startswith("postgresql://")
 
 
-# ---------- Puerto del backend: 8001 por defecto (fix-puerto-backend) ----------
-def test_puerto_por_defecto_es_8001(sin_variables, monkeypatch, tmp_path):
-    """El frontend llama al 8001 (VITE_API_URL); el 8000 lo reserva Windows."""
+# ---------- Puerto del backend: 8002 por defecto (Producto Tavo; 8001 es del Producto JS) ----------
+def test_puerto_por_defecto_es_8002(sin_variables, monkeypatch, tmp_path):
+    """El frontend llama al 8002 (VITE_API_URL); el 8001 es del Producto JS
+    y el 8000 lo reserva Windows."""
     monkeypatch.delenv("PORT", raising=False)
     archivo = tmp_path / ".env"
     archivo.write_text("SECRET_KEY=algo\nDATABASE_URL=postgresql://a@b/c\n", encoding="utf-8")
-    assert cargar_settings(archivo).PORT == 8001
+    assert cargar_settings(archivo).PORT == 8002
 
 
 def test_puerto_se_lee_del_env(sin_variables, monkeypatch, tmp_path):

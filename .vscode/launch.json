@@ -1,16 +1,17 @@
 {
   // Arrancar con un clic (Ejecutar y depurar, F5):
   //   "Backend + Frontend" levanta los dos en los puertos fijos del proyecto:
-  //   backend en 8001 (NUNCA 8000: reservado por Windows; el frontend llama
-  //   al 8001) y frontend en 5173 (strictPort). Requiere la extensión Python.
+  //   backend en 8002 y frontend en 5175 (strictPort). NUNCA 8000 (reservado
+  //   por Windows) ni 8001/5173 (son del Producto JS, que corre a la vez).
+  //   Mapa de puertos: docs/DECISIONES.md §1. Requiere la extensión Python.
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "Backend (8001)",
+      "name": "Backend (8002)",
       "type": "debugpy",
       "request": "launch",
       "module": "uvicorn",
-      "args": ["app.main:app", "--port", "8001", "--reload"],
+      "args": ["app.main:app", "--port", "8002", "--reload"],
       "cwd": "${workspaceFolder}/backend",
       "python": "${workspaceFolder}/backend/venv/Scripts/python.exe",
       "envFile": "${workspaceFolder}/backend/.env",
@@ -18,7 +19,7 @@
       "console": "integratedTerminal"
     },
     {
-      "name": "Frontend (5173)",
+      "name": "Frontend (5175)",
       "type": "node-terminal",
       "request": "launch",
       "command": "npm run dev",
@@ -28,7 +29,7 @@
   "compounds": [
     {
       "name": "Backend + Frontend",
-      "configurations": ["Backend (8001)", "Frontend (5173)"],
+      "configurations": ["Backend (8002)", "Frontend (5175)"],
       "stopAll": true
     }
   ]

@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 
+from app.core.arranque import exigir_puerto_del_proyecto
 from app.core.config import settings
 from app.core.cors import configure_cors
 from app.core.error_handlers import CatchAllExceptionsMiddleware, register_exception_handlers
@@ -11,6 +12,10 @@ from app.modules.seguridad.router import router as seguridad_router
 from app.modules.ia.router import router as ia_router
 
 configure_logging()
+
+# `uvicorn app.main:app` a secas escucharía en el 8000: se detiene con un
+# mensaje claro en vez de arrancar en un puerto que nadie llama.
+exigir_puerto_del_proyecto(settings.PORT)
 
 app = FastAPI(
     title=settings.APP_NAME,
@@ -74,7 +79,7 @@ if settings.ENV == "development":
 
 
 # Arranque directo:  cd backend  ->  venv\Scripts\python -m app.main
-# Usa el puerto de la configuración (PORT, 8001 por defecto) en vez del 8000
+# Usa el puerto de la configuración (PORT, 8002 por defecto) en vez del 8000
 # que pone `uvicorn app.main:app` cuando nadie le pasa --port. En desarrollo
 # recarga al guardar.
 if __name__ == "__main__":

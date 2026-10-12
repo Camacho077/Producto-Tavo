@@ -1,4 +1,4 @@
-# Registro de decisiones — JS Company ERP
+# Registro de decisiones — Producto Tavo (sistema para restaurantes)
 
 Registro fechado de las decisiones tomadas en el proyecto: qué se decidió,
 qué se descartó y **por qué**. Es la memoria del proyecto: cualquier sesión
@@ -12,10 +12,15 @@ NO se borra: se marca como sustituida y se enlaza la nueva.
 Las pruebas que protegen cada decisión se citan al lado; si una prueba falla,
 la decisión se está rompiendo.
 
+Este producto es una **derivación del Producto JS** (§0). Las entradas
+anteriores al 2026-10-12 son la historia heredada y siguen vigentes salvo
+que una entrada nueva diga lo contrario.
+
 ---
 
 ## Índice
 
+0. [Derivación del Producto JS](#0-derivación-del-producto-js)
 1. [Configuración crítica que NO se borra](#1-configuración-crítica-que-no-se-borra)
 2. [Paleta](#2-paleta)
 3. [Tipografías](#3-tipografías)
@@ -28,7 +33,115 @@ la decisión se está rompiendo.
 
 ---
 
+## 0. Derivación del Producto JS
+
+### 2026-10-12 — Producto Tavo nace como copia del Producto JS
+
+- **Qué:** sistema para restaurantes, multi-tenant. Primer cliente: "Donde
+  Tavo" (restaurante en una universidad, 12 años sin sistema), que será su
+  primer TENANT; el código queda genérico para venderlo a otros restaurantes.
+  Nombre provisional del producto: "JS Restaurante".
+- **De dónde sale:** `git archive` del commit `8146ea0` del Producto JS
+  (`C:\Users\camac\Desktop\Producto JS`, repo `Camacho077/Producto-JS`), más
+  `.claude/settings.local.json` (hook de Impeccable) y el binario de
+  Impeccable. Fuera: venv, node_modules, dist, .vite, `.env`, logs,
+  `.claude/worktrees` y bases locales. Repositorio git nuevo, sin historial
+  ni remoto compartido; su primer commit es la copia sin cambios.
+- **Regla:** el Producto JS no se toca bajo ninguna circunstancia desde este
+  trabajo.
+- **Se hereda sin tocar:** login y registro, alertas, validaciones (incluido
+  el bloqueo al escribir), permisos por rol y por plan en el backend,
+  documentos legales y política de datos, auditoría de cookies, sistema de
+  diseño monocromo, tipografías, animaciones y reglas de rendimiento,
+  gráficas, componentes compartidos, CORS y aislamiento entre empresas. Todo
+  lo registrado en §1–§9 sigue vigente: es la historia heredada (las fechas
+  anteriores al 2026-10-12 son del Producto JS).
+- **Cambia:** branding (archivo de branding con logo provisional y el nombre
+  "JS Restaurante"), datos de prueba y módulos: Marcas se QUITA (borrado de
+  verdad: rutas, tablas con migración, tests, menú); Compras → compra de
+  INSUMOS; Ventas → Caja; Pedidos → Órdenes de pedido con comanda;
+  Proveedores, Usuarios, Roles, Dashboard e IA se adaptan.
+- **Plan por fases** (una rama por fase, tests + build al cerrar cada una):
+  0 duplicado y puertos · 1 catálogo, insumos y recetas (costo y margen) ·
+  2 inventario y carga inicial · 3 órdenes y comanda (impresión 80 mm detrás
+  de una interfaz; se pregunta impresora y equipo antes de cerrar) ·
+  4 pantalla de cocina · 5 caja · 6 vistas por rol · 7 dashboard y reportes ·
+  8 IA · 9 dictado por voz · 10 n8n · 11 datos de prueba · 12 pruebas.
+
+---
+
 ## 1. Configuración crítica que NO se borra
+
+### 2026-10-12 — Mapa de puertos: los dos productos corren a la vez
+
+El usuario corre el Producto JS y este en la misma máquina al mismo tiempo, y
+ya se perdió mucho tiempo con puertos (el 8000 reservado por Windows, Vite
+saltando de puerto en silencio). Ningún puerto se repite:
+
+| Servicio | Producto JS (no tocar) | **Producto Tavo** |
+|---|---|---|
+| Frontend (Vite dev) | 5173 | **5175** |
+| Vista previa compilada | 4173 | **4175** |
+| Backend (FastAPI) | 8001 | **8002** |
+| Postgres (puerto en el equipo) | 5432 | **5433** |
+| n8n | — | **5679** |
+
+- **Verificados antes de fijarlos** (2026-10-12): ninguno cae en los rangos
+  reservados de Windows (`netsh ... excludedportrange`: 49898–49997,
+  50000–50059, 50060–50159, 50190–50289, 56023–56122, 57491–57590,
+  59461–59560) ni estaba ocupado (`Get-NetTCPConnection`); el 8001 y el
+  5432 los tenía el Producto JS.
+- **Docker aislado:** `name: tavo` en `infra/docker-compose.yml`. Hallazgo:
+  el compose del Producto JS no tiene nombre y Docker lo llama `infra` (el
+  de la carpeta), con volumen `infra_db_data`; una copia sin `name` habría
+  usado sus mismos contenedores y sus datos (y `down -v` los habría
+  borrado). Contenedores `tavo-db`, `tavo-backend`, `tavo-n8n` (y
+  `tavo-frontend` con el perfil `frontend`), volúmenes con nombre explícito
+  `tavo_db_data` y `tavo_n8n_data`, base `tavo_erp` con usuario
+  `tavo_admin`. Dentro de Docker: `db:5432`, `backend:8002`, `n8n:5678`;
+  hacia afuera solo los puertos de la tabla. n8n fijado en `2.42.7` (la
+  versión `stable` del 2026-10-12).
+- **Sin `.dockerignore` la imagen copiaba el `venv` de Windows y el `.env`
+  con secretos**: ahora hay uno en `backend/` y otro en `frontend/`.
+- **El frontend en Docker nunca había arrancado** (defecto heredado; en el
+  Producto JS ese servicio no se usaba): el `predev` de npm corría
+  `liberar-puerto.mjs`, cuyo `lsof` en Alpine (busybox) ignora los filtros y
+  el script se mataba a sí mismo con `kill -9` (SIGKILL en bucle). El
+  `Dockerfile` arranca ahora `npx vite --host` directo. El frontend en
+  Docker es opcional (perfil `frontend`); para desarrollar se usa Vite local.
+- **Verificado el 2026-10-12, los dos productos a la vez:** JS (5173 → 8001,
+  `infra-db-1` en el 5432) y Tavo (5175 → 8002, `tavo-db` en el 5433,
+  `tavo-n8n` en el 5679, todo en Docker), con sesión iniciada en ambos al
+  mismo tiempo en dos pestañas. `/seguridad/me` responde 200 en cada uno con
+  su token, y el token de uno da 401 en el otro (`SECRET_KEY` distintas). El
+  repositorio del Producto JS quedó sin cambios.
+- **Scripts que ya no tumban al otro producto.** Los heredados cerraban
+  "todo python con `uvicorn app.main` o `multiprocessing.spawn`" y "todo
+  node con vite" de la máquina: arrancar uno mataba al otro. Ahora
+  (`automatizaciones/dev/comun.ps1`) solo se cierra lo que escucha en un
+  puerto de ESTE producto —con su reloader y sus workers, reconocidos por
+  `parent_pid=`— o lo que lleva la ruta de esta carpeta, y nunca un proceso
+  que no sea Python en el puerto del backend (p. ej. Docker con
+  `tavo-backend`). **Ojo:** los scripts del Producto JS siguen cerrando por
+  nombre; si se usan mientras Tavo corre, lo tumban (no se tocan desde aquí).
+- **`automatizaciones/dev/verificar-puertos.ps1`:** revisa los cinco puertos
+  (o los que se pidan con `-Servicios`): reserva de Windows con el arreglo,
+  ocupación con el proceso (PID, nombre, línea de comando) o el contenedor
+  que lo publica. Lo llaman `start-backend.ps1` y `start-frontend.ps1`.
+- **`uvicorn app.main:app` a secas ya no arranca en un puerto equivocado:**
+  `app/core/arranque.py` reconoce el CLI de uvicorn (`uvicorn`,
+  `uvicorn.exe` o `python -m uvicorn`), calcula el puerto efectivo
+  (`--port`, `--port=`, `UVICORN_PORT` o el 8000 por defecto) y, si no es
+  `Settings.PORT`, sale con código 1 y el comando correcto. No afecta a
+  `python -m app.main`, `start-backend.ps1`, Docker ni a pytest.
+- Protección: `tests/test_mapa_de_puertos.py` (cruza Settings, los dos
+  `.env.example`, Vite, `package.json`, `api.js`, compose, `comun.ps1`,
+  `.claude/launch.json` y `.vscode`; y que ningún script vuelva a cerrar
+  procesos por nombre), `tests/test_arranque.py`, `tests/test_config.py`,
+  `frontend/src/vite-config.test.js`.
+
+### Heredada del Producto JS (vigente)
+
 
 Es configuración activa aunque nada la referencie. En limpiezas de código
 ("no usado", simplificar, consolidar) **nunca** se elimina ni se reordena.
@@ -37,15 +150,16 @@ Es configuración activa aunque nada la referencie. En limpiezas de código
 |---|---|---|---|
 | CORS del backend | `backend/app/main.py` (bloque "CONFIGURACIÓN CRÍTICA"), `app/core/cors.py`, `app/core/error_handlers.py`, `CORS_ORIGINS` | Sin esto el frontend no puede registrarse ni iniciar sesión. El bloqueo reapareció varias veces porque se borraba como "código muerto". | `tests/test_cors.py`, `tests/test_cors_config.py` |
 | Orden catch-all → CORS | `main.py`: `CatchAllExceptionsMiddleware` ANTES de `configure_cors()` | Para que los 401/409/422/500 también lleven `Access-Control-Allow-Origin`. Mover el catch-all a `add_exception_handler(Exception)` lo saca de CORS (comprobado). | `tests/test_cors.py` |
-| Puerto frontend **5173** | `frontend/vite.config.js` (`server.port`), `.env` | Fijo: CORS y la URL del backend dependen de él. | `src/vite-config.test.js` |
-| **`strictPort: true`** | `frontend/vite.config.js` | Si el 5173 está ocupado Vite debe FALLAR, no saltar a 5174 en silencio (ese salto rompe CORS sin avisar). | `src/vite-config.test.js` |
-| Puerto backend **8001** | `VITE_API_URL`, `automatizaciones/dev/start-backend.ps1`, `infra/docker-compose.yml` | Fijo, igual que el del frontend. | — |
+| Puerto frontend **5175** (era 5173 en el Producto JS) | `frontend/vite.config.js` (`server.port`), `.env` | Fijo: CORS y la URL del backend dependen de él. | `src/vite-config.test.js`, `tests/test_mapa_de_puertos.py` |
+| **`strictPort: true`** | `frontend/vite.config.js` | Si el 5175 está ocupado Vite debe FALLAR, no saltar al siguiente en silencio (ese salto rompe CORS sin avisar). | `src/vite-config.test.js` |
+| Puerto backend **8002** (era 8001 en el Producto JS) | `Settings.PORT`, `VITE_API_URL`, `automatizaciones/dev/start-backend.ps1`, `infra/docker-compose.yml` | Fijo, igual que el del frontend. | `tests/test_mapa_de_puertos.py`, `tests/test_arranque.py` |
 | Orígenes de red privada en desarrollo | `DEV_ORIGIN_REGEX` en `app/core/cors.py` (solo `ENV=development`) | Vite imprime una URL "Network"; sin la red privada, abrirla daba 400 en el OPTIONS del login (caso real, 2026-09-27). | `tests/test_cors_config.py` |
-| Demo por túnel | `HOSTS_TUNEL`/`allowedHosts`, `preview.port = 4173`, `DOMINIOS_TUNEL`, header `bypass-tunnel-reminder` | Se comparte SIEMPRE la versión compilada (`vite build --mode tunnel` + `vite preview`). | `tests/test_cors_config.py`, `src/vite-config.test.js` |
+| Demo por túnel | `HOSTS_TUNEL`/`allowedHosts`, `preview.port = 4175`, `DOMINIOS_TUNEL`, header `bypass-tunnel-reminder` | Se comparte SIEMPRE la versión compilada (`vite build --mode tunnel` + `vite preview`). | `tests/test_cors_config.py`, `src/vite-config.test.js` |
 | Variables obligatorias | `DATABASE_URL`, `SECRET_KEY` sin valor por defecto; `.env` siempre desde `backend/.env` | Arranque en máquinas nuevas con mensaje en español, nunca el ValidationError de pydantic (2026-09-27). | `tests/test_config.py` |
 
 Síntoma engañoso: si el backend no corre, Firefox reporta "CORS request did
-not succeed". Antes de tocar CORS, comprobar que algo escucha en el 8001.
+not succeed". Antes de tocar CORS, comprobar que algo escucha en el 8002
+(`automatizaciones/dev/verificar-puertos.ps1`).
 
 ---
 
@@ -614,8 +728,9 @@ corra el usuario.
 
 ## 6. Rendimiento
 
-Se mide SIEMPRE sobre `npm run build` + `npm run preview` (puerto 4173),
-nunca sobre `npm run dev`. Mediana de 3 corridas.
+Se mide SIEMPRE sobre `npm run build` + `npm run preview` (puerto 4175 en
+este producto; 4173 en el Producto JS), nunca sobre `npm run dev`. Mediana
+de 3 corridas.
 
 - **Carga diferida por ruta** en `App.jsx`: login y registro de una vez; el
   layout y cada módulo en `lazy()`.
@@ -858,6 +973,7 @@ skill (Impeccable desaconseja Inter; aquí no se cambia).
 
 | Fecha | Decisión / hito |
 |---|---|
+| 2026-10-12 | **Producto Tavo** nace como copia del Producto JS (`8146ea0`) en repo propio; mapa de puertos 5175/4175/8002/5433/5679, Docker aislado (`name: tavo`), scripts que no tocan al otro producto, `verificar-puertos.ps1`, guarda contra `uvicorn` a secas (§0, §1) |
 | 2026-09-15 | Fase 0: limpieza de código muerto y origen único de estilos |
 | 2026-09-18 | Movimiento: "solo cuatro animaciones" (sustituida) |
 | 2026-09-19 | Densidad y alineación: todo centrado, tabla única, formularios 720 px |

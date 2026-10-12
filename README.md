@@ -1,13 +1,22 @@
-# JS Company — Sistema de Gestión (ERP)
+# Producto Tavo — sistema para restaurantes
 
-Backend interno de gestión para negocios: Dashboard, Compras, Ventas, Seguridad
-y un módulo de IA como add-on. Ver el brief completo del proyecto para contexto
-de negocio, catálogo de precios y decisiones de producto.
+Sistema de gestión multi-tenant para restaurantes (órdenes y comanda, cocina,
+caja, inventario de insumos con recetas, dashboard e IA). Su primer cliente es
+"Donde Tavo", pero el código es genérico: cada restaurante es un tenant.
+
+**Es una derivación del Producto JS** (ERP multi-tenant, commit `8146ea0`): de
+ahí hereda login, permisos, alertas, validaciones, sistema de diseño, CORS y
+aislamiento entre empresas. Qué se heredó y qué cambió: `CLAUDE.md` y
+`docs/DECISIONES.md`.
+
+> **Los dos productos corren a la vez en la misma máquina.** Este usa sus
+> propios puertos, contenedores y base de datos (tabla en "Puertos"). Nunca
+> uses aquí los del Producto JS (5173 / 4173 / 8001 / 5432).
 
 ## Estructura del repositorio
 
 ```
-js-company-erp/
+producto-tavo/
 ├── backend/            → API en FastAPI (Python)
 ├── frontend/           → Interfaz en React + Vite + Tailwind
 ├── automatizaciones/   → Scripts de alta de clientes y tareas programadas
@@ -41,16 +50,18 @@ de instalar, para que tome el PATH):
     Crea el usuario que espera `backend/.env` (desde *SQL Shell (psql)*
     como `postgres`):
     ```sql
-    CREATE ROLE js_admin LOGIN PASSWORD 'js_admin' CREATEDB;
+    CREATE ROLE tavo_admin LOGIN PASSWORD 'tavo_admin' CREATEDB;
     ```
-    La base `js_company_erp` la crea el script.
+    La base `tavo_erp` la crea el script. Ojo: `backend/.env` apunta al
+    puerto **5433** (el del contenedor `tavo-db`); con un Postgres local en
+    el 5432, cambia el puerto en `DATABASE_URL`.
 
 **2. Clona y corre el setup** (PowerShell, desde la carpeta donde quieras el
 proyecto):
 
 ```powershell
-git clone <url-del-repositorio> producto-js
-cd producto-js
+git clone <url-del-repositorio> producto-tavo
+cd producto-tavo
 powershell -ExecutionPolicy Bypass -File automatizaciones\setup.ps1
 ```
 
@@ -64,8 +75,8 @@ final imprime las URLs y las credenciales:
 
 | | |
 |---|---|
-| Aplicación | <http://localhost:5173> |
-| API / documentación | <http://localhost:8001/docs> |
+| Aplicación | <http://localhost:5175> |
+| API / documentación | <http://localhost:8002/docs> |
 | Cuenta de prueba | `demo@jscompany.co` / `Demo2026!` |
 
 En Linux, macOS o Git Bash: `bash automatizaciones/setup.sh` (mismos pasos).
@@ -74,17 +85,17 @@ En Linux, macOS o Git Bash: `bash automatizaciones/setup.sh` (mismos pasos).
 `-Arrancar` al setup y los abre en dos ventanas):
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File automatizaciones\dev\start-backend.ps1    # 8001
-powershell -ExecutionPolicy Bypass -File automatizaciones\dev\start-frontend.ps1   # 5173
+powershell -ExecutionPolicy Bypass -File automatizaciones\dev\start-backend.ps1    # 8002
+powershell -ExecutionPolicy Bypass -File automatizaciones\dev\start-frontend.ps1   # 5175
 ```
 
 **Comando recomendado para el backend: `start-backend.ps1`** (activa el
 venv, lee el puerto de la configuración, cierra instancias viejas, comprueba
-que Windows deje abrir el 8001 e imprime la URL). Sin el script:
+que Windows deje abrir el 8002 e imprime la URL). Sin el script:
 `cd backend` y `venv\Scripts\python -m app.main`. En VS Code, F5 →
 "Backend + Frontend" (`.vscode/launch.json`) o Ctrl+Mayús+B → "Arrancar
 backend y frontend" (`.vscode/tasks.json`). **`uvicorn app.main:app` sin
-`--port 8001` arranca en el 8000 y el frontend no lo encuentra.**
+`--port 8002` no arranca**: se detiene y dice cómo hacerlo (ver "Puertos").
 
 **Si algo no funciona, corre el diagnóstico** antes de tocar nada. Revisa
 los `.env`, las variables cargadas (sin mostrar secretos), la conexión a
@@ -94,11 +105,11 @@ arreglo concreto de cada problema:
 ```powershell
 cd backend
 venv\Scripts\python -m app.diagnostico
-venv\Scripts\python -m app.diagnostico --origen http://192.168.1.50:5173   # ¿ese origen pasa CORS?
+venv\Scripts\python -m app.diagnostico --origen http://192.168.1.50:5175   # ¿ese origen pasa CORS?
 ```
 
 Con el backend arriba, el mismo informe está en
-<http://localhost:8001/diagnostico> (solo con `ENV=development`).
+<http://localhost:8002/diagnostico> (solo con `ENV=development`).
 
 **Problemas típicos:**
 
@@ -108,15 +119,15 @@ Con el backend arriba, el mismo informe está en
   comentadas es `backend/.env.example`.
 - *`npm run dev` dice que falta `VITE_API_URL`*: copia
   `frontend/.env.example` a `frontend/.env`.
-- *`ERR_CONNECTION_REFUSED` a `localhost:8001`*: el backend no está
+- *`ERR_CONNECTION_REFUSED` a `localhost:8002`*: el backend no está
   corriendo (o arrancó en otro puerto). Arráncalo con `start-backend.ps1`.
-- *El puerto 8000 (o el 8001) está reservado* (`WinError 10013: Se intentó
+- *El puerto 8000 (o el 8002) está reservado* (`WinError 10013: Se intentó
   acceder a un socket de una forma que no está permitida por sus permisos de
   acceso`): Windows reserva rangos de puertos para Hyper-V/WSL/Docker al
-  arrancar. Por eso el proyecto usa el **8001**, no el 8000 — no lo
+  arrancar. Por eso el proyecto usa el **8002**, no el 8000 — no lo
   cambies. Para ver los rangos reservados:
   `netsh interface ipv4 show excludedportrange protocol=tcp` (el
-  diagnóstico lo revisa solo). Si el 8001 también quedó dentro de un rango,
+  diagnóstico lo revisa solo). Si el 8002 también quedó dentro de un rango,
   en una PowerShell **como administrador**: `net stop winnat` y luego
   `net start winnat` (libera las reservas dinámicas; no toca tus datos).
 - *`OPTIONS /api/v1/seguridad/login` responde 400 Bad Request*: el origen
@@ -126,19 +137,26 @@ Con el backend arriba, el mismo informe está en
 
 ## Cómo levantar el proyecto en desarrollo
 
-### Opción A — con Docker (recomendada, todo junto)
+### Opción A — con Docker (Postgres + backend + n8n)
 
-```bash
-cd infra
-docker compose up --build
+```powershell
+powershell -ExecutionPolicy Bypass -File automatizaciones\deverificar-puertos.ps1
+docker compose -f infra/docker-compose.yml up -d --build
 ```
 
-Esto levanta Postgres, el backend en `http://localhost:8001` (docs interactivas
-en `http://localhost:8001/docs`) y el frontend en `http://localhost:5173`.
+Levanta, con nombre de proyecto `tavo` (nunca el del Producto JS):
+`tavo-db` (Postgres en el **5433**, base `tavo_erp`), `tavo-backend`
+(`http://localhost:8002`, docs en `/docs`; aplica las migraciones al
+arrancar) y `tavo-n8n` (`http://localhost:5679`). El frontend se corre con
+Vite (`start-frontend.ps1`, puerto 5175); para tenerlo también en Docker:
+`docker compose -f infra/docker-compose.yml --profile frontend up -d`.
+
+Solo Postgres (para desarrollar el backend con recarga):
+`docker compose -f infra/docker-compose.yml up -d db`.
 
 ### Opción B — manual (sin Docker)
 
-**Backend** (siempre en el puerto **8001**, ver "Puertos en desarrollo"):
+**Backend** (siempre en el puerto **8002**, ver "Puertos en desarrollo"):
 ```bash
 cd backend
 python3 -m venv venv
@@ -146,17 +164,16 @@ source venv/bin/activate        # en Windows: venv\Scripts\activate
 pip install -r requirements.txt
 cp .env.example .env            # ajustar DATABASE_URL si aplica
 alembic upgrade head            # crea las tablas
-python -m app.main              # arranca en el 8001 (PORT de .env), con recarga
+python -m app.main              # arranca en el 8002 (PORT de .env), con recarga
 ```
 
-> **No corras `uvicorn app.main:app --reload` a secas.** El CLI de uvicorn
-> no lee la configuración del proyecto y se va a su puerto por defecto, el
-> **8000**: el backend arranca "bien", pero el frontend llama al **8001** y
-> no lo encuentra (el navegador lo reporta como `ERR_CONNECTION_REFUSED` o
-> como un falso error de CORS). Usa `start-backend.ps1`, `python -m app.main`
-> o, si quieres uvicorn directo, pásale siempre `--port 8001`.
+> **`uvicorn app.main:app --reload` a secas no arranca.** El CLI de uvicorn
+> no lee la configuración del proyecto y se iría a su puerto por defecto, el
+> **8000**, donde el frontend (que llama al **8002**) no lo encuentra; por
+> eso `app/core/arranque.py` lo detiene con un mensaje. Usa
+> `start-backend.ps1`, `python -m app.main` o `--port 8002`.
 
-**Frontend** (siempre en el puerto **5173**):
+**Frontend** (siempre en el puerto **5175**):
 ```bash
 cd frontend
 npm install
@@ -170,35 +187,50 @@ ocupado (la causa de casi todos los falsos errores de CORS de este
 proyecto):
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File automatizaciones\dev\start-backend.ps1    # backend en 8001
-powershell -ExecutionPolicy Bypass -File automatizaciones\dev\start-frontend.ps1   # frontend en 5173
+powershell -ExecutionPolicy Bypass -File automatizaciones\dev\start-backend.ps1    # backend en 8002
+powershell -ExecutionPolicy Bypass -File automatizaciones\dev\start-frontend.ps1   # frontend en 5175
 ```
 
-### Puertos en desarrollo
+### Puertos
 
-Los puertos son **fijos a propósito**. Cuando un puerto cambia sin avisar,
-el frontend sigue llamando al viejo y el navegador lo reporta como un error
-de CORS que no tiene nada que ver con la configuración de CORS — eso costó
-varias rondas de depuración en este proyecto.
+Los puertos son **fijos a propósito** y **ninguno se repite con el Producto
+JS**, que corre a la vez en la misma máquina. Cuando un puerto cambia sin
+avisar, el frontend sigue llamando al viejo y el navegador lo reporta como un
+error de CORS que no tiene nada que ver con la configuración de CORS.
 
-| Servicio  | Puerto | Dónde se configura |
-|-----------|--------|--------------------|
-| Backend (FastAPI/uvicorn) | `8001` | `PORT` en `backend/app/core/config.py` / `backend/.env` (lo leen `python -m app.main` y `start-backend.ps1`), `.vscode/launch.json`, `infra/docker-compose.yml` (host `8001` → contenedor `8000`), `frontend/.env` (`VITE_API_URL`) |
-| Frontend (Vite)           | `5173` | `frontend/vite.config.js` (`server.port` + `strictPort: true`) |
-| Preview compilado (demo por túnel) | `4173` | `frontend/vite.config.js` (`preview.port` + `strictPort: true`); ver "Compartir una demo por internet" |
-| Postgres                  | `5432` | `infra/docker-compose.yml` |
+| Servicio | Producto JS (no tocar) | **Producto Tavo** | Dónde se configura (Tavo) |
+|---|---|---|---|
+| Frontend (Vite dev) | 5173 | **5175** | `frontend/vite.config.js` (`server.port` + `strictPort`), `package.json` (`predev`) |
+| Vista previa compilada | 4173 | **4175** | `frontend/vite.config.js` (`preview.port` + `strictPort`) |
+| Backend (FastAPI) | 8001 | **8002** | `PORT` en `app/core/config.py` / `backend/.env`, `frontend/.env` (`VITE_API_URL`), `infra/docker-compose.yml`, `.vscode/`, `.claude/launch.json` |
+| Postgres (en el equipo) | 5432 | **5433** | `infra/docker-compose.yml` (`5433:5432`), `DATABASE_URL` |
+| n8n | — | **5679** | `infra/docker-compose.yml` (`5679:5678`) |
 
-**Por qué el backend usa 8001 y no 8000:** en Windows el 8000 puede quedar
-inutilizable (`WinError 10013`, o bindings fantasma que sobreviven al
-proceso que los creó) por reservas de puerto de Hyper-V/WSL2. Revisa los
-rangos reservados con `netsh int ipv4 show excludedportrange protocol=tcp`.
-Dentro del contenedor Docker el backend sigue escuchando en 8000 — eso no
-choca con nada porque es otro namespace de red; solo el puerto del host
-cambia a 8001.
+Contenedores `tavo-db`, `tavo-backend`, `tavo-n8n` (y `tavo-frontend` con
+el perfil `frontend`), volúmenes `tavo_db_data` y `tavo_n8n_data`, proyecto
+de Compose `tavo`. El compose del Producto JS no tiene nombre propio y
+Docker lo llama `infra` (como su carpeta): sin `name: tavo`, este compose
+habría usado sus mismos contenedores y su volumen de datos.
 
-**Vite falla si el 5173 está ocupado** (`strictPort: true`) en vez de saltar
-a 5174 en silencio. Si te pasa, cierra la instancia vieja de Vite — el
-script `start-frontend.ps1` ya lo hace por ti.
+**Antes de arrancar**, `automatizaciones\deverificar-puertos.ps1` revisa
+los cinco puertos: libre, reservado por Windows (con el arreglo) u ocupado
+(con el proceso o contenedor que lo tiene). Los scripts de arranque lo
+llaman solos.
+
+**`uvicorn app.main:app` a secas no arranca**: el CLI de uvicorn no lee la
+configuración e iría al 8000, así que `app/core/arranque.py` lo detiene con
+un mensaje que dice cómo arrancarlo (`python -m app.main`,
+`start-backend.ps1` o `--port 8002`).
+
+**Por qué 8002 y no 8000:** en Windows el 8000 puede quedar inutilizable
+(`WinError 10013`, o bindings fantasma que sobreviven al proceso que los
+creó) por reservas de puerto de Hyper-V/WSL2; el 8002 es del Producto JS.
+Revisa los rangos reservados con
+`netsh int ipv4 show excludedportrange protocol=tcp`.
+
+**Vite falla si el 5175 está ocupado** (`strictPort: true`) en vez de
+saltar al siguiente en silencio. `start-frontend.ps1` cierra antes el Vite
+viejo de ESTE producto (por la ruta de la carpeta), nunca el del Producto JS.
 
 `backend/.env` → `CORS_ORIGINS` se usa tal cual en producción. En
 desarrollo (`ENV=development`) además se acepta **cualquier origen local en
@@ -212,7 +244,7 @@ máquina. Ese regex **no** aplica en producción, y `ENV` solo admite
 silencio: el backend no arranca y lo dice).
 
 Si ves un error de CORS en el navegador, antes de tocar nada verifica que
-el backend esté corriendo y respondiendo en `http://localhost:8001/health`
+el backend esté corriendo y respondiendo en `http://localhost:8002/health`
 — un backend caído se ve en el navegador como un falso error de CORS
 ("CORS Failed", código de estado `null`), porque nunca llega a responder el
 preflight `OPTIONS`.
@@ -230,13 +262,13 @@ Para que otra persona pruebe la app desde su casa sin desplegar nada:
 
 ```powershell
 pwsh automatizaciones/demo/start-demo-tunel.ps1          # un solo comando
-pwsh automatizaciones/demo/start-demo-tunel.ps1 -Forzar  # si 8001/4173 están ocupados, los libera
+pwsh automatizaciones/demo/start-demo-tunel.ps1 -Forzar  # si 8002/4175 están ocupados, los libera
 ```
 
-El script valida herramientas y puertos, arranca el backend en `8001`, abre
+El script valida herramientas y puertos, arranca el backend en `8002`, abre
 el túnel del backend, **compila** el frontend con esa URL pública
 (`npx vite build --mode tunnel`, que lee `frontend/.env.tunnel`), sirve la
-versión compilada con `vite preview` en `4173`, abre el túnel del frontend,
+versión compilada con `vite preview` en `4175`, abre el túnel del frontend,
 comprueba por HTTP que los `.js` llegan con tipo MIME de JavaScript y que
 el backend acepta el origen público por CORS, y al final imprime:
 
@@ -246,14 +278,14 @@ el backend acepta el origen público por CORS, y al final imprime:
   que el invitado escribe una sola vez en la página de aviso.
 
 **Qué debe quedar encendido durante la demo:** la ventana del script
-(Ctrl+C la termina y cierra todo), el backend en `8001`, el preview en
-`4173` y los dos túneles. **Todo depende de que tu computador siga prendido,
+(Ctrl+C la termina y cierra todo), el backend en `8002`, el preview en
+`4175` y los dos túneles. **Todo depende de que tu computador siga prendido,
 sin suspenderse y con internet**: si se apaga, la demo deja de funcionar. Las
 URLs cambian en cada arranque; vuelve a compartir la nueva.
 
 Por qué se comparte la versión compilada y no `npm run dev`: el servidor de
 desarrollo sirve cientos de módulos `.jsx` sueltos y el WebSocket de HMR
-apunta a `localhost:5173`; a través del túnel llegan lentos (≈9 s por
+apunta a `localhost:5175`; a través del túnel llegan lentos (≈9 s por
 archivo), con `text/plain` y el navegador los bloquea
 (`NS_ERROR_CORRUPTED_CONTENT`, "tipo MIME no permitido"). `vite preview`
 sirve `dist/` con `text/javascript` (el tipo MIME estándar de JavaScript
@@ -263,7 +295,7 @@ Piezas que lo hacen posible (configuración activa, no borrar en limpiezas):
 
 | Pieza | Dónde |
 |-------|-------|
-| `allowedHosts: ['.loca.lt', '.ngrok-free.app', '.trycloudflare.com']` en `server` y `preview` (el punto acepta cualquier subdominio) y `preview.port = 4173` con `strictPort` | `frontend/vite.config.js` |
+| `allowedHosts: ['.loca.lt', '.ngrok-free.app', '.trycloudflare.com']` en `server` y `preview` (el punto acepta cualquier subdominio) y `preview.port = 4175` con `strictPort` | `frontend/vite.config.js` |
 | `VITE_API_URL` pública para el build: `frontend/.env.tunnel` (lo genera el script; plantilla en `.env.tunnel.example`). En build la URL queda incrustada en el paquete, por eso no puede ser `localhost` | `frontend/.env.tunnel` |
 | Header `bypass-tunnel-reminder` en las llamadas de la API (salta la página de aviso de localtunnel en las XHR) | `frontend/src/lib/api.js` |
 | CORS de desarrollo: `allow_origin_regex` acepta `https://*.loca.lt`, `https://*.ngrok-free.app` y `https://*.trycloudflare.com` **solo con `ENV=development`** | `backend/app/core/cors.py` (bloque crítico), tests en `backend/tests/test_cors_config.py` |
@@ -271,8 +303,8 @@ Piezas que lo hacen posible (configuración activa, no borrar en limpiezas):
 Túnel alternativo: si tienes `cloudflared` instalado
 (`winget install Cloudflare.cloudflared`), el script lo usa solo (no tiene
 página de aviso); fuerza uno u otro con `-Tunel localtunnel|cloudflared`.
-`5173` (desarrollo) y `8001` (backend) siguen siendo los puertos fijos;
-`4173` es adicional, no un reemplazo.
+`5175` (desarrollo) y `8002` (backend) siguen siendo los puertos fijos;
+`4175` es adicional, no un reemplazo.
 
 ## Dar de alta un cliente nuevo (tenant)
 

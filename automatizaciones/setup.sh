@@ -79,14 +79,14 @@ bien "Dependencias de npm instaladas"
 
 # ---------------------------------------------------------------- 5. Postgres
 paso "5/8 Base de datos (Postgres)"
-if puerto_escucha 5432; then
-  bien "Postgres escucha en el puerto 5432"
+if puerto_escucha 5433; then
+  bien "Postgres escucha en el puerto 5433"
 elif command -v docker >/dev/null; then
-  aviso "No hay Postgres en el 5432: lo arranco con Docker (infra/docker-compose.yml, servicio db)"
+  aviso "No hay Postgres en el 5433: lo arranco con Docker (infra/docker-compose.yml, servicio db)"
   docker compose -f "$RAIZ/infra/docker-compose.yml" up -d db
 else
-  falla "No hay Postgres escuchando en el puerto 5432 y no está Docker." \
-        "Instala Docker o PostgreSQL 16 con el usuario js_admin / clave js_admin (ver README, 'Empezar desde cero')."
+  falla "No hay Postgres escuchando en el puerto 5433 y no está Docker." \
+        "Instala Docker o PostgreSQL 16 con el usuario tavo_admin / clave tavo_admin (ver README, 'Empezar desde cero')."
 fi
 
 cd "$BACKEND"
@@ -112,12 +112,12 @@ cat <<FIN
 ==============================================================================
  Listo. Para trabajar, arranca cada parte en su propia terminal:
 ==============================================================================
-   Backend :  cd backend && $PY -m uvicorn app.main:app --port 8001 --reload
+   Backend :  cd backend && $PY -m uvicorn app.main:app --port 8002 --reload
    Frontend:  cd frontend && npm run dev
 
-   Aplicación:        http://localhost:5173
-   API (docs):        http://localhost:8001/docs
-   Diagnóstico:       http://localhost:8001/diagnostico   (o: cd backend && $PY -m app.diagnostico)
+   Aplicación:        http://localhost:5175
+   API (docs):        http://localhost:8002/docs
+   Diagnóstico:       http://localhost:8002/diagnostico   (o: cd backend && $PY -m app.diagnostico)
 
    Cuenta de prueba:  $DEMO_EMAIL
    Contraseña:        $DEMO_CLAVE

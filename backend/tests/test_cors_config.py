@@ -2,7 +2,7 @@
 Pruebas aisladas de app/core/cors.py — no dependen de la app real ni de la
 base de datos, arman una mini app FastAPI de prueba para cada caso.
 
-Cubre el bug reportado: Vite cambia de puerto (5173 -> 5174 -> ...) cuando
+Cubre el bug reportado: Vite cambia de puerto (5175 -> 5176 -> ...) cuando
 el anterior sigue ocupado, y perseguir el puerto exacto en CORS_ORIGINS a
 mano es frágil. En desarrollo se acepta cualquier puerto en
 localhost/127.0.0.1; en producción NO, ahí manda solo la lista explícita.
@@ -28,10 +28,10 @@ def _app_de_prueba(settings: Settings) -> TestClient:
 
 
 def test_dev_acepta_cualquier_puerto_de_localhost():
-    settings = Settings(ENV="development", CORS_ORIGINS='["http://localhost:5173"]')
+    settings = Settings(ENV="development", CORS_ORIGINS='["http://localhost:5175"]')
     client = _app_de_prueba(settings)
 
-    for puerto in (5173, 5174, 5999, 3000):
+    for puerto in (5175, 5174, 5999, 3000):
         resp = client.get("/ping", headers={"Origin": f"http://localhost:{puerto}"})
         assert resp.headers.get("access-control-allow-origin") == f"http://localhost:{puerto}", (
             f"puerto {puerto} debería estar permitido en desarrollo"
@@ -39,7 +39,7 @@ def test_dev_acepta_cualquier_puerto_de_localhost():
 
 
 def test_dev_acepta_cualquier_puerto_de_127_0_0_1():
-    settings = Settings(ENV="development", CORS_ORIGINS='["http://localhost:5173"]')
+    settings = Settings(ENV="development", CORS_ORIGINS='["http://localhost:5175"]')
     client = _app_de_prueba(settings)
 
     resp = client.get("/ping", headers={"Origin": "http://127.0.0.1:5174"})
@@ -47,7 +47,7 @@ def test_dev_acepta_cualquier_puerto_de_127_0_0_1():
 
 
 def test_dev_no_acepta_un_origen_externo_arbitrario():
-    settings = Settings(ENV="development", CORS_ORIGINS='["http://localhost:5173"]')
+    settings = Settings(ENV="development", CORS_ORIGINS='["http://localhost:5175"]')
     client = _app_de_prueba(settings)
 
     resp = client.get("/ping", headers={"Origin": "http://sitio-malicioso.com"})
@@ -62,7 +62,7 @@ def test_produccion_solo_acepta_la_lista_explicita_sin_regex():
     assert resp_permitido.headers.get("access-control-allow-origin") == "https://app.jscompany.co"
 
     # En producción, cualquier puerto de localhost NO debe colarse por el regex de dev.
-    resp_localhost = client.get("/ping", headers={"Origin": "http://localhost:5173"})
+    resp_localhost = client.get("/ping", headers={"Origin": "http://localhost:5175"})
     assert "access-control-allow-origin" not in resp_localhost.headers
 
 
@@ -78,7 +78,7 @@ ORIGENES_TUNEL = (
 
 
 def test_dev_acepta_dominios_de_tunel_con_cualquier_subdominio():
-    settings = Settings(ENV="development", CORS_ORIGINS='["http://localhost:5173"]')
+    settings = Settings(ENV="development", CORS_ORIGINS='["http://localhost:5175"]')
     client = _app_de_prueba(settings)
 
     for origen in ORIGENES_TUNEL:
@@ -87,7 +87,7 @@ def test_dev_acepta_dominios_de_tunel_con_cualquier_subdominio():
 
 
 def test_dev_preflight_desde_tunel_responde_200_con_header():
-    settings = Settings(ENV="development", CORS_ORIGINS='["http://localhost:5173"]')
+    settings = Settings(ENV="development", CORS_ORIGINS='["http://localhost:5175"]')
     client = _app_de_prueba(settings)
     origen = ORIGENES_TUNEL[0]
 
@@ -100,7 +100,7 @@ def test_dev_preflight_desde_tunel_responde_200_con_header():
 
 
 def test_dev_no_acepta_tunel_por_http_ni_dominios_parecidos():
-    settings = Settings(ENV="development", CORS_ORIGINS='["http://localhost:5173"]')
+    settings = Settings(ENV="development", CORS_ORIGINS='["http://localhost:5175"]')
     client = _app_de_prueba(settings)
 
     for origen in ("http://demo.loca.lt", "https://loca.lt.malicioso.com", "https://demo.ngrok-free.app.evil.io"):
@@ -121,15 +121,15 @@ def test_dev_acepta_ipv6_sin_puerto_y_red_local():
     """El caso del compañero que clonó el repo (2026-09-27): abrir el
     frontend por [::1], sin puerto o por la URL "Network" que imprime Vite
     (server.host: true) daba 400 "Disallowed CORS origin" en el OPTIONS."""
-    settings = Settings(ENV="development", CORS_ORIGINS='["http://localhost:5173"]')
+    settings = Settings(ENV="development", CORS_ORIGINS='["http://localhost:5175"]')
     client = _app_de_prueba(settings)
 
     for origen in (
-        "http://[::1]:5173",
+        "http://[::1]:5175",
         "http://localhost",
         "http://127.0.0.1",
-        "http://192.168.1.50:5173",
-        "http://10.0.0.7:5173",
+        "http://192.168.1.50:5175",
+        "http://10.0.0.7:5175",
         "http://172.20.4.2:5180",
     ):
         resp = client.options(
@@ -145,15 +145,15 @@ def test_dev_acepta_ipv6_sin_puerto_y_red_local():
 
 
 def test_dev_no_acepta_ips_publicas_ni_hosts_disfrazados():
-    settings = Settings(ENV="development", CORS_ORIGINS='["http://localhost:5173"]')
+    settings = Settings(ENV="development", CORS_ORIGINS='["http://localhost:5175"]')
     client = _app_de_prueba(settings)
 
     for origen in (
-        "http://172.32.1.1:5173",
+        "http://172.32.1.1:5175",
         "http://8.8.8.8",
         "http://localhost.evil.com",
         "http://192.168.1.50.evil.com",
-        "https://localhost:5173",
+        "https://localhost:5175",
     ):
         resp = client.get("/ping", headers={"Origin": origen})
         assert "access-control-allow-origin" not in resp.headers, f"{origen} NO debería pasar"
@@ -163,6 +163,6 @@ def test_produccion_no_acepta_origenes_locales_ni_de_red():
     settings = Settings(ENV="production", SECRET_KEY=CLAVE_PRODUCCION, CORS_ORIGINS='["https://app.jscompany.co"]')
     client = _app_de_prueba(settings)
 
-    for origen in ("http://localhost:5173", "http://[::1]:5173", "http://192.168.1.50:5173"):
+    for origen in ("http://localhost:5175", "http://[::1]:5175", "http://192.168.1.50:5175"):
         resp = client.get("/ping", headers={"Origin": origen})
         assert "access-control-allow-origin" not in resp.headers, f"{origen} NO debería pasar en producción"

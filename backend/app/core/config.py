@@ -31,7 +31,7 @@ ENTORNOS = ("development", "production")
 
 # Qué hace cada variable obligatoria: se usa en el mensaje de error.
 OBLIGATORIAS = {
-    "DATABASE_URL": "cadena de conexión a Postgres, p. ej. postgresql://js_admin:js_admin@localhost:5432/js_company_erp",
+    "DATABASE_URL": "cadena de conexión a Postgres, p. ej. postgresql://tavo_admin:tavo_admin@localhost:5433/tavo_erp",
     "SECRET_KEY": "clave con la que se firman los tokens de sesión (JWT)",
 }
 
@@ -45,12 +45,13 @@ class Settings(BaseSettings):
     # desarrollo en silencio y el preflight del login respondía 400.
     ENV: str = "development"
     API_V1_PREFIX: str = "/api/v1"
-    # Puerto del backend en desarrollo. 8001 y no 8000: en Windows el 8000
-    # suele quedar reservado por Hyper-V/WSL (WinError 10013) y el frontend
-    # apunta al 8001 (VITE_API_URL). Lo usan `python -m app.main` y
-    # automatizaciones/dev/start-backend.ps1. `uvicorn app.main:app` a secas
-    # NO lo lee (el CLI de uvicorn usa su propio 8000 por defecto).
-    PORT: int = Field(default=8001, ge=1, le=65535)
+    # Puerto del backend. 8002: el 8001 es del Producto JS, que corre en la
+    # misma máquina al mismo tiempo, y el 8000 suele quedar reservado por
+    # Hyper-V/WSL (WinError 10013). Mapa completo de puertos: docs/DECISIONES.md
+    # §1. Lo usan `python -m app.main` y automatizaciones/dev/start-backend.ps1;
+    # `uvicorn app.main:app` a secas no lo lee, así que app/main.py se niega a
+    # arrancar si uvicorn va a escuchar en otro puerto (app/core/arranque.py).
+    PORT: int = Field(default=8002, ge=1, le=65535)
     # Plan con el que nace un tenant creado por el registro self-service
     # (basico | estandar | pro_ia). Mientras el producto se vende por
     # catálogo, todo registro nuevo entra con el plan completo y el plan
@@ -69,7 +70,7 @@ class Settings(BaseSettings):
     DATABASE_URL: str
 
     # Base de datos usada por la suite de pytest (separada de la de desarrollo)
-    TEST_DATABASE_URL: str = "postgresql://js_admin:js_admin@localhost:5432/js_company_erp_test"
+    TEST_DATABASE_URL: str = "postgresql://tavo_admin:tavo_admin@localhost:5433/tavo_erp_test"
 
     # CORS - dominios permitidos para el frontend.
     # Se guarda como texto crudo (a propósito NO como list[str]): si el
@@ -78,9 +79,9 @@ class Settings(BaseSettings):
     # escrito revienta con un SettingsError críptico ("error parsing value
     # for field...") sin decir qué está mal. Aquí lo validamos nosotros a
     # mano en _validar_cors_origins y damos un mensaje claro en español.
-    # Acepta tanto CORS_ORIGINS=["http://localhost:5173"] (JSON) como
-    # CORS_ORIGINS=http://localhost:5173,http://localhost:3000 (comas).
-    CORS_ORIGINS: str = '["http://localhost:5173"]'
+    # Acepta tanto CORS_ORIGINS=["http://localhost:5175"] (JSON) como
+    # CORS_ORIGINS=http://localhost:5175,http://localhost:3000 (comas).
+    CORS_ORIGINS: str = '["http://localhost:5175"]'
 
     model_config = SettingsConfigDict(env_file=ENV_FILE, env_file_encoding="utf-8", extra="ignore")
 
@@ -105,9 +106,9 @@ class Settings(BaseSettings):
     def _validar_cors_origins(self) -> "Settings":
         texto = self.CORS_ORIGINS.strip()
         ejemplo = (
-            'Configúralo en backend/.env con el formato CORS_ORIGINS=["http://localhost:5173"] '
+            'Configúralo en backend/.env con el formato CORS_ORIGINS=["http://localhost:5175"] '
             "(lista JSON, con comillas dobles) o separado por comas: "
-            "CORS_ORIGINS=http://localhost:5173,http://localhost:3000"
+            "CORS_ORIGINS=http://localhost:5175,http://localhost:3000"
         )
 
         if not texto:

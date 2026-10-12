@@ -1,22 +1,26 @@
 ﻿<#
-Arranca el backend en desarrollo, siempre en el MISMO puerto (8001).
+Arranca el backend del Producto Tavo en desarrollo, siempre en el MISMO
+puerto (8002, PORT en backend/.env).
 
-Por qué 8001 y no 8000: en esta máquina el 8000 quedó inutilizable
-(WinError 10013 / bindings fantasma de Windows-Hyper-V). El puerto del
-backend es fijo y explícito a propósito: cuando el puerto cambia sin
-avisar, el frontend sigue llamando al viejo y el error aparece como un
-fallo de CORS que no tiene nada que ver con la configuración de CORS.
+Por qué 8002: el 8001 es del Producto JS, que corre a la vez en esta máquina,
+y el 8000 quedó inutilizable en Windows (WinError 10013 / rangos reservados
+por Hyper-V). Cuando el puerto cambia sin avisar, el frontend sigue llamando
+al viejo y el error aparece como un fallo de CORS que no tiene nada que ver
+con la configuración de CORS. Mapa completo: docs/DECISIONES.md §1.
 
-Antes de arrancar, cierra cualquier uvicorn viejo de ESTE proyecto, que es
-la causa de haber terminado con dos backends vivos a la vez.
+Antes de arrancar cierra el backend viejo de ESTE producto (lo que escuche en
+el 8002, con su reloader y sus workers) y nada más: nunca "todo python con
+uvicorn", que tumbaría el backend del Producto JS.
 
 Uso (Windows PowerShell 5.1 o PowerShell 7):
     powershell -ExecutionPolicy Bypass -File automatizaciones/dev/start-backend.ps1
 #>
 
 $ErrorActionPreference = "Stop"
+try { [Console]::OutputEncoding = [System.Text.Encoding]::UTF8 } catch { }
 $raiz = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 $backend = Join-Path $raiz "backend"
+. (Join-Path $PSScriptRoot "comun.ps1")
 
 Write-Host "==> Activando el entorno virtual (backend\venv)" -ForegroundColor Cyan
 $activar = Join-Path $backend "venv\Scripts\Activate.ps1"
@@ -27,7 +31,7 @@ if (-not (Test-Path $activar)) {
 . $activar
 
 # El puerto sale de la configuración del backend (PORT en backend/.env,
-# 8001 por defecto en app/core/config.py): un solo lugar manda.
+# 8002 por defecto en app/core/config.py): un solo lugar manda.
 Push-Location $backend
 try {
     $PUERTO = [int](& python -c "from app.core.config import settings; print(settings.PORT)")
@@ -39,42 +43,34 @@ if ($LASTEXITCODE -ne 0 -or -not $PUERTO) {
     exit 1
 }
 Write-Host "    puerto configurado: $PUERTO"
+if ($PUERTO -ne $MAPA_PUERTOS.backend.Puerto) {
+    Write-Host "  ! PORT=$PUERTO en backend/.env no es el del mapa ($($MAPA_PUERTOS.backend.Puerto)): el frontend no lo encontrará." -ForegroundColor Yellow
+}
 
-Write-Host "==> Cerrando instancias viejas de uvicorn de este proyecto" -ForegroundColor Cyan
-# 1) Reloaders de uvicorn (su línea de comando dice uvicorn app.main).
-# 2) Workers huérfanos: uvicorn --reload arranca el servidor real como hijo
-#    "multiprocessing.spawn" (su línea de comando NO dice uvicorn). Si el
-#    reloader muere, el worker queda vivo con el puerto tomado y el nuevo
-#    backend no puede arrancar. Pasó el 2026-09-16: había dos workers zombi
-#    sirviendo código viejo en el 8001.
-# 3) Cualquier otro proceso que tenga el puerto en LISTEN.
-$pids = @()
-$pids += Get-CimInstance Win32_Process -Filter "Name='python.exe'" |
-    Where-Object { $_.CommandLine -like "*uvicorn*app.main*" -or $_.CommandLine -like "*multiprocessing.spawn*" } |
-    Select-Object -ExpandProperty ProcessId
-$pids += Get-NetTCPConnection -LocalPort $PUERTO -State Listen -ErrorAction SilentlyContinue |
-    Select-Object -ExpandProperty OwningProcess
-$pids | Sort-Object -Unique | Where-Object { $_ -and $_ -ne $PID } | ForEach-Object {
-    Write-Host "    cerrando PID $_"
-    Stop-Process -Id $_ -Force -ErrorAction SilentlyContinue
+Write-Host "==> Cerrando el backend viejo de este producto (solo el que escucha en el $PUERTO)" -ForegroundColor Cyan
+$ajenos = Stop-BackendEnPuerto $PUERTO
+if ($ajenos.Count) {
+    $contenedor = Get-ContenedorEnPuerto $PUERTO
+    if ($contenedor -eq $MAPA_PUERTOS.backend.Contenedor) {
+        Write-Host "✘ El backend ya corre en Docker ($contenedor) en el $PUERTO." -ForegroundColor Red
+        Write-Host "  Úsalo tal cual, o detenlo para desarrollar con recarga:" -ForegroundColor Red
+        Write-Host "    docker compose -f infra/docker-compose.yml stop backend" -ForegroundColor Red
+        exit 1
+    }
 }
 
 # Esperar a que el puerto quede libre de verdad (hasta 10 s).
 for ($i = 0; $i -lt 20; $i++) {
-    if (-not (Get-NetTCPConnection -LocalPort $PUERTO -State Listen -ErrorAction SilentlyContinue)) { break }
+    if (-not (Get-Ocupantes $PUERTO)) { break }
     Start-Sleep -Milliseconds 500
 }
 
-$ocupado = Get-NetTCPConnection -LocalPort $PUERTO -State Listen -ErrorAction SilentlyContinue
-if ($ocupado) {
-    Write-Host "✘ El puerto $PUERTO sigue ocupado por el PID $($ocupado.OwningProcess)." -ForegroundColor Red
-    Write-Host "  Ciérralo antes de continuar (Stop-Process -Id $($ocupado.OwningProcess) -Force)." -ForegroundColor Red
-    exit 1
-}
+# Libre, no reservado por Windows, y si no, quién lo tiene.
+& powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot "verificar-puertos.ps1") -Servicios backend
+if ($LASTEXITCODE -ne 0) { exit 1 }
 
-# Libre no basta: Windows puede tener el puerto dentro de un rango reservado
-# (Hyper-V/WSL) y entonces nadie escucha pero tampoco se puede abrir
-# (WinError 10013). Se prueba abriéndolo de verdad un instante.
+# Libre no basta: se prueba abrirlo de verdad un instante (Windows puede
+# negarlo aunque no aparezca en la lista de rangos reservados).
 try {
     $prueba = [System.Net.Sockets.TcpListener]::new([System.Net.IPAddress]::Loopback, $PUERTO)
     $prueba.Start()

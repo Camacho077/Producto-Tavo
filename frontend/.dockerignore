@@ -1,0 +1,8 @@
+# node_modules se instala dentro de la imagen; .env tiene la URL local.
+node_modules/
+dist/
+.vite/
+.env
+.env.*
+!.env.example
+!.env.tunnel.example

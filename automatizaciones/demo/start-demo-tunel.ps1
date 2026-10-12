@@ -2,14 +2,14 @@
 <#
 Levanta TODA la demo compartible por internet con un solo comando:
 
-  1. valida herramientas y que los puertos 8001 (backend) y 4173 (preview)
+  1. valida herramientas y que los puertos 8002 (backend) y 4175 (preview)
      estén libres;
-  2. arranca el backend (uvicorn, sin --reload) en 8001;
+  2. arranca el backend (uvicorn, sin --reload) en 8002;
   3. abre el túnel del backend y obtiene su URL pública;
   4. escribe frontend/.env.tunnel con esa URL y COMPILA el frontend en modo
      `tunnel` (VITE_API_URL queda incrustado en el paquete, por eso se
      compila después de conocer la URL);
-  5. sirve la versión compilada con `vite preview` en 4173 (tipos MIME
+  5. sirve la versión compilada con `vite preview` en 4175 (tipos MIME
      correctos; el servidor de desarrollo NO se expone: sirve cientos de
      .jsx sueltos, el túnel les pone text/plain y el navegador los bloquea);
   6. abre el túnel del frontend, comprueba por HTTP que los .js llegan con
@@ -21,7 +21,7 @@ depende de que ESTE computador siga prendido y conectado.
 
 Uso:
     pwsh automatizaciones/demo/start-demo-tunel.ps1
-    pwsh automatizaciones/demo/start-demo-tunel.ps1 -Forzar        # cierra lo que ocupe 8001/4173
+    pwsh automatizaciones/demo/start-demo-tunel.ps1 -Forzar        # cierra lo que ocupe 8002/4175
     pwsh automatizaciones/demo/start-demo-tunel.ps1 -Tunel cloudflared
     pwsh automatizaciones/demo/start-demo-tunel.ps1 -SoloProbar   # prueba el flujo y cierra
 
@@ -32,8 +32,8 @@ del invitado ve UNA página de aviso la primera vez y debe escribir la
 imprime al final. Las llamadas del frontend a la API la saltan solas con
 el header bypass-tunnel-reminder (ver frontend/src/lib/api.js).
 
-Puertos: 5173 (desarrollo) y 8001 (backend) siguen siendo los fijos del
-proyecto; 4173 es ADICIONAL para el preview compilado, no un reemplazo.
+Puertos: 5175 (desarrollo) y 8002 (backend) siguen siendo los fijos del
+proyecto; 4175 es ADICIONAL para el preview compilado, no un reemplazo.
 #>
 [CmdletBinding()]
 param(
@@ -53,8 +53,9 @@ $frontend = Join-Path $raiz "frontend"
 $logs = Join-Path $raiz "automatizaciones\demo\logs"
 New-Item -ItemType Directory -Force -Path $logs | Out-Null
 
-$PUERTO_BACKEND = 8001
-$PUERTO_PREVIEW = 4173
+. (Join-Path $raiz "automatizaciones\dev\comun.ps1")
+$PUERTO_BACKEND = $MAPA_PUERTOS.backend.Puerto
+$PUERTO_PREVIEW = $MAPA_PUERTOS.preview.Puerto
 $procesos = @()
 $codigoSalida = 0
 
@@ -74,19 +75,16 @@ function ValidarPuerto($puerto, $nombre) {
     $proc = Get-Process -Id $c.OwningProcess -ErrorAction SilentlyContinue
     if ($Forzar) {
         Write-Host "    puerto $puerto ($nombre) ocupado por PID $($c.OwningProcess) ($($proc.ProcessName)); cerrando por -Forzar"
-        # uvicorn --reload deja un worker hijo (multiprocessing.spawn) con el
-        # puerto heredado: se cierra a quien quede escuchando, en bucle.
-        # Windows a veces reporta como dueño del puerto al reloader ya muerto
-        # mientras el worker sigue vivo: se cierran también los python de
-        # este proyecto (uvicorn app.main / multiprocessing.spawn), igual que
-        # hace automatizaciones/dev/start-backend.ps1.
+        # Solo se cierra lo que escucha en ESTE puerto (del mapa del Producto
+        # Tavo). En el backend, con su reloader y sus workers
+        # (Stop-BackendEnPuerto, automatizaciones/dev/comun.ps1): nunca "todo
+        # python con uvicorn", que tumbaría el backend del Producto JS.
         for ($i = 0; $i -lt 20 -and (Ocupante $puerto); $i++) {
-            Get-NetTCPConnection -LocalPort $puerto -State Listen -ErrorAction SilentlyContinue |
-                ForEach-Object { Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue }
             if ($puerto -eq $PUERTO_BACKEND) {
-                Get-CimInstance Win32_Process -Filter "Name='python.exe'" |
-                    Where-Object { $_.CommandLine -like "*uvicorn*app.main*" -or $_.CommandLine -like "*multiprocessing.spawn*" } |
-                    ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
+                Stop-BackendEnPuerto $puerto | Out-Null
+            } else {
+                Get-NetTCPConnection -LocalPort $puerto -State Listen -ErrorAction SilentlyContinue |
+                    ForEach-Object { Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue }
             }
             Start-Sleep -Milliseconds 500
         }
@@ -146,8 +144,10 @@ function Cerrar {
     }
     # Por si algún hijo sobrevivió al cierre del árbol (npx relanza node):
     # se cierran los túneles y el preview de ESTE proyecto por su comando.
+    # El preview se reconoce por la RUTA de este frontend: un `vite preview`
+    # a secas también sería el del Producto JS, que corre a la vez.
     Get-CimInstance Win32_Process -Filter "Name='node.exe'" |
-        Where-Object { $_.CommandLine -match "localtunnel.*--port (8001|4173)|cloudflared|vite preview" } |
+        Where-Object { $_.CommandLine -match "localtunnel.*--port (8002|4175)" -or ($_.CommandLine -like "*vite*preview*" -and $_.CommandLine -like "*$frontend*") } |
         ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
 }
 

@@ -12,13 +12,15 @@ import config from "../vite.config.js";
 const HOSTS_TUNEL = [".loca.lt", ".ngrok-free.app", ".trycloudflare.com"];
 
 describe("vite.config.js — configuración activa", () => {
-  it("desarrollo: puerto 5173 fijo con strictPort", () => {
-    expect(config.server.port).toBe(5173);
+  // Mapa de puertos del Producto Tavo (docs/DECISIONES.md §1): el 5173 y el
+  // 4173 son del Producto JS, que corre a la vez en la misma máquina.
+  it("desarrollo: puerto 5175 fijo con strictPort", () => {
+    expect(config.server.port).toBe(5175);
     expect(config.server.strictPort).toBe(true);
   });
 
-  it("preview (demo compilada por túnel): puerto 4173 fijo con strictPort", () => {
-    expect(config.preview.port).toBe(4173);
+  it("preview (demo compilada por túnel): puerto 4175 fijo con strictPort", () => {
+    expect(config.preview.port).toBe(4175);
     expect(config.preview.strictPort).toBe(true);
   });
 
@@ -63,7 +65,7 @@ describe("vite.config.js — exige VITE_API_URL con un mensaje claro", () => {
       expect(() => exigirVariablesDeEntorno(dir).config({}, { mode: "development" })).toThrow(/no define VITE_API_URL/);
       expect(() => exigirVariablesDeEntorno(dir).config({}, { mode: "test" })).not.toThrow();
     });
-    await conCarpeta("VITE_API_URL=http://localhost:8001/api/v1\n", (dir) => {
+    await conCarpeta("VITE_API_URL=http://localhost:8002/api/v1\n", (dir) => {
       expect(() => exigirVariablesDeEntorno(dir).config({}, { mode: "production" })).not.toThrow();
     });
   });

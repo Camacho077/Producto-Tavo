@@ -9,8 +9,8 @@ const { spawnSync } = require("child_process");
 // (p. ej. el de `npx playwright`) indicando su ruta en PLAYWRIGHT_MODULE.
 const pw = require(process.env.PLAYWRIGHT_MODULE || "playwright");
 
-const BASE = process.env.BASE || "http://localhost:5173";
-const API = "http://localhost:8001/api/v1";
+const BASE = process.env.BASE || "http://localhost:5175";
+const API = "http://localhost:8002/api/v1";
 const DIR = __dirname;
 // Resultados y PDFs descargados van FUERA del repositorio.
 const SALIDA = process.env.SALIDA_E2E || require("os").tmpdir();
