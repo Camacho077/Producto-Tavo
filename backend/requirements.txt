@@ -1,0 +1,20 @@
+# Versiones FIJADAS (==) a propósito: sin fijar, una instalación limpia baja
+# lo último y deja de parecerse a la que se probó. Pasó el 2026-09-27: un
+# clon nuevo recibió SQLAlchemy 2.1, que para "postgresql://" usa el driver
+# psycopg 3 (no instalado) en vez de psycopg2, y el backend no arrancaba.
+# Para actualizar: cambia la versión aquí, corre `pytest` completo y súbelo.
+# Lo exige tests/test_dependencias.py.
+fastapi==0.141.1
+starlette==1.6.0
+uvicorn[standard]==0.52.4
+sqlalchemy==2.0.52
+psycopg2-binary==2.9.13
+alembic==1.20.0
+pydantic==2.13.5
+pydantic-settings==2.15.0
+python-jose[cryptography]==3.5.0
+passlib[bcrypt]==1.7.4
+bcrypt==4.0.1
+python-dotenv==1.2.3
+email-validator==2.3.0
+reportlab==5.0.1

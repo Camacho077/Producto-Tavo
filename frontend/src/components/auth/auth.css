@@ -1,0 +1,160 @@
+@layer components {
+  /* ==========================================================================
+     PANTALLAS DE ACCESO (login y registro) — decisión del 2026-09-30
+
+     - Fondo NEGRO SÓLIDO: el fondo del oscuro monocromático (#0A0A0B desde
+       la paleta del 2026-10-01; antes el espresso), ningún color suelto. Sin
+       foto por ahora (el archivo public/fondo-auth.jpg se conserva; cómo
+       volver a usarlo en docs/DECISIONES.md).
+     - Siempre en esquema OSCURO, también con el modo claro activo: sobre
+       negro, el texto grafito del modo claro no se leería. Lo hace la clase
+       `.esquema-oscuro` (index.css), que reasigna los roles a la paleta
+       oscura solo dentro de estas pantallas.
+     - El panel va CENTRADO en la mitad de la pantalla y es TRANSPARENTE: sin
+       marco, sin borde, sin fondo de tarjeta ni sombra.
+     - Igual en 375, 768 y 1440 px: una sola columna, ancho máximo 24 rem.
+     ========================================================================== */
+
+  /* Tres filas 1fr | panel | 1fr con el pie legal en la de abajo
+     (2026-09-30). Cuando hay sitio, las dos filas de los extremos miden lo
+     mismo y el panel queda EXACTAMENTE en la mitad de la pantalla; cuando no
+     (teléfono bajo), la fila del pie crece y el panel sube en vez de quedar
+     tapado. Con el pie en posición absoluta se medía un solape de 8–42 px a
+     375 px de ancho. */
+  .auth {
+    display: grid;
+    grid-template-rows: 1fr auto 1fr;
+    justify-items: center;
+    min-height: 100vh;
+    min-height: 100dvh;
+    padding: 1.5rem 1rem;
+    background-color: var(--fondo);
+    color: var(--texto);
+  }
+  .auth > .auth__panel {
+    grid-row: 2;
+  }
+  .auth__pie-legal {
+    grid-row: 3;
+    align-self: end;
+    width: 100%;
+    padding-top: 2.5rem;
+    justify-content: center;
+    text-align: center;
+  }
+  .auth__pie-legal .pie-legal__enlaces,
+  .auth__pie-legal .pie-legal__datos {
+    justify-content: center;
+  }
+  /* Casilla de aceptación del registro: texto de 13 px con los dos enlaces
+     y el error debajo. */
+  .auth__aceptar {
+    margin-top: 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.3125rem;
+  }
+  .auth__aceptar-etiqueta {
+    align-items: flex-start;
+    line-height: 1.45;
+    color: var(--texto-suave);
+  }
+  .auth__aceptar-etiqueta input {
+    margin-top: 2px;
+    flex-shrink: 0;
+  }
+
+  .auth__panel {
+    width: 100%;
+    max-width: 24rem;
+    /* Transparente sobre el fondo: sin marco, borde, fondo ni sombra. */
+    background: none;
+    border: 0;
+    box-shadow: none;
+    padding: 0;
+    animation: auth-panel-entra var(--dur-bloque) var(--ease-suave) backwards;
+  }
+
+  /* Marca arriba del título (antes vivía en la foto). */
+  .auth__marca {
+    margin: 0 0 1.75rem;
+    font-family: var(--fuente-titulo);
+    font-size: 15px;
+    letter-spacing: 0.02em;
+    color: var(--texto-secundario);
+  }
+
+  .auth__titulo {
+    font-family: var(--fuente-titulo);
+    font-size: 27px;
+    font-weight: 400;
+    line-height: 1.15;
+    margin: 0;
+    color: var(--texto);
+  }
+  .auth__subtitulo {
+    margin: 0.5rem 0 0;
+    font-size: 13px;
+    color: var(--texto-secundario);
+  }
+  .auth__campos {
+    margin-top: 1.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+  }
+  /* Sin tarjeta detrás, las etiquetas y ayudas van un escalón más claras que
+     en el resto del producto para mantener el contraste sobre el negro. */
+  .auth__panel .campo__etiqueta {
+    color: var(--texto-suave);
+  }
+  .auth__panel .campo__ayuda {
+    color: var(--texto-secundario);
+  }
+  .auth__fila {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-top: 1.25rem;
+    flex-wrap: wrap;
+  }
+  .auth__panel .checkbox {
+    color: var(--texto-suave);
+  }
+  .auth__enlace {
+    font-size: 13px;
+    color: var(--acento-texto);
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    font-family: inherit;
+    text-decoration: underline;
+    text-decoration-color: color-mix(in srgb, var(--acento-texto) 40%, transparent);
+    text-underline-offset: 3px;
+    transition: text-decoration-color var(--dur-color) var(--ease-suave);
+  }
+  .auth__enlace:hover {
+    text-decoration-color: currentColor;
+  }
+  .auth__enlace:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--acento) 30%, transparent);
+    border-radius: 4px;
+  }
+  .auth__pie {
+    margin: 1.5rem 0 0;
+    text-align: center;
+    font-size: 13px;
+    color: var(--texto-secundario);
+  }
+
+  /* Entrada: una vez, fade + 12 px, con las curvas del producto. */
+  @keyframes auth-panel-entra {
+    from {
+      opacity: 0;
+      transform: translateY(12px);
+    }
+  }
+}

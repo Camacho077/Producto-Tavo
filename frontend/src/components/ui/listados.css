@@ -1,0 +1,232 @@
+@layer components {
+  /* ==========================================================================
+     COMPONENTES DE NAVEGACIÓN Y LISTADOS
+     Sidebar desplegable, buscador, paginación, detalle, editor de ítems,
+     línea de tiempo. Ningún color hardcodeado.
+     ========================================================================== */
+
+  /* El sidebar y el marco de la aplicación viven en components/shell.css. */
+
+  /* --------------------------------------------------------------------------
+     BUSCADOR
+     -------------------------------------------------------------------------- */
+  .buscador {
+    position: relative;
+    display: flex;
+    align-items: center;
+  }
+  .buscador__icono {
+    position: absolute;
+    left: 0.75rem;
+    color: var(--texto-terciario);
+    pointer-events: none;
+  }
+  .buscador__input {
+    padding-left: 2.1rem;
+    padding-right: 2rem;
+  }
+  .buscador__input::-webkit-search-cancel-button {
+    display: none;
+  }
+  .buscador__limpiar {
+    position: absolute;
+    right: 0.5rem;
+    display: inline-flex;
+    padding: 0.2rem;
+    border: none;
+    border-radius: 999px;
+    background: transparent;
+    color: var(--texto-terciario);
+    cursor: pointer;
+  }
+  .buscador__limpiar:hover {
+    color: var(--texto);
+    background-color: var(--realce-medio);
+  }
+
+  /* --------------------------------------------------------------------------
+     PAGINACIÓN
+     -------------------------------------------------------------------------- */
+  .paginacion {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    /* La línea llega de borde a borde de la tarjeta, como las de la tabla. */
+    margin: 0.75rem -1rem 0;
+    padding: 0.75rem 1rem 0;
+    border-top: var(--borde-fino) solid var(--linea);
+    font-size: 12px;
+    color: var(--texto-secundario);
+  }
+  .paginacion__pagina {
+    min-width: 3.5rem;
+    text-align: center;
+    color: var(--texto);
+  }
+
+  /* --------------------------------------------------------------------------
+     TEXTAREA
+     -------------------------------------------------------------------------- */
+  .textarea {
+    height: auto;
+    min-height: 3.75rem;
+    padding: 0.4rem 0.75rem;
+    line-height: 1.5;
+    resize: vertical;
+    /* 3 líneas por defecto (filas=3) y nunca más de 4 aunque se estire. */
+    max-height: calc(4lh + 0.8rem + 2px);
+  }
+
+  /* --------------------------------------------------------------------------
+     DETALLE (pares etiqueta / valor) y confirmación
+     -------------------------------------------------------------------------- */
+  /* Pares etiqueta | valor, una fila por dato: la etiqueta ocupa un ancho
+     fijo, así todos los valores quedan alineados en la misma vertical y
+     comparten línea base con su etiqueta. */
+  .detalle {
+    display: grid;
+    grid-template-columns: 1fr;
+    margin: 0;
+  }
+  .detalle__campo {
+    display: grid;
+    grid-template-columns: 11rem minmax(0, 1fr);
+    align-items: baseline;
+    gap: 0.75rem;
+    padding: 0.4rem 0;
+    border-bottom: var(--borde-fino) solid var(--linea);
+  }
+  .detalle__campo:last-child {
+    border-bottom: none;
+  }
+  .detalle__etiqueta {
+    font-size: 12px;
+    color: var(--texto-secundario);
+    text-align: left;
+  }
+  .detalle__valor {
+    margin: 0;
+    font-size: 13px;
+    color: var(--texto);
+    overflow-wrap: anywhere;
+    text-align: left;
+  }
+  @media (max-width: 640px) {
+    .detalle__campo {
+      grid-template-columns: 1fr;
+      gap: 0.125rem;
+    }
+  }
+  .confirmar__icono {
+    display: inline-flex;
+    flex-shrink: 0;
+    width: 36px;
+    height: 36px;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    background-color: var(--realce-medio);
+    border: var(--borde-fino) solid var(--borde);
+    color: var(--texto);
+  }
+
+  /* --------------------------------------------------------------------------
+     EDITOR DE ÍTEMS (compra / venta / pedido) con totales en vivo
+     -------------------------------------------------------------------------- */
+  .items-editor__fila {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 5rem 7.5rem auto;
+    gap: 0.5rem;
+    align-items: end;
+  }
+  .items-editor__subtotal {
+    font-size: 12px;
+    color: var(--texto-secundario);
+    text-align: right;
+  }
+  .items-editor__total {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    padding-top: 0.75rem;
+    border-top: var(--borde-fino) solid var(--linea);
+    font-size: 13px;
+    color: var(--texto-secundario);
+  }
+  .items-editor__total strong {
+    font-size: 18px;
+    color: var(--texto);
+  }
+  @media (max-width: 640px) {
+    .items-editor__fila {
+      grid-template-columns: 1fr 1fr;
+    }
+  }
+
+  /* --------------------------------------------------------------------------
+     LÍNEA DE TIEMPO (seguimiento de pedidos)
+     -------------------------------------------------------------------------- */
+  .linea-tiempo {
+    list-style: none;
+    margin: 0;
+    padding: 0 0 0 1.25rem;
+    position: relative;
+  }
+  .linea-tiempo::before {
+    content: "";
+    position: absolute;
+    left: 5px;
+    top: 6px;
+    bottom: 6px;
+    width: 1px;
+    background-color: var(--borde);
+  }
+  .linea-tiempo__evento {
+    position: relative;
+    padding: 0 0 1rem 0.75rem;
+  }
+  .linea-tiempo__evento:last-child {
+    padding-bottom: 0;
+  }
+  .linea-tiempo__punto {
+    position: absolute;
+    left: -1.25rem;
+    top: 4px;
+    width: 11px;
+    height: 11px;
+    border-radius: 999px;
+    background-color: var(--superficie);
+    border: 2px solid var(--borde-fuerte);
+  }
+  .linea-tiempo__evento--actual .linea-tiempo__punto {
+    border-color: var(--texto);
+    background-color: var(--texto);
+    box-shadow: 0 0 0 3px var(--realce-medio);
+  }
+  .linea-tiempo__titulo {
+    font-size: 13px;
+    color: var(--texto);
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .linea-tiempo__meta {
+    font-size: 12px;
+    color: var(--texto-secundario);
+  }
+  .linea-tiempo__nota {
+    margin-top: 0.25rem;
+    font-size: 13px;
+    color: var(--texto-secundario);
+  }
+
+  /* Botones de acción por fila (ver / editar / eliminar): centrados con flex. */
+  .acciones-fila {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.25rem;
+  }
+}

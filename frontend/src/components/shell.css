@@ -1,0 +1,615 @@
+@layer components {
+  /* ==========================================================================
+     MARCO DE LA APLICACIÓN — rediseño monocromático (2026-10-01)
+
+     Sidebar blanco a toda altura con borde derecho de 1 px, barra superior
+     blanca con borde inferior de 1 px, y el contenido sobre el gris de la
+     aplicación (#EDEDF0 en claro). Sin panel flotante, sin degradados y sin
+     sombras: la separación la hacen el valor (blanco sobre gris) y el borde.
+
+     Rendimiento: NO hay backdrop-filter en ninguna parte, y el marco (.app)
+     no se anima nunca (medido 2026-09-28: animarlo atrasaba el LCP).
+     ========================================================================== */
+
+  .shell {
+    min-height: 100vh;
+    min-height: 100dvh;
+  }
+
+  .app {
+    display: flex;
+    min-height: 100vh;
+    /* dvh evita que la barra del navegador móvil recorte el marco. */
+    min-height: 100dvh;
+  }
+
+  /* Cascada del sidebar al cargar o recargar: marca, cada ítem de primer
+     nivel y el pie, 50 ms entre uno y otro. `--i` lo pone Sidebar.jsx. Corre
+     una vez por montaje del layout: navegar entre pantallas no la repite. */
+  .sidebar__cascada {
+    animation: lado-entra var(--dur-entrada) var(--ease-suave) backwards;
+    animation-delay: calc(120ms + var(--i, 0) * 50ms);
+  }
+  @keyframes lado-entra {
+    from {
+      opacity: 0;
+      transform: translateX(-8px);
+    }
+  }
+
+  /* --------------------------------------------------------------------------
+     SIDEBAR — blanco, no el gris del fondo
+     -------------------------------------------------------------------------- */
+  .sidebar {
+    width: 248px;
+    flex: none;
+    background-color: var(--superficie);
+    border-right: 1px solid var(--borde);
+  }
+  .sidebar__interior {
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    height: 100dvh;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 18px 12px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  /* Lista densa (~30 px por ítem). Es el contenedor posicionado del
+     indicador deslizante. */
+  .sidebar__nav {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  /* INDICADOR DEL ÍTEM ACTIVO — un solo nodo que se DESLIZA entre posiciones
+     (FLIP a mano en Sidebar.jsx, sin librería): se coloca con translate3d en
+     el destino y se anima desde donde estaba con el resorte. El alto se fija
+     de una vez y la diferencia de tamaño viaja como scaleY, así nunca se
+     anima una propiedad de layout. Dos caras que se funden por opacidad:
+     - fuerte: la píldora gris #F1F1F4 del ítem activo;
+     - sutil: la misma píldora más tenue, para la cabecera de una sección
+       cerrada que contiene la ruta activa. */
+  .sidebar__indicador {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 0;
+    transform-origin: 0 0;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity var(--dur-color) var(--ease-suave);
+  }
+  .sidebar__indicador--visible {
+    opacity: 1;
+  }
+  .sidebar__indicador-cara {
+    position: absolute;
+    inset: 0;
+    border-radius: var(--radio-control-grande);
+    transition: opacity var(--dur-entrada) var(--ease-suave);
+  }
+  .sidebar__indicador-cara--fuerte {
+    background-color: var(--realce-medio);
+    opacity: 0;
+  }
+  .sidebar__indicador-cara--sutil {
+    background-color: var(--realce-suave);
+    opacity: 0;
+  }
+  .sidebar__indicador[data-cara="fuerte"] .sidebar__indicador-cara--fuerte,
+  .sidebar__indicador[data-cara="sutil"] .sidebar__indicador-cara--sutil {
+    opacity: 1;
+  }
+  /* Los ítems van por encima del indicador. */
+  .sidebar__nav .navitem,
+  .sidebar__nav .grupo-cabeza,
+  .sidebar__nav .navsub {
+    position: relative;
+    z-index: 1;
+  }
+
+  /* Marca */
+  .marca {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 2px 8px 18px;
+  }
+  .marca__sello {
+    width: 34px;
+    height: 34px;
+    flex: none;
+    display: grid;
+    place-items: center;
+    border-radius: var(--radio-control-grande);
+    background-color: var(--boton);
+    font-family: var(--fuente-titulo);
+    font-size: 16px;
+    font-weight: 500;
+    color: var(--texto-sobre-acento);
+  }
+  .marca__nombre {
+    margin: 0;
+    font-family: var(--fuente-titulo);
+    font-size: 16px;
+    font-weight: 500;
+    letter-spacing: -0.01em;
+    line-height: 1.1;
+    color: var(--texto);
+  }
+  .marca__sub {
+    margin: 3px 0 0;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--texto-secundario);
+  }
+
+  /* Enlaces de primer nivel */
+  .navitem {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    min-height: 32px;
+    padding: 6px 10px;
+    border: 0;
+    border-radius: var(--radio-control-grande);
+    background: transparent;
+    color: var(--texto-suave);
+    font-size: 13.5px;
+    font-weight: 500;
+    text-align: left;
+    cursor: pointer;
+    /* Solo color: nada de mover la caja en hover. */
+    transition: background-color var(--dur-color) var(--ease-suave), color var(--dur-color) var(--ease-suave);
+  }
+  .navitem:hover {
+    background-color: var(--realce-suave);
+    color: var(--texto);
+  }
+  /* El fondo de la píldora activa lo pone el indicador deslizante; aquí solo
+     el texto, en 600 (y sin el realce del hover, que se sumaría). */
+  .navitem.sidebar__activo {
+    background-color: transparent;
+    color: var(--texto-sobre-activo);
+    font-weight: 600;
+  }
+  .navitem svg {
+    flex: none;
+  }
+  .navitem > span:first-of-type {
+    flex: 1;
+    min-width: 0;
+  }
+
+  /* Secciones (los grupos desplegables): título en mayúsculas de 11 px,
+     letter-spacing 0.08em y color tenue. */
+  .sidebar__grupo {
+    margin-top: 10px;
+  }
+  .grupo-cabeza {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    min-height: 30px;
+    padding: 6px 10px;
+    border: 0;
+    border-radius: var(--radio-control-grande);
+    background: transparent;
+    color: var(--texto-secundario);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: color var(--dur-color) var(--ease-suave);
+  }
+  .grupo-cabeza > span:first-child {
+    flex: 1;
+    text-align: left;
+  }
+  .grupo-cabeza:hover,
+  .grupo-cabeza--con-ruta-activa {
+    color: var(--texto);
+  }
+  .sidebar__chevron {
+    flex: none;
+    transition: transform var(--dur-entrada) var(--ease-suave);
+  }
+  .sidebar__chevron--abierto {
+    transform: rotate(180deg);
+  }
+
+  /* El panel del grupo se monta de una vez: animar su ALTO (o
+     grid-template-rows) es animar layout. Lo que se anima:
+     - cada hijo entra en cascada (opacity + translateX, 40 ms entre uno y
+       otro) con TRANSICIÓN y @starting-style, no con keyframes: si el grupo
+       se cierra a media entrada, la salida arranca desde donde iba;
+     - al cerrar, los hijos se van (120 ms) antes de desmontarse;
+     - los grupos de abajo se DESLIZAN a su sitio nuevo con el resorte (FLIP
+       en Sidebar.jsx) en vez de saltar cuando el panel aparece o se va. */
+  .sidebar__panel-interior {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 0 0 2px;
+  }
+  .navsub {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    min-height: 30px;
+    padding: 5px 10px;
+    border: 0;
+    border-radius: var(--radio-control-grande);
+    background: transparent;
+    color: var(--texto-suave);
+    font-size: 13.5px;
+    font-weight: 500;
+    text-align: left;
+    cursor: pointer;
+    transition:
+      opacity var(--dur-entrada) var(--ease-suave) var(--d, 0s),
+      transform var(--dur-entrada) var(--ease-suave) var(--d, 0s),
+      background-color var(--dur-color) var(--ease-suave),
+      color var(--dur-color) var(--ease-suave);
+  }
+  .navsub > span:first-child {
+    flex: 1;
+    min-width: 0;
+  }
+  @starting-style {
+    .navsub {
+      opacity: 0;
+      transform: translateX(-7px);
+    }
+  }
+  .sidebar__panel-interior--saliendo .navsub {
+    opacity: 0;
+    transform: translateX(-6px);
+    transition-duration: 120ms;
+    transition-delay: 0s;
+  }
+  .navsub:hover {
+    background-color: var(--realce-suave);
+    color: var(--texto);
+  }
+  .navsub.sidebar__activo {
+    color: var(--texto-sobre-activo);
+    font-weight: 600;
+  }
+
+  /* Badge numérico redondo a la derecha del ítem. El destello al cambiar lo
+     hace Sidebar.jsx con WAAPI (transform + opacity, una vez). */
+  .insignia-num {
+    flex: none;
+    display: inline-grid;
+    place-items: center;
+    min-width: 20px;
+    height: 20px;
+    padding: 0 6px;
+    border-radius: var(--radio-pastilla);
+    background-color: var(--realce-medio);
+    border: 1px solid var(--borde);
+    color: var(--texto);
+    font-family: var(--fuente-mono);
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    text-transform: none;
+  }
+  .sidebar__activo .insignia-num {
+    background-color: var(--superficie);
+  }
+
+  /* Pie: separado por una línea, el bloque de usuario y las acciones. */
+  .sidebar__pie {
+    margin-top: auto;
+    padding: 12px 4px 0;
+    border-top: 1px solid var(--borde);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .sidebar__usuario {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .sidebar__avatar {
+    width: 34px;
+    height: 34px;
+    flex: none;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    background-color: var(--realce-medio);
+    border: 1px solid var(--borde);
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--texto);
+  }
+  .sidebar__usuario-texto {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+  .sidebar__usuario-nombre {
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1.3;
+    color: var(--texto);
+  }
+  .sidebar__usuario-rol {
+    font-size: 11.5px;
+    line-height: 1.3;
+    color: var(--texto-secundario);
+  }
+  .sidebar__pie-acciones {
+    display: flex;
+    gap: 2px;
+    flex: none;
+  }
+
+  /* --------------------------------------------------------------------------
+     ÁREA PRINCIPAL
+     -------------------------------------------------------------------------- */
+  .main {
+    /* Contenedor posicionado del clon de la pantalla que sale (.vista-fantasma). */
+    position: relative;
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+  }
+  /* El contenido de cada pantalla, sobre el gris: 16 px entre bloques. Es el
+     nodo al que se le aplica el fade de entrada de vista. */
+  .main__contenido {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--hueco);
+    padding: 20px 24px 8px;
+  }
+  .main__pie {
+    padding: 8px 24px 20px;
+  }
+
+  /* --------------------------------------------------------------------------
+     BARRA SUPERIOR — blanca, borde inferior de 1 px, fija arriba al hacer
+     scroll (sticky: no saca nada del flujo ni mueve el contenido).
+     -------------------------------------------------------------------------- */
+  .barra-superior {
+    position: sticky;
+    top: 0;
+    z-index: 15;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-height: 60px;
+    padding: 10px 24px;
+    background-color: var(--superficie);
+    border-bottom: 1px solid var(--borde);
+  }
+  .barra-superior__seccion {
+    flex: 1;
+    min-width: 0;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: var(--texto-secundario);
+    white-space: nowrap;
+    overflow: hidden;
+  }
+  .barra-superior__empresa {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  /* Separador "/" entre las partes: tenue y sin peso. */
+  .barra-superior__parte::before {
+    content: "/";
+    margin-right: 8px;
+    color: var(--borde-fuerte);
+  }
+  .barra-superior__parte:last-child {
+    color: var(--texto);
+    font-weight: 600;
+  }
+  .barra-superior__estado {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    flex: none;
+  }
+
+  /* Píldora de estado: borde fino y punto indicador. El nivel lo dice el
+     punto (pleno = crítico, medio = advertencia), nunca un color. */
+  .pildora-estado {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    height: 32px;
+    padding: 0 12px;
+    border-radius: var(--radio-pastilla);
+    border: 1px solid var(--borde);
+    background-color: var(--superficie);
+    color: var(--texto-suave);
+    font-size: 12.5px;
+    font-weight: 500;
+    text-decoration: none;
+    white-space: nowrap;
+    transition: border-color var(--dur-color) var(--ease-suave), color var(--dur-color) var(--ease-suave);
+  }
+  a.pildora-estado:hover {
+    border-color: var(--borde-fuerte);
+    color: var(--texto);
+  }
+  .pildora-estado__punto {
+    width: 7px;
+    height: 7px;
+    flex: none;
+    border-radius: 50%;
+    background-color: var(--advertencia-punto);
+  }
+  .pildora-estado__punto--critico {
+    background-color: var(--texto);
+  }
+
+  /* Botón de icono (tema, sesión, menú). */
+  .iconbtn {
+    width: 36px;
+    height: 36px;
+    flex: none;
+    display: grid;
+    place-items: center;
+    border-radius: var(--radio-control-grande);
+    background-color: var(--superficie);
+    border: 1px solid var(--borde);
+    color: var(--texto-suave);
+    cursor: pointer;
+    transition: background-color var(--dur-color) var(--ease-suave), border-color var(--dur-color) var(--ease-suave);
+  }
+  .iconbtn:hover {
+    background-color: var(--realce-suave);
+    border-color: var(--borde-fuerte);
+  }
+  /* Sin caja hasta el hover: los del pie del sidebar. */
+  .iconbtn--plano {
+    width: 32px;
+    height: 32px;
+    border-color: transparent;
+    background-color: transparent;
+  }
+  .menu-btn {
+    display: none;
+  }
+
+  /* --------------------------------------------------------------------------
+     CAJÓN LATERAL EN MÓVIL
+     -------------------------------------------------------------------------- */
+  .velo {
+    position: fixed;
+    inset: 0;
+    z-index: 30;
+    background-color: var(--velo);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity var(--dur-entrada) var(--ease-suave);
+  }
+  .velo--visible {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .tabbar {
+    display: none;
+  }
+
+  @media (max-width: 1100px) {
+    .sidebar {
+      position: fixed;
+      top: 0;
+      bottom: 0;
+      left: 0;
+      z-index: 40;
+      width: 280px;
+      background-color: var(--cajon-fondo);
+      /* El cajón entra con transform, nunca con `left`. `visibility` se
+         retrasa hasta el final para que no se pueda tabular al menú cerrado. */
+      transform: translateX(-102%);
+      visibility: hidden;
+      transition: transform 450ms var(--ease-suave), visibility 0s 450ms;
+    }
+    .sidebar--abierto {
+      transform: none;
+      visibility: visible;
+      transition: transform 450ms var(--ease-suave), visibility 0s;
+    }
+    .sidebar__interior {
+      position: static;
+      height: 100%;
+    }
+    .menu-btn {
+      display: grid;
+    }
+  }
+
+  @media (max-width: 720px) {
+    .barra-superior {
+      padding: 10px 16px;
+      min-height: 56px;
+    }
+    /* En el teléfono las píldoras no caben con su texto: se ocultan (los
+       avisos siguen completos en el panel del dashboard). */
+    .barra-superior__estado {
+      display: none;
+    }
+    .main__contenido {
+      padding: 16px 16px 8px;
+    }
+    .main__pie {
+      padding: 8px 16px 96px;
+    }
+
+    /* Barra inferior: los accesos que más se usan, a un pulgar de distancia. */
+    .tabbar {
+      display: grid;
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 20;
+      grid-auto-flow: column;
+      grid-auto-columns: 1fr;
+      padding: 8px 6px;
+      background-color: var(--superficie);
+      border-top: 1px solid var(--borde);
+    }
+    .tab {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      padding: 6px 0;
+      border: 0;
+      border-radius: var(--radio-control-grande);
+      background: transparent;
+      color: var(--texto-secundario);
+      font-size: 10.5px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: color var(--dur-color) var(--ease-suave);
+    }
+    .tab--activo {
+      color: var(--texto);
+      font-weight: 600;
+    }
+  }
+
+  /* Con el cajón abierto la página de fondo no debe desplazarse. */
+  html.sin-scroll {
+    overflow: hidden;
+  }
+}

@@ -1,0 +1,503 @@
+@import "tailwindcss";
+
+/* Tipografías empaquetadas (sin depender de red en runtime).
+   SOLO el subconjunto `latin`: cubre todo el español (tildes, ñ, ü y los
+   signos de apertura ¿ ¡ están por debajo de U+00FF).
+
+   Ojo con `latin-ext`: los archivos por subconjunto de @fontsource NO traen
+   `unicode-range` (solo lo trae el paquete completo `400.css`). Al importar
+   latin y latin-ext juntos el navegador no puede distinguirlos y se baja
+   AMBOS: se midió con Lighthouse y pasó de 3 a 6 descargas de fuente. Con
+   latin solo, se bajan 3. Si alguna vez hace falta otro alfabeto, hay que
+   volver al paquete completo, no sumar subconjuntos sueltos. */
+@import "@fontsource/playfair-display/latin-400.css";
+@import "@fontsource/playfair-display/latin-500.css";
+@import "@fontsource/inter/latin-400.css";
+@import "@fontsource/inter/latin-500.css";
+@import "@fontsource/inter/latin-600.css";
+@import "@fontsource/jetbrains-mono/latin-400.css";
+@import "@fontsource/jetbrains-mono/latin-500.css";
+
+/* Sistema de componentes compartidos. SOLO lo que necesitan las pantallas
+   públicas (acceso y legal): el resto viaja con su ruta (2026-10-02) para
+   que el login no descargue estilos de tablas, formularios ni del
+   dashboard. Todos van en `@layer components`, así que el orden de carga
+   (este archivo primero, luego el de cada ruta) conserva la cascada:
+     - components/AppLayout.jsx: listados, pantallas y movimiento
+     - modules/dashboard/DashboardPage.jsx: dashboard
+     - components/charts/GraficaRendimiento.jsx: charts
+   shell.css se queda aquí: la pantalla legal usa `.iconbtn`. */
+@import "./components/shell.css";
+@import "./components/ui/ui.css";
+@import "./components/auth/auth.css";
+
+/* ==========================================================================
+   PALETA BASE — MONOCROMÁTICA ESTRICTA (decisión del 2026-10-01, sustituye a
+   la Espresso/Marfil del 2026-09-28, que queda como histórica en
+   docs/DECISIONES.md). Cero color: solo blanco, negro y grises. Si aparece un
+   azul, un verde o cualquier tinte, está mal.
+
+   La jerarquía se construye SOLO con valor (claro/oscuro) y peso tipográfico.
+   Positivo y negativo se distinguen por intensidad y por ▲/▼, nunca por color.
+
+   REGLA: no entra NINGÚN color fuera de estas dos listas (ni `white`/`black`
+   sueltos). Lo protege src/paleta.test.js. Prohibido usar estos tokens directo
+   en componentes: usar siempre los ROLES definidos más abajo.
+   ========================================================================== */
+:root {
+  /* Modo claro — el principal desde el 2026-10-01 */
+  --claro-fondo: #EDEDF0; /* fondo de la aplicación (NO blanco: ese gris es clave) */
+  --claro-superficie: #FFFFFF; /* tarjetas, sidebar, barra superior */
+  --claro-relleno: #F7F7F9; /* relleno interior de tarjetas, encabezado de tabla */
+  --claro-sutil: #F1F1F4; /* rellenos sutiles, píldora activa, badges */
+  --claro-borde: #E4E4E9; /* bordes */
+  --claro-divisor: #F0F0F3; /* líneas divisorias finas (filas de tabla) */
+  --claro-eje: #D4D4DA; /* eje base de gráficas, borde en hover */
+  --claro-secundario: #6B6B76; /* texto secundario */
+  --claro-terciario: #52525B; /* texto terciario */
+  --claro-nav: #3F3F46; /* texto de navegación */
+  --claro-texto: #18181B; /* texto principal, serie actual, botón primario */
+
+  /* Modo oscuro — el mismo criterio, invertido */
+  --oscuro-fondo: #0A0A0B; /* fondo de la aplicación */
+  --oscuro-superficie: #141416; /* tarjetas y superficies */
+  --oscuro-relleno: #1C1C1F; /* relleno interior de tarjetas */
+  --oscuro-sutil: #232327; /* rellenos sutiles y píldora activa */
+  --oscuro-borde: #2A2A2F; /* bordes */
+  --oscuro-secundario: #8A8A94; /* texto secundario */
+  --oscuro-texto: #F4F4F5; /* texto principal, serie actual, botón primario */
+
+  /* Tipografía (sin cambios: Playfair Display, Inter y JetBrains Mono) */
+  --fuente-titulo: "Playfair Display", "Iowan Old Style", Georgia, "Times New Roman", serif;
+  --fuente-base: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --fuente-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+
+  /* Forma (2026-10-01): tarjetas de 16 px con borde de 1 px y SIN sombra; el
+     bloque interior de las KPI, 12 px. Las sombras son lo que más delata un
+     diseño genérico. */
+  --radio-control: 8px;
+  --radio-tarjeta: 16px;
+  --radio-tarjeta-grande: 16px;
+  --radio-bloque: 12px;
+  --radio-control-grande: 10px;
+  --radio-pastilla: 999px;
+  --borde-fino: 1px;
+  /* Rejilla: 16 px entre bloques (antes 18-26). */
+  --hueco: 16px;
+  /* ------------------------------------------------------------------------
+     MOVIMIENTO (docs/DECISIONES.md, 2026-09-28). Dos curvas y nada más:
+     - `--ease-suave`: entradas, salidas, fades y color.
+     - `--resorte`: lo que se DESLIZA entre posiciones (indicadores, tooltip,
+       hermanos que se reacomodan). Es un resorte real (rigidez 300,
+       amortiguación 30) muestreado con `linear()`; su espejo en JavaScript
+       está en lib/movimiento.js y un test exige que coincidan.
+     Prohibidos `linear` a secas, `ease` por defecto y rebotes. Excepciones
+     con su porqué en el test de movimiento: el giro del spinner y el vaivén
+     de los dos bucles.
+     ------------------------------------------------------------------------ */
+  --ease-suave: cubic-bezier(0.32, 0.72, 0, 1);
+  --resorte: linear(0, 0.054, 0.1752, 0.3201, 0.4636, 0.5923, 0.7005, 0.7872, 0.8541, 0.9039, 0.9397, 0.9647, 0.9814, 0.9921, 0.9985, 1.0021, 1.0038, 1.0043, 1.0042, 1.0037, 1.0031, 1.0024, 1.0019, 1.0014, 1);
+  --resorte-duracion: 506ms;
+  /* Escala de duraciones: color 150, salida 180, entrada 280, bloque 300
+     (2026-09-29: de 480 a 300; el dashboard se abre varias veces al día). */
+  --dur-color: 150ms;
+  --dur-salida: 180ms;
+  --dur-entrada: 280ms;
+  --dur-bloque: 300ms;
+  /* Movimiento de DATOS (barras que crecen, contadores, trazo de la gráfica):
+     más largo que la interfaz a propósito, porque explica un valor. */
+  --dur-dato: 700ms;
+  /* Vaivén de los dos bucles permitidos (flotación 3D y halo): senoidal
+     (easeInOutSine de easings.net). Con una curva de salida el bucle da un
+     tirón en cada vuelta; por eso es la ÚNICA excepción a las dos curvas. */
+  --vaiven: cubic-bezier(0.37, 0, 0.63, 1);
+  /* Única transición de color del producto (hover de botones, filas, campos). */
+  --transicion: var(--dur-color) var(--ease-suave);
+}
+
+/* ==========================================================================
+   ROLES SEMÁNTICOS — MODO CLARO (por defecto desde el 2026-10-01)
+   Contrastes AA (WCAG 2.x) sobre blanco: texto 17,7:1 · nav 10,4:1 ·
+   terciario 7,7:1 · secundario 5,2:1 (4,9:1 sobre el relleno #F7F7F9) ·
+   blanco sobre el botón grafito 17,7:1.
+   `:root` sin atributo también es claro: es lo que se pinta antes de que
+   React monte, así no hay un cuadro del modo equivocado.
+   ========================================================================== */
+:root,
+:root[data-theme="claro"] {
+  color-scheme: light;
+
+  /* El color del que salen las opacidades de jerarquía (foco, selección). */
+  --tinta: var(--claro-texto);
+
+  --fondo: var(--claro-fondo);
+  --superficie: var(--claro-superficie);
+  --superficie-alta: var(--claro-superficie);
+  --superficie-sutil: var(--claro-relleno);
+  /* Bloque gris interior de las tarjetas KPI y encabezado de las tablas. */
+  --relleno: var(--claro-relleno);
+
+  --borde: var(--claro-borde);
+  --borde-fuerte: var(--claro-eje);
+
+  --texto: var(--claro-texto);
+  --texto-secundario: var(--claro-secundario);
+  --texto-terciario: var(--claro-terciario);
+  --texto-suave: var(--claro-nav);
+  --texto-sobre-acento: var(--claro-superficie);
+  /* Texto sobre la píldora activa (gris sutil): el principal, en 600. */
+  --texto-sobre-activo: var(--claro-texto);
+
+  /* Positivo = tono pleno; negativo = apagado. SIEMPRE con ▲/▼. */
+  --positivo-texto: var(--claro-texto);
+  --positivo-insignia: var(--claro-texto);
+  --positivo-fondo: var(--claro-sutil);
+  --positivo-borde: var(--claro-eje);
+  --positivo-punto: var(--claro-texto);
+  --negativo-texto: var(--claro-secundario);
+  --negativo-insignia: var(--claro-secundario);
+  --negativo-fondo: var(--claro-relleno);
+  --negativo-borde: var(--claro-borde);
+  --negativo-punto: var(--claro-eje);
+  --advertencia-texto: var(--claro-terciario);
+  --advertencia-insignia: var(--claro-texto);
+  --advertencia-fondo: var(--claro-sutil);
+  --advertencia-borde: var(--claro-eje);
+  --advertencia-punto: var(--claro-terciario);
+  --neutro-texto: var(--claro-secundario);
+  --neutro-fondo: var(--claro-sutil);
+  --neutro-borde: var(--claro-borde);
+
+  /* Acento = grafito. La capa de tenant puede sobreescribir --color-primario
+     (theme/tokens.js) y el producto entero responde. */
+  --acento-base: var(--claro-texto);
+  --acento-claro: var(--claro-nav);
+  --acento-oscuro: var(--claro-texto);
+  --acento-profundo-base: var(--claro-texto);
+  --acento-luz-base: var(--claro-secundario);
+  --acento-texto-base: var(--claro-texto);
+  /* Botón primario: grafito sólido con texto blanco. */
+  --boton-base: var(--claro-texto);
+  --boton-borde-base: var(--claro-texto);
+  --halo-acento: color-mix(in srgb, var(--claro-texto) 10%, transparent);
+
+  /* Gráfica: misma forma (área con degradado, comparativa punteada y
+     proyección); la escala va del secundario al principal. La comparativa
+     usa el secundario y no el gris del eje: una línea que se lee tiene que
+     llegar a 3:1 (WCAG 1.4.11) y #D4D4DA sobre blanco se queda en 1,5:1. */
+  --grid-grafica: var(--claro-divisor);
+  --eje-grafica: var(--claro-eje);
+  --serie-comparacion: var(--claro-secundario);
+  --serie-inicio-base: var(--claro-secundario);
+  --serie-medio-base: var(--claro-nav);
+  --serie-fin-base: var(--claro-texto);
+
+  /* Objetos 3D y miniaturas: cuatro escalones, del más claro al más hondo. */
+  --tono-1: var(--claro-sutil);
+  --tono-2: var(--claro-eje);
+  --tono-3: var(--claro-secundario);
+  --tono-4: var(--claro-nav);
+
+  /* Líneas: divisoria fina (filas) y borde. */
+  --linea: var(--claro-divisor);
+  --linea-fuerte: var(--claro-borde);
+
+  /* Superficies planas: ni degradados de fondo ni sombras (2026-10-01). */
+  --sombra-flotante: color-mix(in srgb, var(--claro-texto) 10%, transparent);
+  --tarjeta-borde-hover: var(--claro-eje);
+  /* Luz que sigue al cursor sobre las fichas: apenas un velo. */
+  --tarjeta-luz: color-mix(in srgb, var(--claro-texto) 3%, transparent);
+  /* Pozo de las píldoras segmentadas y del buscador. */
+  --hueco-fondo: var(--claro-sutil);
+  --realce-suave: var(--claro-relleno);
+  --realce-medio: var(--claro-sutil);
+  --cajon-fondo: var(--claro-superficie);
+  --velo: color-mix(in srgb, var(--claro-texto) 32%, transparent);
+}
+
+/* ==========================================================================
+   ROLES SEMÁNTICOS — MODO OSCURO (invertido, mismo criterio)
+   Contrastes AA sobre #141416: texto 17,0:1 · secundario 5,6:1 · terciario
+   (texto al 60 % sobre el secundario) 9,9:1 · grafito sobre el botón claro
+   17,0:1. El oscuro tiene siete tokens: divisor, eje, terciario y nav salen
+   de mezclar sus propios tokens, sin traer ningún gris del claro.
+
+   `.esquema-oscuro` fuerza este mismo esquema en un subárbol aunque el modo
+   claro esté activo: lo usan login y registro (panel transparente sobre
+   fondo negro, decisión del 2026-09-30 que se conserva tras el rediseño).
+   Mismos roles, mismos tokens: ningún color nuevo.
+   ========================================================================== */
+:root[data-theme="oscuro"],
+.esquema-oscuro {
+  color-scheme: dark;
+
+  --tinta: var(--oscuro-texto);
+
+  --fondo: var(--oscuro-fondo);
+  --superficie: var(--oscuro-superficie);
+  --superficie-alta: var(--oscuro-relleno);
+  --superficie-sutil: var(--oscuro-relleno);
+  --relleno: var(--oscuro-relleno);
+
+  --borde: var(--oscuro-borde);
+  --borde-fuerte: color-mix(in srgb, var(--oscuro-secundario) 45%, var(--oscuro-borde));
+
+  --texto: var(--oscuro-texto);
+  --texto-secundario: var(--oscuro-secundario);
+  --texto-terciario: color-mix(in srgb, var(--oscuro-texto) 60%, var(--oscuro-secundario));
+  --texto-suave: color-mix(in srgb, var(--oscuro-texto) 80%, var(--oscuro-secundario));
+  --texto-sobre-acento: var(--oscuro-fondo);
+  --texto-sobre-activo: var(--oscuro-texto);
+
+  --positivo-texto: var(--oscuro-texto);
+  --positivo-insignia: var(--oscuro-texto);
+  --positivo-fondo: var(--oscuro-sutil);
+  --positivo-borde: color-mix(in srgb, var(--oscuro-secundario) 45%, var(--oscuro-borde));
+  --positivo-punto: var(--oscuro-texto);
+  --negativo-texto: var(--oscuro-secundario);
+  --negativo-insignia: var(--oscuro-secundario);
+  --negativo-fondo: var(--oscuro-relleno);
+  --negativo-borde: var(--oscuro-borde);
+  --negativo-punto: color-mix(in srgb, var(--oscuro-secundario) 45%, var(--oscuro-borde));
+  --advertencia-texto: color-mix(in srgb, var(--oscuro-texto) 60%, var(--oscuro-secundario));
+  --advertencia-insignia: var(--oscuro-texto);
+  --advertencia-fondo: var(--oscuro-sutil);
+  --advertencia-borde: color-mix(in srgb, var(--oscuro-secundario) 45%, var(--oscuro-borde));
+  --advertencia-punto: var(--oscuro-secundario);
+  --neutro-texto: var(--oscuro-secundario);
+  --neutro-fondo: var(--oscuro-sutil);
+  --neutro-borde: var(--oscuro-borde);
+
+  --acento-base: var(--oscuro-texto);
+  --acento-claro: var(--oscuro-texto);
+  --acento-oscuro: var(--oscuro-texto);
+  --acento-profundo-base: var(--oscuro-texto);
+  --acento-luz-base: var(--oscuro-secundario);
+  --acento-texto-base: var(--oscuro-texto);
+  /* Botón primario: casi blanco con texto casi negro. */
+  --boton-base: var(--oscuro-texto);
+  --boton-borde-base: var(--oscuro-texto);
+  --halo-acento: color-mix(in srgb, var(--oscuro-texto) 12%, transparent);
+
+  --grid-grafica: color-mix(in srgb, var(--oscuro-texto) 6%, transparent);
+  --eje-grafica: var(--oscuro-borde);
+  --serie-comparacion: var(--oscuro-secundario);
+  --serie-inicio-base: var(--oscuro-secundario);
+  --serie-medio-base: color-mix(in srgb, var(--oscuro-texto) 60%, var(--oscuro-secundario));
+  --serie-fin-base: var(--oscuro-texto);
+
+  --tono-1: var(--oscuro-texto);
+  --tono-2: var(--oscuro-secundario);
+  --tono-3: var(--oscuro-borde);
+  --tono-4: var(--oscuro-relleno);
+
+  --linea: color-mix(in srgb, var(--oscuro-texto) 6%, transparent);
+  --linea-fuerte: var(--oscuro-borde);
+
+  --sombra-flotante: color-mix(in srgb, var(--oscuro-fondo) 70%, transparent);
+  --tarjeta-borde-hover: color-mix(in srgb, var(--oscuro-secundario) 45%, var(--oscuro-borde));
+  --tarjeta-luz: color-mix(in srgb, var(--oscuro-texto) 5%, transparent);
+  --hueco-fondo: var(--oscuro-relleno);
+  --realce-suave: var(--oscuro-relleno);
+  --realce-medio: var(--oscuro-sutil);
+  --cajon-fondo: var(--oscuro-superficie);
+  --velo: color-mix(in srgb, var(--oscuro-fondo) 70%, transparent);
+}
+
+/* El acceso (login y registro) conserva la jerarquía con la que se aprobó el
+   2026-09-30: terciario y suave como el texto principal al 62 % y al 82 %
+   (placeholders y etiquetas apagados sobre el negro). En el resto del modo
+   oscuro el terciario es más claro que el secundario, como en el claro; aquí
+   eso dejaba el placeholder casi igual que un valor escrito. Mismos tokens,
+   solo opacidad: 7,1:1 y 12,1:1 sobre #0A0A0B. */
+.esquema-oscuro {
+  --texto-terciario: color-mix(in srgb, var(--oscuro-texto) 62%, transparent);
+  --texto-suave: color-mix(in srgb, var(--oscuro-texto) 82%, transparent);
+}
+
+/* --------------------------------------------------------------------------
+   CAPA DE TENANT
+   --color-primario lo inyecta aplicarTema() cuando el cliente tiene un color
+   propio. Si no lo define, cae al acento del modo activo. Todo el producto usa
+   --acento / --boton / --serie-*, así que sobreescribir el color del tenant
+   repinta la marca entera sin tocar ningún componente. Esta paleta es la BASE
+   por defecto, no un reemplazo de esta capa.
+
+   `.esquema-oscuro` recalcula aquí los derivados: una variable se resuelve
+   donde se declara, así que sin esto heredaría los valores del modo claro
+   calculados en :root.
+   -------------------------------------------------------------------------- */
+:root,
+.esquema-oscuro {
+  --acento: var(--color-primario, var(--acento-base));
+  --acento-hover: var(--color-primario-claro, var(--acento-claro));
+  --acento-activo: var(--color-primario-oscuro, var(--acento-oscuro));
+  --acento-luz: var(--color-primario-claro, var(--acento-luz-base));
+  --acento-profundo: var(--color-primario-oscuro, var(--acento-profundo-base));
+  /* Acento usado como TEXTO (enlaces, cifra destacada). */
+  --acento-texto: var(--color-primario, var(--acento-texto-base));
+  --boton: var(--color-primario, var(--boton-base));
+  --boton-borde: var(--color-primario-oscuro, var(--boton-borde-base));
+  /* Serie actual de la gráfica: degradado horizontal de tres paradas. */
+  --serie-inicio: var(--color-primario-oscuro, var(--serie-inicio-base));
+  --serie-medio: var(--color-primario, var(--serie-medio-base));
+  --serie-fin: var(--color-primario-claro, var(--serie-fin-base));
+}
+
+/* ==========================================================================
+   BASE
+   ========================================================================== */
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+/* El fondo vive en `html`, no en `body`: así cubre el rebote del scroll.
+   Plano desde el 2026-10-01 (el gris #EDEDF0 en claro): sin degradados. */
+html {
+  background-color: var(--fondo);
+  /* Sin esto `html` conserva el color por defecto del navegador (blanco en
+     oscuro, negro en claro), fuera de la paleta, y lo heredaría cualquier
+     nodo que quede fuera de `body`. */
+  color: var(--texto);
+}
+
+body {
+  margin: 0;
+  background: transparent;
+  font-family: var(--fuente-base);
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--texto);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--fuente-titulo);
+  font-weight: 400;
+  letter-spacing: -0.01em;
+}
+
+/* Cifras y montos: tabular obligatorio para que las columnas de dinero alineen */
+.cifra {
+  font-family: var(--fuente-mono);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+  letter-spacing: -0.01em;
+}
+
+/* ENTRADA DE VISTA: cada pantalla entra con fade y un deslizamiento corto
+   desde abajo. Corre una vez por montaje del nodo (la key por ruta de
+   AppLayout; StrictMode no remonta el DOM) y termina quieta en su sitio.
+   SIN retardo: medido el 2026-09-28, un retardo aquí sumado a otra opacidad
+   animada por encima atrasaba el LCP del dashboard cientos de ms. La
+   pantalla saliente (clon) va ENCIMA y se desvanece mientras esta aparece
+   debajo, así que no se ven dos superpuestas. */
+.vista {
+  animation: vista-entra var(--dur-entrada) var(--ease-suave) backwards;
+}
+@keyframes vista-entra {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+/* SALIDA DE VISTA: AppLayout clona el DOM de la pantalla que se va, lo deja
+   encima, inerte, y lo desvanece subiendo un poco (WAAPI, 180 ms). El clon
+   ya no es React: no puede volver a pedir datos ni reaccionar a la ruta
+   nueva. Sus animaciones se dan por TERMINADAS (retardo negativo), porque
+   un nodo recién insertado las reiniciaría desde opacidad 0 y el clon
+   aparecería vacío un instante. */
+.vista-fantasma {
+  position: absolute;
+  z-index: 2;
+  pointer-events: none;
+  /* Su layout y su pintado no afectan a nada de fuera: insertarlo no
+     recalcula la pantalla que entra. */
+  contain: layout paint style;
+}
+.vista-fantasma,
+.vista-fantasma * {
+  animation-duration: 1ms !important;
+  animation-delay: -1s !important;
+  animation-iteration-count: 1 !important;
+  transition: none !important;
+}
+
+/* Entrada escalonada de los bloques del dashboard (`.reveal` de la maqueta).
+   SOLO transform y opacity, `backwards` para que el bloque no destelle antes
+   de que empiece su retardo, y corre UNA vez: termina en su sitio y se queda
+   quieta. El retardo se pasa como `--d` desde el componente (50-60 ms entre
+   tarjetas). El bloque es el MISMO nodo con esqueleto que con datos, así la
+   entrada nunca se repite al llegar la respuesta. */
+.reveal {
+  animation: reveal-sube var(--dur-bloque) var(--ease-suave) backwards;
+  animation-delay: var(--d, 0s);
+}
+@keyframes reveal-sube {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+}
+
+/* Foco visible y consistente en todo control navegable por teclado */
+:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--tinta) 22%, transparent);
+  border-radius: var(--radio-control);
+}
+
+::selection {
+  background: color-mix(in srgb, var(--tinta) 22%, transparent);
+  color: var(--texto);
+}
+
+/* Scrollbar discreta */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--borde-fuerte) transparent;
+}
+
+/* Con movimiento reducido no basta con acortar la duración: si quedan los
+   RETARDOS, un bloque con `--d: .28s` se queda invisible casi un tercio de
+   segundo y el dashboard aparece a trozos. Se anulan los dos. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-delay: 0s !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    transition-delay: 0s !important;
+  }
+
+  /* Movimiento reducido es MENOS movimiento, no cero feedback (2026-09-29).
+     Tres excepciones, todas sin desplazamiento y sin retardo (los retardos
+     siguen en 0 por la regla de arriba):
+     - El spinner sigue girando, lento: congelado no dice que algo carga.
+       Antes `.spinner { animation-duration: 2s }` en ui.css perdía contra
+       el `!important` de arriba y el spinner quedaba quieto.
+     - La vista nueva entra con un fade de opacidad (sin los 8 px).
+     - Las alertas aparecen y se van con su fade de opacidad. */
+  .spinner {
+    animation: spinner-giro 2s linear infinite !important;
+  }
+  .vista {
+    animation: vista-aparece var(--dur-entrada) var(--ease-suave) !important;
+  }
+  .alerta {
+    transition-duration: var(--duracion-alerta) !important;
+  }
+}
+@keyframes vista-aparece {
+  from {
+    opacity: 0;
+  }
+}

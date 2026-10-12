@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200" role="img" aria-label="cubo-arena">
+
+  <defs>
+    <filter id="sombra" x="-30%" y="-30%" width="160%" height="180%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="6"/>
+      <feOffset dy="10" result="b"/>
+      <feComponentTransfer><feFuncA type="linear" slope="0.35"/></feComponentTransfer>
+      <feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <radialGradient id="contacto" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#0A0A0B" stop-opacity="0.35"/>
+      <stop offset="100%" stop-color="#0A0A0B" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <linearGradient id="cara-top" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0%" stop-color="#F7F7F9" stop-opacity="0.95"/>
+    <stop offset="100%" stop-color="#F7F7F9"/>
+  </linearGradient>
+  <linearGradient id="cara-izq" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0%" stop-color="#D4D4DA"/>
+    <stop offset="100%" stop-color="#6B6B76"/>
+  </linearGradient>
+  <linearGradient id="cara-der" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0%" stop-color="#6B6B76"/>
+    <stop offset="100%" stop-color="#3F3F46"/>
+  </linearGradient>
+  <ellipse cx="100" cy="168" rx="58" ry="12" fill="url(#contacto)"/>
+  <g filter="url(#sombra)" stroke-linejoin="round">
+    <path d="M100 36 L156 68 L100 100 L44 68 Z" fill="url(#cara-top)"/>
+    <path d="M44 68 L100 100 L100 164 L44 132 Z" fill="url(#cara-izq)"/>
+    <path d="M156 68 L100 100 L100 164 L156 132 Z" fill="url(#cara-der)"/>
+    <path d="M100 36 L156 68 L100 100 L44 68 Z" fill="none" stroke="#F7F7F9" stroke-opacity="0.35" stroke-width="1.5"/>
+  </g>
+</svg>

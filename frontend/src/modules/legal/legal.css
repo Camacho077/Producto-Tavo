@@ -1,0 +1,97 @@
+@layer components {
+  /* Documento legal: columna de lectura (~72 caracteres), tipografía del
+     producto (Playfair para títulos, Inter para el cuerpo), solo roles. */
+  .legal {
+    min-height: 100vh;
+    min-height: 100dvh;
+    padding: 1.5rem 1rem 2rem;
+    background-color: var(--fondo);
+    color: var(--texto);
+  }
+  .legal__columna {
+    max-width: 44rem;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+  .legal__barra {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+  .legal__marca {
+    font-family: var(--fuente-titulo);
+    font-size: 15px;
+    color: var(--texto-secundario);
+    text-decoration: none;
+  }
+  /* El documento va en la misma tarjeta del resto del producto (2026-10-01):
+     superficie blanca, borde de 1 px, 16 px de radio y sin sombra. */
+  .legal__documento {
+    padding: 1.5rem 1.75rem;
+    border: var(--borde-fino) solid var(--borde);
+    border-radius: var(--radio-tarjeta);
+    background-color: var(--superficie);
+    font-size: 14px;
+    line-height: 1.65;
+  }
+  @media (max-width: 640px) {
+    .legal__documento {
+      padding: 1rem;
+    }
+  }
+  .legal__documento h1 {
+    margin: 0.5rem 0 0.25rem;
+    font-family: var(--fuente-titulo);
+    font-size: 28px;
+    font-weight: 400;
+    line-height: 1.2;
+  }
+  .legal__documento h2 {
+    margin: 1.75rem 0 0.5rem;
+    font-family: var(--fuente-titulo);
+    font-size: 18px;
+    font-weight: 400;
+  }
+  .legal__documento p,
+  .legal__documento ul,
+  .legal__documento ol {
+    margin: 0 0 0.75rem;
+  }
+  /* El reset de Tailwind quita viñetas y números: en un documento legal los
+     numerales importan (se citan "numeral 5", "artículo 8"). */
+  .legal__documento ul,
+  .legal__documento ol {
+    padding-left: 1.25rem;
+  }
+  .legal__documento ul {
+    list-style: disc;
+  }
+  .legal__documento ol {
+    list-style: decimal;
+  }
+  .legal__documento li::marker {
+    color: var(--texto-secundario);
+  }
+  .legal__documento li + li {
+    margin-top: 0.25rem;
+  }
+  .legal__documento code {
+    font-family: var(--fuente-mono);
+    font-size: 12.5px;
+  }
+  /* Aviso de BORRADOR: caja con borde uniforme y fondo elevado, sin color de
+     alerta (la paleta no tiene rojo) ni franja lateral. */
+  .legal__aviso {
+    padding: 0.75rem 1rem;
+    border: var(--borde-fino) solid var(--borde-fuerte);
+    border-radius: var(--radio-bloque);
+    background-color: var(--relleno);
+    font-size: 13px;
+  }
+  .legal .pie-legal {
+    padding-top: 1rem;
+    border-top: var(--borde-fino) solid var(--borde);
+  }
+}

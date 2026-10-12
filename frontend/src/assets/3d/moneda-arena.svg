@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200" role="img" aria-label="moneda-arena">
+
+  <defs>
+    <filter id="sombra" x="-30%" y="-30%" width="160%" height="180%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="6"/>
+      <feOffset dy="10" result="b"/>
+      <feComponentTransfer><feFuncA type="linear" slope="0.35"/></feComponentTransfer>
+      <feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <radialGradient id="contacto" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#0A0A0B" stop-opacity="0.35"/>
+      <stop offset="100%" stop-color="#0A0A0B" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <linearGradient id="canto" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0%" stop-color="#D4D4DA"/>
+    <stop offset="100%" stop-color="#3F3F46"/>
+  </linearGradient>
+  <radialGradient id="caraM" cx="35%" cy="30%" r="80%">
+    <stop offset="0%" stop-color="#F7F7F9"/>
+    <stop offset="35%" stop-color="#F7F7F9"/>
+    <stop offset="100%" stop-color="#D4D4DA"/>
+  </radialGradient>
+  <ellipse cx="100" cy="168" rx="58" ry="12" fill="url(#contacto)"/>
+  <g filter="url(#sombra)">
+    <ellipse cx="100" cy="112" rx="62" ry="40" fill="url(#canto)"/>
+    <rect x="38" y="88" width="124" height="24" fill="url(#canto)"/>
+    <ellipse cx="100" cy="88" rx="62" ry="40" fill="url(#caraM)"/>
+    <ellipse cx="100" cy="88" rx="44" ry="27" fill="none" stroke="#6B6B76" stroke-opacity="0.35" stroke-width="3"/>
+  </g>
+</svg>

@@ -1,0 +1,55 @@
+@layer components {
+  /* Pie legal (2026-09-30): datos de la empresa y enlaces a la Política de
+     tratamiento de datos y a los Términos. Discreto y denso: una o dos líneas
+     de 12 px en el tono secundario (AA en ambos modos). */
+  .pie-legal {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.25rem 1.25rem;
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--texto-secundario);
+  }
+  .pie-legal__enlaces {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem 1rem;
+  }
+  .pie-legal__enlaces a {
+    color: inherit;
+    text-decoration: underline;
+    text-decoration-color: color-mix(in srgb, currentColor 40%, transparent);
+    text-underline-offset: 3px;
+    transition: text-decoration-color var(--dur-color) var(--ease-suave);
+  }
+  .pie-legal__enlaces a:hover {
+    text-decoration-color: currentColor;
+  }
+  .pie-legal__enlaces a:focus-visible {
+    outline: 2px solid var(--acento);
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+  .pie-legal__datos {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem 0.75rem;
+    margin: 0;
+  }
+  .pie-legal__datos > span + span::before {
+    content: "·";
+    margin-right: 0.75rem;
+    color: var(--texto-terciario);
+  }
+}
+
+@layer components {
+  /* En el marco de la aplicación: al fondo del panel, separado por una línea. */
+  .main__pie {
+    margin-top: 1.5rem;
+    padding-top: 0.75rem;
+    border-top: var(--borde-fino) solid var(--borde);
+  }
+}

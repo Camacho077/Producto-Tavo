@@ -1,0 +1,55 @@
+@layer components {
+  /* ==========================================================================
+     MARCADORES DE CARGA y hover de filas.
+     Las reglas de movimiento del producto (qué se anima, con qué curva y
+     cuáles son los únicos bucles) viven en docs/DECISIONES.md y las protege
+     src/reglas-de-movimiento.test.js. Curvas y duraciones: tokens de
+     index.css (--ease-suave, --resorte, --dur-*), nunca valores sueltos.
+     ========================================================================== */
+
+  /* --------------------------------------------------------------------------
+     HOVER en filas: solo color de fondo, 150 ms
+     -------------------------------------------------------------------------- */
+  @media (hover: hover) {
+    .tabla tbody tr {
+      transition: background-color var(--transicion);
+    }
+    .tabla tbody tr:hover {
+      background-color: var(--realce-suave);
+    }
+  }
+
+  /* --------------------------------------------------------------------------
+     MARCADORES DE CARGA — estáticos, misma forma que el contenido final
+     -------------------------------------------------------------------------- */
+  .skeleton {
+    border-radius: 6px;
+    background-color: color-mix(in srgb, var(--tinta) 10%, transparent);
+  }
+  .skeleton--cifra {
+    height: 1.6rem;
+    width: 55%;
+    margin-top: 0.5rem;
+  }
+
+  /* Imagen 3D (detalle de producto y miniatura del listado; estática) */
+  .imagen-3d {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+  }
+  .imagen-3d__marco {
+    display: grid;
+    place-items: center;
+    aspect-ratio: 1;
+    border-radius: var(--radio-bloque);
+    background-color: var(--realce-medio);
+    overflow: hidden;
+  }
+  /* En el listado la misma imagen va como miniatura (44 px, radio 10 px). */
+  .imagen-3d__marco.miniatura {
+    display: inline-grid;
+    border-radius: 10px;
+  }
+}

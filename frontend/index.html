@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>JS Company</title>
+    <!-- Modo guardado ANTES del primer pintado: sin esto, quien eligió el
+         oscuro veía un cuadro en claro hasta que React montaba. Misma clave y
+         mismos valores que theme/ThemeContext.jsx. -->
+    <script>
+      try {
+        var m = localStorage.getItem("js_company_modo");
+        if (m === "claro" || m === "oscuro") document.documentElement.setAttribute("data-theme", m);
+      } catch (e) {}
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>

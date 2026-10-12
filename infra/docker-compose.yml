@@ -1,0 +1,53 @@
+version: "3.9"
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: js_admin
+      POSTGRES_PASSWORD: js_admin
+      POSTGRES_DB: js_company_erp
+    ports:
+      - "5432:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U js_admin"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ../backend
+    restart: unless-stopped
+    env_file:
+      - ../backend/.env
+    environment:
+      DATABASE_URL: postgresql://js_admin:js_admin@db:5432/js_company_erp
+    ports:
+      # Host 8001 -> contenedor 8000. En el host se usa 8001 para no chocar
+      # con reservas de puerto de Windows/Hyper-V sobre el 8000 (ver README).
+      # Dentro del contenedor el 8000 es seguro: es otro namespace de red.
+      - "8001:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    command: >
+      sh -c "alembic upgrade head &&
+             uvicorn app.main:app --host 0.0.0.0 --port 8000"
+
+  frontend:
+    build:
+      context: ../frontend
+    restart: unless-stopped
+    environment:
+      VITE_API_URL: http://localhost:8001/api/v1
+    ports:
+      - "5173:5173"
+    depends_on:
+      - backend
+
+volumes:
+  db_data:

@@ -1,0 +1,204 @@
+@layer components {
+  /* ==========================================================================
+     SUGERENCIAS IA — misma tarjeta y misma escala de grises que el resto del
+     producto. El nivel de cada sugerencia lo dicen su etiqueta y la
+     intensidad del punto, nunca un color. Sin animaciones propias: la vista
+     entra con el fade de siempre.
+     ========================================================================== */
+  .ia {
+    display: flex;
+    flex-direction: column;
+    gap: var(--hueco);
+  }
+  .ia .encabezado-pagina {
+    margin-bottom: 0;
+  }
+
+  .ia-base {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .ia-base__privacidad {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    margin: 0;
+    font-size: 13px;
+    color: var(--texto-suave);
+  }
+  .ia-base__privacidad svg {
+    flex: none;
+    margin-top: 1px;
+  }
+  .ia-base__meta {
+    margin: 0;
+    font-size: 12px;
+    color: var(--texto-secundario);
+  }
+  .ia-base__insuficiente {
+    margin: 4px 0 0;
+    padding: 10px 14px;
+    border: 1px solid var(--borde);
+    border-radius: var(--radio-bloque);
+    background-color: var(--relleno);
+    font-size: 13px;
+    line-height: 1.5;
+    color: var(--texto);
+  }
+
+  .ia-rejilla {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(26rem, 100%), 1fr));
+    gap: var(--hueco);
+    align-items: start;
+  }
+
+  .ia-seccion__cabeza {
+    margin-bottom: 12px;
+  }
+  .ia-seccion__titulo {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0;
+    font-family: var(--fuente-titulo);
+    font-size: 17px;
+    font-weight: 500;
+    color: var(--texto);
+  }
+  .ia-seccion__cuenta {
+    display: inline-grid;
+    place-items: center;
+    min-width: 22px;
+    height: 22px;
+    padding: 0 6px;
+    border-radius: var(--radio-pastilla);
+    background-color: var(--realce-medio);
+    border: 1px solid var(--borde);
+    font-family: var(--fuente-mono);
+    font-size: 11.5px;
+    color: var(--texto);
+  }
+  .ia-seccion__descripcion {
+    margin: 2px 0 0;
+    font-size: 12px;
+    color: var(--texto-secundario);
+  }
+  .ia-seccion__vacia {
+    margin: 0;
+    padding: 12px 14px;
+    border-radius: var(--radio-bloque);
+    background-color: var(--relleno);
+    font-size: 13px;
+    line-height: 1.5;
+    color: var(--texto-secundario);
+  }
+
+  .ia-sugerencias {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  /* Capa doble, como las KPI del dashboard: el bloque gris lleva la
+     explicación y las cifras. */
+  .ia-sugerencia {
+    padding: 14px;
+    border-radius: var(--radio-bloque);
+    background-color: var(--relleno);
+    border: 1px solid var(--linea);
+  }
+  .ia-sugerencia__cabeza {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .ia-sugerencia__nivel {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--texto-secundario);
+  }
+  .ia-sugerencia__punto {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background-color: var(--borde-fuerte);
+  }
+  .ia-sugerencia--critico .ia-sugerencia__punto {
+    background-color: var(--texto);
+  }
+  .ia-sugerencia--advertencia .ia-sugerencia__punto,
+  .ia-sugerencia--oportunidad .ia-sugerencia__punto {
+    background-color: var(--texto-secundario);
+  }
+  .ia-sugerencia--critico .ia-sugerencia__nivel {
+    color: var(--texto);
+  }
+  .ia-sugerencia__titulo {
+    margin: 0;
+    font-family: var(--fuente-base);
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: 0;
+    line-height: 1.35;
+    color: var(--texto);
+  }
+  .ia-sugerencia__porque {
+    margin: 8px 0 0;
+    font-size: 13px;
+    line-height: 1.55;
+    color: var(--texto-suave);
+  }
+  .ia-sugerencia__porque strong {
+    font-weight: 600;
+    color: var(--texto);
+  }
+  .ia-sugerencia__datos {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(9.5rem, 1fr));
+    gap: 8px;
+    margin: 10px 0 0;
+  }
+  .ia-sugerencia__datos > div {
+    padding: 8px 10px;
+    border-radius: var(--radio-control);
+    background-color: var(--superficie);
+    border: 1px solid var(--borde);
+  }
+  .ia-sugerencia__datos dt {
+    font-size: 11px;
+    color: var(--texto-secundario);
+  }
+  .ia-sugerencia__datos dd {
+    margin: 2px 0 0;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--texto);
+  }
+  .ia-sugerencia__pie {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 6px 12px;
+    margin-top: 10px;
+  }
+  .ia-sugerencia__accion {
+    margin: 0;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--texto);
+  }
+  .ia-sugerencia__enlace {
+    font-size: 12.5px;
+    font-weight: 600;
+  }
+}

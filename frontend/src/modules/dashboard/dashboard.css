@@ -1,0 +1,876 @@
+@layer components {
+  /* ==========================================================================
+     DASHBOARD — rediseño monocromático (2026-10-01) sobre la maqueta aprobada
+     (docs/dashboard-referencia.html): misma información y mismo movimiento,
+     superficies planas.
+
+     Ningún color hardcodeado: todo sale de los roles de index.css, así el
+     dashboard sigue el modo claro/oscuro y el color de marca del tenant.
+
+     Forma: tarjetas blancas (`--superficie`) con 1 px de borde, radio 16 y
+     SIN sombras; rejilla con `--hueco` (16 px) entre bloques. El único bloque
+     lleno es "Decisiones con datos" (grafito invertido).
+
+     Movimiento permitido aquí:
+       · entrada en cascada de cada bloque (.reveal, transform + opacity, una vez)
+       · hover de tarjeta: SOLO el borde (de --borde a --borde-fuerte) y la luz
+         que sigue al cursor; ninguna tarjeta con datos se eleva
+       · barras de más vendidos: scaleX desde la izquierda, con desfase
+       · flotación suave de los objetos 3D (bucle permitido)
+       · halo del punto de la gráfica (bucle permitido, en charts.css)
+     Prohibido: animar width, height, top, left o box-shadow.
+     ========================================================================== */
+
+  /* --------------------------------------------------------------------------
+     ENCABEZADO — saludo a la izquierda; periodo y buscador a la derecha.
+     El timbre y el usuario se fueron al sidebar y a la barra superior.
+     -------------------------------------------------------------------------- */
+  .dash-head {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 12px var(--hueco);
+    flex-wrap: wrap;
+  }
+  .dash-head__texto {
+    min-width: 0;
+  }
+  .saludo {
+    margin: 0;
+    font-family: var(--fuente-titulo);
+    font-size: 30px;
+    font-weight: 600;
+    line-height: 1.2;
+    color: var(--texto);
+  }
+  .saludo__nombre {
+    color: var(--acento-texto);
+  }
+  .saludo__sub {
+    margin: 4px 0 0;
+    font-size: 13.5px;
+    color: var(--texto-secundario);
+  }
+  .dash-head__controles {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+
+  /* Buscador: píldora gris de 40 px, sin borde visible hasta el foco. */
+  .buscador-pastilla {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 260px;
+    height: 40px;
+    padding: 0 16px;
+    border-radius: var(--radio-pastilla);
+    background-color: var(--realce-medio);
+    border: 1px solid transparent;
+    color: var(--texto-secundario);
+    transition: border-color var(--dur-color) var(--ease-suave);
+  }
+  .buscador-pastilla:focus-within {
+    border-color: var(--borde-fuerte);
+  }
+  .buscador-pastilla input {
+    flex: 1;
+    min-width: 0;
+    height: 100%;
+    padding: 0;
+    border: 0;
+    outline: 0;
+    background: transparent;
+    font: inherit;
+    font-size: 13px;
+    color: var(--texto);
+  }
+  .buscador-pastilla input::placeholder {
+    color: var(--texto-secundario);
+  }
+
+  /* --------------------------------------------------------------------------
+     REJILLA — doce columnas, 16 px entre bloques.
+
+     Los cortes van por CONTENEDOR, no por ventana: el ancho disponible depende
+     de si el sidebar está fijo (> 1100 px) o es cajón, igual que con las
+     tablas. Una media query de ventana daba 804 px a 1101 y 1052 px a 1100.
+       ≥ 900 px   KPI en fila de cuatro
+       ≥ 1060 px  más vendidos | inventario 2×2 | proyección + decisiones
+       < 1060 px  más vendidos | proyección + decisiones; inventario en fila
+       < 700 px   una columna; inventario 2×2
+       < 520 px   KPI de uno en uno
+     -------------------------------------------------------------------------- */
+  .dash-resumen {
+    container: resumen / inline-size;
+  }
+  .dash-grid {
+    display: grid;
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+    gap: var(--hueco);
+    /* Cada bloque mide lo que su contenido: sin esto el grid estira el más
+       bajo hasta la altura del más alto y queda aire muerto. */
+    align-items: start;
+  }
+  .kpi {
+    grid-column: span 3;
+  }
+  .dash-vendidos {
+    grid-column: span 5;
+  }
+  .dash-inventario {
+    grid-column: span 4;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--hueco);
+    align-content: start;
+  }
+  .dash-inventario__vacio {
+    grid-column: 1 / -1;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    align-items: flex-start;
+  }
+  .dash-lateral {
+    grid-column: span 3;
+    display: flex;
+    flex-direction: column;
+    gap: var(--hueco);
+    min-width: 0;
+  }
+
+  @container resumen (max-width: 1059px) {
+    .dash-vendidos {
+      grid-column: span 7;
+    }
+    .dash-lateral {
+      grid-column: span 5;
+    }
+    /* El inventario pasa al final, a lo ancho: `order` y no `grid-row`,
+       porque con los KPI en 2x2 la fila cambia. */
+    .dash-inventario {
+      grid-column: 1 / -1;
+      order: 1;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+  }
+  @container resumen (max-width: 899px) {
+    .kpi {
+      grid-column: span 6;
+    }
+  }
+  @container resumen (max-width: 699px) {
+    .dash-vendidos,
+    .dash-lateral {
+      grid-column: 1 / -1;
+    }
+    .dash-inventario {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+  @container resumen (max-width: 519px) {
+    .kpi {
+      grid-column: 1 / -1;
+    }
+  }
+
+  /* --------------------------------------------------------------------------
+     TARJETAS — blancas, borde de 1 px, radio 16, sin sombra.
+     -------------------------------------------------------------------------- */
+  .tarjeta {
+    position: relative;
+    overflow: hidden;
+    min-width: 0;
+    background-color: var(--superficie);
+    border: 1px solid var(--borde);
+    border-radius: var(--radio-tarjeta);
+    /* Solo el color del borde: las tarjetas con datos no se elevan. */
+    transition: border-color var(--dur-color) var(--ease-suave);
+  }
+  /* LA LUZ QUE SIGUE AL CURSOR: un disco ya pintado (radio 240 px, se apaga
+     al 62 %) que TarjetaLuz mueve con translate3d una vez por cuadro. En el
+     monocromo es apenas un velo (--tarjeta-luz, 3 % de la tinta). La capa
+     solo se promueve mientras hay cursor encima. */
+  .tarjeta > .tarjeta__luz {
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 0;
+    width: 480px;
+    height: 480px;
+    pointer-events: none;
+    opacity: 0;
+    background: radial-gradient(circle closest-side, var(--tarjeta-luz), transparent 62%);
+    transition: opacity var(--dur-bloque) var(--ease-suave);
+  }
+  @media (hover: hover) and (pointer: fine) {
+    .tarjeta:hover {
+      border-color: var(--borde-fuerte);
+    }
+    .tarjeta:hover > .tarjeta__luz {
+      opacity: 1;
+      will-change: transform;
+    }
+    /* Tarjetas que se LEEN con el cursor encima (la gráfica de Rendimiento y
+       la lista de Más vendidos): nunca se desplazan. Desde el 2026-10-01
+       ninguna tarjeta con datos se eleva, pero esta regla se queda explícita
+       (la exige reglas-de-movimiento.test.js) por si una variante vuelve a
+       traer elevación. */
+    .tarjeta--quieta:hover {
+      transform: none;
+    }
+  }
+  .tarjeta > * {
+    position: relative;
+    z-index: 1;
+  }
+  .tarjeta--mini {
+    padding: 12px;
+  }
+  .tarjeta__titulo {
+    margin: 0;
+    font-family: var(--fuente-titulo);
+    font-size: 17px;
+    font-weight: 600;
+    color: var(--texto);
+  }
+
+  /* --------------------------------------------------------------------------
+     TARJETA KPI — capa doble: tarjeta blanca con 6 px de relleno; dentro, un
+     bloque gris (radio 12, 16 px) con icono y cifra; debajo, fuera del
+     bloque, la tendencia con 10 px.
+     -------------------------------------------------------------------------- */
+  .kpi {
+    padding: 6px;
+  }
+  .kpi__bloque {
+    /* La cifra se ajusta al ancho del bloque (cqi): un monto de nueve cifras
+       cabe en una sola línea desde la tarjeta más angosta de la rejilla. */
+    container-type: inline-size;
+    padding: 16px;
+    border-radius: var(--radio-bloque);
+    background-color: var(--relleno);
+  }
+  .kpi__cabeza {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+  }
+  .kpi__icono {
+    display: grid;
+    place-items: center;
+    flex: none;
+    width: 32px;
+    height: 32px;
+    border-radius: var(--radio-control);
+    background-color: var(--superficie);
+    border: 1px solid var(--borde);
+    color: var(--texto);
+  }
+  .kpi__etiqueta {
+    min-width: 0;
+    margin: 0;
+    font-size: 12.5px;
+    font-weight: 500;
+    color: var(--texto-secundario);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  /* No usa `.cifra`: esa regla vive fuera de capa en index.css y su
+     letter-spacing (-0.01em) le ganaría a este (-0.02em). */
+  .kpi__valor {
+    margin: 14px 0 0;
+    font-family: var(--fuente-mono);
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum" 1;
+    font-size: min(30px, 13cqi);
+    font-weight: 600;
+    line-height: 1.2;
+    letter-spacing: -0.02em;
+    color: var(--texto);
+    white-space: nowrap;
+  }
+  /* Alto mínimo = el de la insignia de variación (24 px) + 10 px arriba y
+     abajo: con o sin insignia, y con el marcador de carga, mide lo mismo. */
+  .kpi__tendencia {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    min-height: 44px;
+    padding: 10px;
+  }
+  .kpi__contexto {
+    min-width: 0;
+    font-size: 12px;
+    color: var(--texto-secundario);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* Tarjeta punteada: la proyección. El borde discontinuo dice por sí solo
+     que es una estimación, no un dato. */
+  .tarjeta-punteada {
+    min-width: 0;
+    padding: 12px 16px;
+    background-color: var(--superficie);
+    border: 1px dashed var(--borde-fuerte);
+    border-radius: var(--radio-tarjeta);
+  }
+
+  /* "Decisiones con datos": el ÚNICO bloque lleno del dashboard. Grafito con
+     texto blanco en claro; en oscuro se invierte solo (--boton es el claro). */
+  .tarjeta-acento {
+    position: relative;
+    min-width: 0;
+    padding: 16px;
+    background-color: var(--boton);
+    border: 1px solid var(--boton-borde);
+    border-radius: var(--radio-tarjeta);
+    color: var(--texto-sobre-acento);
+  }
+  .tarjeta-acento__titulo {
+    margin: 8px 0 0;
+    font-family: var(--fuente-titulo);
+    font-size: 18px;
+    font-weight: 600;
+  }
+  .tarjeta-acento__texto {
+    margin: 4px 0 0;
+    font-size: 12.5px;
+    line-height: 1.5;
+    /* El mismo texto de la tarjeta en opacidad: jerarquía sin otro gris. */
+    color: color-mix(in srgb, var(--texto-sobre-acento) 78%, transparent);
+  }
+
+  /* --------------------------------------------------------------------------
+     TEXTOS Y CIFRAS
+     -------------------------------------------------------------------------- */
+  .etiqueta {
+    margin: 0;
+    font-size: 12px;
+    letter-spacing: 0.03em;
+    color: var(--texto-secundario);
+  }
+  .etiqueta--acento {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--texto-secundario);
+  }
+  .cifra-media {
+    margin: 4px 0 0;
+    font-size: 22px;
+    font-weight: 600;
+    line-height: 1.2;
+    color: var(--texto);
+  }
+  .ayuda {
+    margin: 0;
+    font-size: 11.5px;
+    line-height: 1.5;
+    color: var(--texto-secundario);
+  }
+  .fila-entre {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .dash-vacio {
+    margin: 0;
+    font-size: 12px;
+    line-height: 1.55;
+    color: var(--texto-terciario);
+  }
+  .enlace--pequeno {
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  /* Insignia de variación: positivo pleno, negativo apagado, SIEMPRE ▲/▼. */
+  .insignia {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 9px;
+    border-radius: var(--radio-pastilla);
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .insignia--sube {
+    color: var(--positivo-insignia);
+    background-color: var(--positivo-fondo);
+  }
+  .insignia--baja {
+    color: var(--negativo-insignia);
+    background-color: var(--negativo-fondo);
+  }
+
+  /* Botón sobre el bloque grafito: invierte otra vez (blanco con texto grafito). */
+  .boton-claro {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 10px;
+    padding: 8px 14px;
+    border: 0;
+    border-radius: var(--radio-control-grande);
+    background-color: var(--texto-sobre-acento);
+    color: var(--boton);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition:
+      transform var(--dur-color) var(--ease-suave),
+      background-color var(--dur-color) var(--ease-suave);
+  }
+  /* La elevación solo con cursor real: en táctil el :hover se queda pegado
+     después del toque. Es un botón, no una tarjeta con datos. */
+  @media (hover: hover) and (pointer: fine) {
+    .boton-claro:hover {
+      transform: translateY(-2px);
+      background-color: var(--texto-sobre-acento);
+      color: var(--boton);
+    }
+  }
+  .boton-claro:active {
+    transform: scale(0.97);
+  }
+
+  /* --------------------------------------------------------------------------
+     MÁS VENDIDOS
+     -------------------------------------------------------------------------- */
+  .dash-vendidos {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 16px;
+  }
+  .lista-productos {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .producto {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 10px 6px;
+    border-radius: var(--radio-control-grande);
+    color: inherit;
+    text-decoration: none;
+    transition:
+      background-color var(--dur-color) var(--ease-suave),
+      opacity var(--dur-entrada) var(--ease-suave),
+      transform var(--dur-entrada) var(--ease-suave);
+  }
+  .producto:hover {
+    background-color: var(--relleno);
+    color: inherit;
+  }
+  /* Al cambiar de periodo, un producto que ENTRA al ranking sube con un fade
+     corto. Solo después de la primera carga (`data-vivo` lo pone el
+     componente tras montar): en la primera, la lista reemplaza al esqueleto
+     en su sitio y no debe venir desde opacidad 0 (eso era un parpadeo). */
+  @starting-style {
+    [data-vivo] > .producto,
+    [data-vivo] > .tarjeta--mini {
+      opacity: 0;
+      transform: translateY(6px);
+    }
+  }
+  .producto__cuerpo {
+    flex: 1;
+    min-width: 0;
+  }
+  .producto__nombre {
+    margin: 0;
+    font-size: 13.5px;
+    font-weight: 600;
+    color: var(--texto);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .producto__categoria {
+    margin: 2px 0 0;
+    font-size: 11.5px;
+    color: var(--texto-secundario);
+  }
+  .producto__fin {
+    flex: none;
+    text-align: right;
+  }
+  .producto__monto {
+    margin: 0 0 4px;
+    font-size: 13.5px;
+    font-weight: 600;
+    color: var(--texto);
+  }
+
+  /* Barra de participación: 6 px, radio completo, pista gris y relleno en la
+     tinta. Escala con scaleX desde la izquierda: animar `width` obligaría a
+     recalcular el layout de la fila en cada cuadro. */
+  .barra {
+    display: block;
+    height: 6px;
+    margin-top: 7px;
+    border-radius: var(--radio-pastilla);
+    background-color: var(--realce-medio);
+    overflow: hidden;
+  }
+  /* La proporción es el ESTADO (scaleX), no una animación: así la barra
+     siempre muestra su valor aunque la animación no corra, y al cambiar de
+     periodo se TRANSFORMA al valor nuevo (transición) en vez de recargarse.
+     Al montar crece desde 0 (@starting-style), escalonada por `--d`.
+     Antes esto era `animation: … backwards forwards`: dos fill-mode en el
+     atajo invalidan la declaración entera, la barra no se animaba y además
+     se pintaba al 100 % sin importar la proporción. */
+  .barra__relleno {
+    display: block;
+    height: 100%;
+    border-radius: var(--radio-pastilla);
+    background-color: var(--texto);
+    transform-origin: left center;
+    transform: scaleX(var(--proporcion, 0));
+    transition: transform var(--dur-dato) var(--ease-suave) var(--d, 0s);
+  }
+  @starting-style {
+    .barra__relleno {
+      transform: scaleX(0);
+    }
+  }
+  /* Ya montada la lista, un cambio de periodo reescala las barras con el
+     desfase entre filas (60 ms) pero SIN los 300 ms de espera de la primera
+     entrada, que existen solo para que la tarjeta termine de aparecer. */
+  [data-vivo] .barra__relleno {
+    transition-delay: calc(var(--d, 0.3s) - 0.3s);
+  }
+
+  /* --------------------------------------------------------------------------
+     MINIATURAS Y OBJETOS 3D
+     -------------------------------------------------------------------------- */
+  /* Marco con volumen: el degradado de los cuatro tonos grises y el brillo
+     del canto. Sin sombra proyectada (2026-10-01): un borde de 1 px. */
+  .dash-miniatura,
+  .lienzo-3d {
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    border-radius: var(--radio-bloque);
+    border: 1px solid var(--borde);
+  }
+  .dash-miniatura::after,
+  .lienzo-3d::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: radial-gradient(60% 55% at 30% 22%, color-mix(in srgb, var(--tono-1) 28%, transparent), transparent 60%);
+  }
+  .dash-miniatura > svg,
+  .lienzo-3d > svg {
+    position: relative;
+    z-index: 1;
+    display: block;
+  }
+
+  .dash-miniatura {
+    width: 48px;
+    height: 48px;
+  }
+  .lienzo-3d {
+    width: 100%;
+    height: 64px;
+    margin-bottom: 12px;
+  }
+
+  /* Fondos por forma (el mismo emparejamiento de la maqueta). */
+  .lienzo-3d--esfera {
+    background-image: linear-gradient(155deg, var(--tono-3), var(--tono-4));
+  }
+  .lienzo-3d--cubo {
+    background-image: linear-gradient(155deg, color-mix(in srgb, var(--tono-3) 60%, var(--tono-4)), var(--tono-4));
+  }
+  .lienzo-3d--cilindro {
+    background-image: linear-gradient(155deg, var(--tono-4), var(--tono-3));
+  }
+  .lienzo-3d--cono {
+    background-image: linear-gradient(155deg, color-mix(in srgb, var(--tono-2) 35%, var(--tono-3)), var(--tono-4));
+  }
+
+  /* Tonos de las miniaturas de producto (trazo por currentColor). */
+  .dash-miniatura--0 {
+    background-image: linear-gradient(155deg, var(--tono-3), var(--tono-4));
+    color: var(--tono-1);
+  }
+  .dash-miniatura--1 {
+    background-image: linear-gradient(155deg, color-mix(in srgb, var(--tono-3) 60%, var(--tono-4)), var(--tono-4));
+    color: var(--tono-2);
+  }
+  .dash-miniatura--2 {
+    background-image: linear-gradient(155deg, var(--tono-4), var(--tono-3));
+    color: var(--tono-1);
+  }
+  .dash-miniatura--3 {
+    background-image: linear-gradient(155deg, color-mix(in srgb, var(--tono-2) 35%, var(--tono-3)), var(--tono-4));
+    color: var(--tono-2);
+  }
+
+  /* Sombra en el piso, común a las cuatro formas. */
+  .objeto3d__piso {
+    fill: var(--tono-4);
+    opacity: 0.35;
+  }
+
+  /* Esfera: degradado radial del tono más claro al más hondo. */
+  .objeto3d--esfera .objeto3d__luz {
+    stop-color: var(--tono-1);
+  }
+  .objeto3d--esfera .objeto3d__medio {
+    stop-color: var(--tono-2);
+  }
+  .objeto3d--esfera .objeto3d__sombra-tono {
+    stop-color: var(--tono-3);
+  }
+  .objeto3d--esfera .objeto3d__fondo-tono {
+    stop-color: var(--tono-4);
+  }
+
+  /* Cubo: tres caras planas con la luz cayendo desde arriba. */
+  .objeto3d--cubo .objeto3d__cara-alta {
+    fill: var(--tono-1);
+  }
+  .objeto3d--cubo .objeto3d__cara-frente {
+    fill: var(--tono-2);
+  }
+  .objeto3d--cubo .objeto3d__cara-lado {
+    fill: var(--tono-3);
+  }
+
+  /* Cilindro: degradado lateral. */
+  .objeto3d--cilindro .objeto3d__sombra-tono {
+    stop-color: var(--tono-3);
+  }
+  .objeto3d--cilindro .objeto3d__luz {
+    stop-color: var(--tono-1);
+  }
+  .objeto3d--cilindro .objeto3d__fondo-tono {
+    stop-color: var(--tono-4);
+  }
+  .objeto3d--cilindro .objeto3d__cara-alta {
+    fill: var(--tono-2);
+  }
+
+  /* Cono: dos caras. */
+  .objeto3d--cono .objeto3d__cara-lado {
+    fill: var(--tono-3);
+  }
+  .objeto3d--cono .objeto3d__cara-alta {
+    fill: var(--tono-2);
+  }
+
+  /* Flotación suave: una de las DOS únicas animaciones en bucle del producto
+     (la otra es el halo del punto de la gráfica). Solo transform, 3 px, y cada
+     objeto con su desfase para que no respiren al mismo tiempo. */
+  .objeto3d--flota {
+    animation: objeto-flota 7500ms var(--vaiven) infinite;
+    animation-delay: var(--retardo, 0s);
+  }
+  @keyframes objeto-flota {
+    0%,
+    100% {
+      transform: translateY(0);
+    }
+    50% {
+      transform: translateY(-3px);
+    }
+  }
+
+  /* Fichas de inventario */
+  .mini__categoria {
+    margin: 0;
+    font-size: 11px;
+    color: var(--texto-secundario);
+  }
+  .mini__valor {
+    margin: 2px 0 0;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--texto);
+    white-space: nowrap;
+  }
+  .mini__pie {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+    margin-top: 8px;
+  }
+  .mini__pie > span:last-child {
+    font-size: 10.5px;
+    color: var(--texto-secundario);
+  }
+
+  /* --------------------------------------------------------------------------
+     PANEL DE RENDIMIENTO
+     -------------------------------------------------------------------------- */
+  .rendimiento {
+    padding: 16px;
+  }
+  .rendimiento__cabecera {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+  }
+
+  /* --------------------------------------------------------------------------
+     PANEL DE AVISOS — fichas con datos reales del negocio.
+     El nivel solo cambia el tono del punto y del borde, nunca la estructura.
+     Nunca queda vacío: si ninguna regla dispara, lo dice.
+     -------------------------------------------------------------------------- */
+  .dash-avisos {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .avisos-rejilla {
+    display: grid;
+    /* auto-fit y no `repeat(4, ...)`: las reglas de avisos pueden devolver
+       cuatro o cinco, y con cuatro columnas fijas la quinta ficha quedaba
+       sola en una fila. Así siempre reparte parejo. */
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: var(--hueco);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .aviso-item {
+    display: flex;
+    gap: 10px;
+    padding: 14px;
+    border-radius: var(--radio-tarjeta);
+    background-color: var(--superficie);
+    border: 1px solid var(--borde);
+    transition: border-color var(--dur-color) var(--ease-suave);
+  }
+  @media (hover: hover) and (pointer: fine) {
+    .aviso-item:hover {
+      border-color: var(--borde-fuerte);
+    }
+  }
+  .aviso-item__punto {
+    width: 8px;
+    height: 8px;
+    flex: none;
+    margin-top: 6px;
+    border-radius: 50%;
+    background-color: var(--texto-terciario);
+  }
+  .aviso-item__cuerpo {
+    min-width: 0;
+  }
+  .aviso-item__titulo {
+    margin: 0;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--texto);
+  }
+  .aviso-item__texto {
+    margin: 4px 0 0;
+    font-size: 11.5px;
+    line-height: 1.5;
+    color: var(--texto-secundario);
+  }
+  .aviso-item__enlace {
+    display: inline-block;
+    margin-top: 8px;
+    font-size: 11.5px;
+    font-weight: 600;
+  }
+
+  .aviso-item--critico {
+    border-color: var(--borde-fuerte);
+  }
+  .aviso-item--critico .aviso-item__punto {
+    background-color: var(--texto);
+  }
+  .aviso-item--advertencia {
+    border-color: var(--advertencia-borde);
+  }
+  .aviso-item--advertencia .aviso-item__punto {
+    background-color: var(--advertencia-punto);
+  }
+  .aviso-item--positivo .aviso-item__punto {
+    background-color: var(--positivo-punto);
+  }
+  .aviso-item--informativo .aviso-item__punto {
+    background-color: var(--borde-fuerte);
+  }
+
+  .avisos-panel__vacio {
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 0;
+    padding: 14px;
+    border-radius: var(--radio-tarjeta);
+    background-color: var(--superficie);
+    border: 1px solid var(--borde);
+    font-size: 12.5px;
+    color: var(--texto-secundario);
+  }
+  .avisos-panel__vacio-icono {
+    flex: none;
+    color: var(--positivo-texto);
+  }
+
+  /* --------------------------------------------------------------------------
+     RESPONSIVE (ventana) — lo que no depende de la rejilla
+     -------------------------------------------------------------------------- */
+  @media (max-width: 860px) {
+    .dash-head__controles {
+      width: 100%;
+    }
+    .buscador-pastilla {
+      flex: 1;
+      width: auto;
+      min-width: 200px;
+    }
+  }
+  @media (max-width: 720px) {
+    .saludo {
+      font-size: 22px;
+    }
+    .saludo__sub {
+      font-size: 12px;
+    }
+    .dash-head__controles .pildoras {
+      flex: 1;
+    }
+  }
+  @media (max-width: 560px) {
+    .avisos-rejilla {
+      grid-template-columns: minmax(0, 1fr);
+    }
+    .buscador-pastilla {
+      flex-basis: 100%;
+    }
+  }
+}

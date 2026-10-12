@@ -1,0 +1,293 @@
+@layer components {
+  /* ==========================================================================
+     GRÁFICA DE RENDIMIENTO
+
+     Reglas de movimiento (maqueta, docs/dashboard-referencia.html):
+     - Las animaciones de ENTRADA corren una vez y se quedan quietas.
+     - El único bucle es el halo del punto.
+     - Aquí NO hay ninguna transición sobre `d`, `x1`, `cx` ni `r`: esos
+       atributos los escribe el JavaScript cuadro a cuadro (Firefox no
+       interpola atributos SVG por CSS, salta de golpe al final).
+     - La capa de guía/punto/tooltip se mueve SOLO con transform.
+     ========================================================================== */
+
+  .grafica {
+    width: 100%;
+  }
+
+  /* Lienzo: el SVG y, encima, la capa HTML que sigue al cursor. */
+  .grafica__lienzo {
+    position: relative;
+    width: 100%;
+    cursor: crosshair;
+    /* En táctil, el gesto vertical sigue desplazando la página: la gráfica
+       solo se queda con el movimiento horizontal. */
+    touch-action: pan-y;
+  }
+  .grafica__svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+    /* El punto y el halo asoman por encima del área útil. */
+    overflow: visible;
+  }
+
+  /* --------------------------------------------------------------------------
+     ENTRADA — una vez por montaje
+     -------------------------------------------------------------------------- */
+
+  /* El trazo se dibuja de izquierda a derecha. `pathLength="1"` en el <path>
+     hace que la medida sea 0→1 independientemente del largo real, así se ve
+     igual en cualquier ancho y en los dos navegadores. */
+  .grafica__linea {
+    stroke-dasharray: 1 1.01;
+    stroke-dashoffset: 1.001;
+    animation: grafica-trazo 700ms var(--ease-suave) 100ms forwards;
+  }
+  @keyframes grafica-trazo {
+    to {
+      stroke-dashoffset: 0;
+    }
+  }
+
+  /* El área crece desde su base. `transform-box: fill-box` es lo que hace que
+     `transform-origin` se mida contra la propia forma y no contra el viewBox:
+     sin eso, Firefox escala desde una esquina cualquiera. */
+  .grafica__area {
+    opacity: 0;
+    transform-box: fill-box;
+    transform-origin: 50% 100%;
+    animation: grafica-area 650ms var(--ease-suave) 150ms forwards;
+  }
+  @keyframes grafica-area {
+    from {
+      opacity: 0;
+      transform: scaleY(0.7);
+    }
+    to {
+      opacity: 1;
+      transform: scaleY(1);
+    }
+  }
+
+  /* La comparativa y la proyección entran después del dato real: primero se
+     lee lo que pasó, luego con qué se compara (más tenue), y la proyección al
+     final. Solo opacidad. SECUENCIA COMPLETA EN 1,2 s como máximo
+     (2026-09-29): trazo 100→800 ms, área 150→800, comparativa 600→900,
+     punto/tooltip y proyección 850→1150, etiqueta 900→1200. El dashboard se
+     abre varias veces al día: 1,9 s convertía la explicación en espera.
+     Lo protege reglas-de-movimiento.test.js. */
+  .grafica__anterior {
+    opacity: 0;
+    animation: grafica-aparece var(--dur-bloque) var(--ease-suave) 600ms forwards;
+    --opacidad-final: 0.55;
+  }
+  .grafica__proyeccion {
+    opacity: 0;
+    animation: grafica-aparece var(--dur-bloque) var(--ease-suave) 850ms forwards;
+    --opacidad-final: 0.85;
+  }
+  .grafica__proyeccion-texto {
+    opacity: 0;
+    font-family: var(--fuente-mono);
+    letter-spacing: 0.02em;
+    animation: grafica-aparece var(--dur-bloque) var(--ease-suave) 900ms forwards;
+    --opacidad-final: 1;
+  }
+  @keyframes grafica-aparece {
+    to {
+      opacity: var(--opacidad-final, 1);
+    }
+  }
+
+  /* --------------------------------------------------------------------------
+     CAPA HTML: guía, halo, punto y tooltip
+     -------------------------------------------------------------------------- */
+  .grafica__capa {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+  }
+
+  /* Cada pieza vive en un contenedor posicionado en el origen y se mueve solo
+     con translate3d. En el hover, el resorte hace que el punto y el tooltip se
+     DESLICEN al punto más cercano en vez de teletransportarse. */
+  .grafica__pos {
+    position: absolute;
+    left: 0;
+    top: 0;
+    transition: transform var(--resorte-duracion) var(--resorte);
+    will-change: transform;
+  }
+  /* Durante el morfeo entre rangos el JavaScript escribe la posición en cada
+     cuadro: sin transición, o cada escritura la reiniciaría y el punto se
+     quedaría atrás de la curva. */
+  .grafica__capa--morfeo .grafica__pos {
+    transition: none;
+  }
+  /* Aparece cuando el trazo ya está dibujado, para no adelantarse al dato. */
+  .grafica__pos--tarde {
+    animation: grafica-capa-entra var(--dur-bloque) var(--ease-suave) 850ms backwards;
+  }
+  @keyframes grafica-capa-entra {
+    from {
+      opacity: 0;
+    }
+  }
+
+  /* Los `.grafica__pos` miden 0x0 (son solo un punto que se mueve), así que la
+     línea guía necesita un contenedor con el alto del lienzo para poder
+     estirarse de arriba abajo. */
+  .grafica__pos--columna {
+    height: 100%;
+  }
+  .grafica__guia {
+    position: absolute;
+    left: 0;
+    top: 16px;
+    bottom: 10px;
+    border-left: 1px dashed var(--eje-grafica);
+  }
+
+  /* ÚNICO bucle de la gráfica: el latido del punto actual. */
+  .grafica__halo {
+    width: 26px;
+    height: 26px;
+    margin: -13px 0 0 -13px;
+    border-radius: 50%;
+    background-color: var(--acento);
+    opacity: 0;
+    animation: grafica-halo 2600ms var(--vaiven) infinite;
+  }
+  @keyframes grafica-halo {
+    0% {
+      opacity: 0;
+      transform: scale(0.8);
+    }
+    18% {
+      opacity: 0.5;
+      transform: scale(1);
+    }
+    65%,
+    100% {
+      opacity: 0;
+      transform: scale(1.9);
+    }
+  }
+
+  .grafica__punto {
+    width: 13px;
+    height: 13px;
+    margin: -6.5px 0 0 -6.5px;
+    border-radius: 50%;
+    background-color: var(--superficie);
+    border: 2.5px solid var(--acento);
+    transition: transform var(--dur-entrada) var(--ease-suave);
+  }
+  .grafica__punto--activo {
+    transform: scale(1.3);
+  }
+
+  /* Por defecto el tooltip va ENCIMA del punto. Cuando el punto está muy
+     arriba (un pico al final de la serie) no cabe, y se salía del panel
+     tapando las píldoras de rango: ahí se voltea y va debajo. */
+  .grafica__tip {
+    transform: translate(-50%, calc(-100% - 16px));
+    padding: 10px 14px;
+    border-radius: var(--radio-control-grande);
+    /* Plano como las tarjetas (2026-10-01): superficie y borde de 1 px, sin
+       sombra. El borde fuerte lo separa de la curva que tiene detrás. */
+    background-color: var(--superficie);
+    border: 1px solid var(--borde-fuerte);
+    white-space: nowrap;
+  }
+  .grafica__tip--abajo {
+    transform: translate(-50%, 16px);
+  }
+  .grafica__tip-fecha {
+    margin: 0;
+    font-size: 10.5px;
+    color: var(--texto-secundario);
+  }
+  .grafica__tip-valor {
+    margin: 2px 0 0;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--texto);
+  }
+  .grafica__tip-anterior {
+    margin: 4px 0 0;
+    font-size: 11px;
+    color: var(--texto-terciario);
+  }
+
+  /* --------------------------------------------------------------------------
+     EJE Y LEYENDA
+     -------------------------------------------------------------------------- */
+  .grafica__eje {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 6px;
+    padding: 0 2px;
+  }
+  .grafica__eje span {
+    font-size: 10.5px;
+    color: var(--texto-terciario);
+  }
+
+  .grafica__leyenda {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 1.25rem;
+    margin: 14px 0 0;
+    padding: 0;
+    list-style: none;
+    font-size: 11.5px;
+    color: var(--texto-secundario);
+  }
+  .grafica__leyenda li {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+  }
+  .grafica__muestra {
+    display: inline-block;
+    width: 16px;
+    height: 0;
+    border-top-width: 2px;
+    border-top-style: solid;
+    flex-shrink: 0;
+  }
+  .grafica__muestra--actual {
+    height: 2.5px;
+    border: 0;
+    border-radius: 2px;
+    background-color: var(--acento);
+    background-image: linear-gradient(90deg, var(--serie-inicio), var(--serie-medio), var(--serie-fin));
+  }
+  .grafica__muestra--anterior {
+    border-top-style: dashed;
+    border-top-color: var(--serie-comparacion);
+  }
+  .grafica__muestra--proyeccion {
+    border-top-style: dashed;
+    border-top-color: var(--acento-luz);
+  }
+
+  /* La última línea de la rejilla es la BASE de la gráfica: lleva el gris
+     del eje, un escalón más visible que las guías (--grid-grafica). La regla
+     de CSS gana al atributo `stroke` del grupo. */
+  .grafica__grid line:last-child {
+    stroke: var(--eje-grafica);
+  }
+
+  /* Estado vacío: la gráfica se queda dibujada en su línea base y el mensaje
+     dice qué falta. Nunca un rectángulo mudo. */
+  .grafica__vacio {
+    margin: 0.75rem 0 0;
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--texto-terciario);
+  }
+}

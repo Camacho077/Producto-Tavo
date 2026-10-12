@@ -1,0 +1,35 @@
+{
+  // Arrancar con un clic (Ejecutar y depurar, F5):
+  //   "Backend + Frontend" levanta los dos en los puertos fijos del proyecto:
+  //   backend en 8001 (NUNCA 8000: reservado por Windows; el frontend llama
+  //   al 8001) y frontend en 5173 (strictPort). Requiere la extensión Python.
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Backend (8001)",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "uvicorn",
+      "args": ["app.main:app", "--port", "8001", "--reload"],
+      "cwd": "${workspaceFolder}/backend",
+      "python": "${workspaceFolder}/backend/venv/Scripts/python.exe",
+      "envFile": "${workspaceFolder}/backend/.env",
+      "justMyCode": true,
+      "console": "integratedTerminal"
+    },
+    {
+      "name": "Frontend (5173)",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": "npm run dev",
+      "cwd": "${workspaceFolder}/frontend"
+    }
+  ],
+  "compounds": [
+    {
+      "name": "Backend + Frontend",
+      "configurations": ["Backend (8001)", "Frontend (5173)"],
+      "stopAll": true
+    }
+  ]
+}

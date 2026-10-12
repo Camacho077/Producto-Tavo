@@ -1,0 +1,840 @@
+@layer components {
+  /* ==========================================================================
+     COMPONENTES COMPARTIDOS
+     Todo estilo de control vive acá. Los módulos NO definen estilos sueltos:
+     consumen <Button>, <Card>, <Badge>, <Table>, <Input>, <Select>, <Modal>,
+     <Spinner> desde src/components/ui/.
+     Ningún color hardcodeado: todo sale de los roles definidos en index.css.
+     ========================================================================== */
+
+  /* --------------------------------------------------------------------------
+     BOTÓN — es lo que más se toca del producto.
+     Cada variante define su propio --anillo, del que se deriva el foco al 18%.
+     -------------------------------------------------------------------------- */
+  .btn {
+    --anillo: var(--acento);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    font-family: var(--fuente-base);
+    font-weight: 500;
+    line-height: 1;
+    white-space: nowrap;
+    border: var(--borde-fino) solid transparent;
+    border-radius: var(--radio-control);
+    cursor: pointer;
+    user-select: none;
+    text-decoration: none;
+    transition:
+      background-color var(--transicion),
+      border-color var(--transicion),
+      color var(--transicion),
+      transform var(--dur-color) var(--ease-suave);
+  }
+  /* Feedback de pulsación (2026-09-29), igual que .boton-claro: 0,97 es
+     sutil y escala también el icono y el texto. Solo transform. */
+  .btn:not(:disabled):active {
+    transform: scale(0.97);
+  }
+
+  .btn:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--anillo) 18%, transparent);
+  }
+
+
+
+  .btn:disabled,
+  .btn[aria-busy="true"] {
+    cursor: not-allowed;
+  }
+
+  .btn:disabled {
+    opacity: 0.55;
+  }
+
+  /* Tamaños */
+  .btn--sm {
+    height: 30px;
+    padding: 0 0.75rem;
+    font-size: 13px;
+  }
+  .btn--md {
+    height: 36px;
+    padding: 0 1rem;
+    font-size: 13px;
+  }
+  .btn--lg {
+    height: 44px;
+    padding: 0 1.5rem;
+    font-size: 14px;
+  }
+  .btn--bloque {
+    width: 100%;
+  }
+
+  /* Primario (monocromo, 2026-10-01): grafito SÓLIDO con texto blanco en
+     claro, casi blanco con texto casi negro en oscuro (17,7:1 y 17,0:1). Sin
+     degradado ni luz en el canto; el hover solo aclara un escalón el fondo.
+     Un tenant con color propio lo sobreescribe vía --boton. */
+  .btn--primario {
+    --anillo: var(--boton);
+    background-color: var(--boton);
+    color: var(--texto-sobre-acento);
+    border-color: var(--boton-borde);
+  }
+  .btn--primario:not(:disabled):hover {
+    background-color: color-mix(in srgb, var(--boton) 86%, var(--superficie));
+  }
+  .btn--primario:disabled {
+    background-color: var(--relleno);
+    border-color: var(--borde);
+    color: var(--texto-secundario);
+  }
+
+  /* Secundario — superficie con borde gris; el hover rellena un escalón. */
+  .btn--secundario {
+    --anillo: var(--tinta);
+    background-color: var(--superficie);
+    border-color: var(--borde);
+    color: var(--texto);
+  }
+  .btn--secundario:not(:disabled):hover {
+    background-color: var(--realce-medio);
+    border-color: var(--borde-fuerte);
+  }
+  .btn--secundario:disabled {
+    background-color: var(--relleno);
+    border-color: var(--borde);
+    color: var(--texto-secundario);
+  }
+
+  /* Terciario / fantasma — sin fondo, borde gris, texto secundario. */
+  .btn--terciario {
+    --anillo: var(--tinta);
+    background-color: transparent;
+    border-color: var(--borde);
+    color: var(--texto-secundario);
+  }
+  .btn--terciario:not(:disabled):hover {
+    background-color: var(--realce-suave);
+    border-color: var(--borde-fuerte);
+    color: var(--texto);
+  }
+  .btn--terciario:disabled {
+    border-color: var(--borde);
+    color: var(--texto-terciario);
+  }
+
+  /* Destructivo */
+  /* Sin rojo: lo destructivo se lee por el texto del botón y el diálogo de
+     confirmación, no por el color. Borde más marcado que el terciario. */
+  .btn--destructivo {
+    --anillo: var(--tinta);
+    background-color: var(--superficie);
+    border-color: var(--texto-secundario);
+    color: var(--texto);
+  }
+  .btn--destructivo:not(:disabled):hover {
+    background-color: var(--realce-medio);
+    border-color: var(--texto);
+    color: var(--texto);
+  }
+  .btn--destructivo:disabled {
+    border-color: var(--borde);
+    color: var(--texto-terciario);
+  }
+
+  /* Botón de solo ícono */
+  .btn--icono {
+    padding: 0;
+    width: 36px;
+  }
+  .btn--icono.btn--sm {
+    width: 30px;
+  }
+  .btn--icono.btn--lg {
+    width: 44px;
+  }
+
+  /* --------------------------------------------------------------------------
+     SPINNER
+     -------------------------------------------------------------------------- */
+  .spinner {
+    display: inline-block;
+    border-radius: 50%;
+    border: 1.5px solid color-mix(in srgb, currentColor 25%, transparent);
+    border-top-color: currentColor;
+    /* EXCEPCIÓN documentada a "nunca linear": una rotación continua necesita
+       velocidad constante; con cualquier curva, el giro late en cada vuelta. */
+    animation: spinner-giro 700ms linear infinite;
+    flex-shrink: 0;
+  }
+  .spinner--sm {
+    width: 12px;
+    height: 12px;
+  }
+  .spinner--md {
+    width: 16px;
+    height: 16px;
+  }
+  .spinner--lg {
+    width: 24px;
+    height: 24px;
+    border-width: 2px;
+  }
+
+  @keyframes spinner-giro {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
+  /* Con movimiento reducido el spinner sigue girando a 2 s por vuelta: la
+     regla vive en el bloque de movimiento reducido de index.css, con
+     !important, porque aquí perdía contra el `*` de ese bloque y el spinner
+     se quedaba congelado. */
+
+  /* --------------------------------------------------------------------------
+     TARJETA
+     -------------------------------------------------------------------------- */
+  /* Superficie única del producto (2026-10-01): blanca, borde de 1 px,
+     16 px de radio y SIN sombra. Al pasar el cursor solo se marca el borde:
+     no se eleva (transición de color; nada de layout ni de box-shadow). */
+  .card {
+    background-color: var(--superficie);
+    border: var(--borde-fino) solid var(--borde);
+    border-radius: var(--radio-tarjeta);
+    transition: border-color var(--transicion);
+  }
+  @media (hover: hover) {
+    .card:hover {
+      border-color: var(--borde-fuerte);
+    }
+  }
+  .card__encabezado {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.75rem 1rem;
+    border-bottom: var(--borde-fino) solid var(--linea);
+  }
+  .card__titulo {
+    font-family: var(--fuente-titulo);
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--texto);
+    margin: 0;
+  }
+  .card__descripcion {
+    font-size: 12px;
+    color: var(--texto-secundario);
+    margin: 0.125rem 0 0;
+  }
+  .card__cuerpo {
+    padding: 0.75rem 1rem;
+  }
+
+  /* --------------------------------------------------------------------------
+     BADGE
+     -------------------------------------------------------------------------- */
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.125rem 0.5rem;
+    border-radius: var(--radio-pastilla);
+    border: var(--borde-fino) solid;
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 1.5;
+    white-space: nowrap;
+  }
+  /* Todas comparten el relleno gris; la variante solo cambia la INTENSIDAD
+     del texto y del borde (sin color: positivo pleno, negativo apagado). */
+  .badge--neutro {
+    background-color: var(--realce-medio);
+    border-color: var(--neutro-borde);
+    color: var(--neutro-texto);
+  }
+  .badge--acento {
+    background-color: var(--realce-medio);
+    border-color: var(--borde-fuerte);
+    color: var(--texto-terciario);
+  }
+  .badge--positivo {
+    background-color: var(--realce-medio);
+    border-color: var(--positivo-borde);
+    color: var(--positivo-insignia);
+  }
+  .badge--negativo {
+    background-color: var(--realce-medio);
+    border-color: var(--negativo-borde);
+    color: var(--negativo-insignia);
+  }
+  .badge--advertencia {
+    background-color: var(--realce-medio);
+    border-color: var(--advertencia-borde);
+    color: var(--advertencia-insignia);
+  }
+
+  /* --------------------------------------------------------------------------
+     CAMPOS DE FORMULARIO
+     -------------------------------------------------------------------------- */
+  /* Etiqueta pegada a su control (5px); ayuda y error justo debajo.
+     Todos los controles miden 36px, así los campos de una misma fila
+     comparten línea base aunque uno tenga ayuda y otro no (los campos se
+     alinean arriba: ver .fila-campos). */
+  .campo {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.3125rem;
+    min-width: 0;
+  }
+  .campo__etiqueta {
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 1.2;
+    color: var(--texto-secundario);
+    text-align: left;
+  }
+  .campo__error {
+    font-size: 12px;
+    color: var(--negativo-texto);
+  }
+  .campo__ayuda {
+    font-size: 12px;
+    color: var(--texto-terciario);
+  }
+  .campo__obligatorio {
+    color: var(--negativo-texto);
+  }
+  .campo__pie {
+    display: flex;
+    justify-content: space-between;
+    gap: 0.75rem;
+    min-height: 0;
+  }
+  .campo__pie:empty {
+    display: none;
+  }
+  .campo__contador {
+    font-size: 11px;
+    color: var(--texto-terciario);
+    white-space: nowrap;
+  }
+  .campo__contador--tope {
+    color: var(--negativo-texto);
+  }
+
+  .input,
+  .select {
+    width: 100%;
+    height: 36px;
+    padding: 0 0.75rem;
+    font-family: var(--fuente-base);
+    font-size: 13px;
+    color: var(--texto);
+    background-color: var(--superficie-alta);
+    border: var(--borde-fino) solid var(--borde);
+    border-radius: var(--radio-control);
+    transition: border-color var(--transicion);
+  }
+  .input::placeholder {
+    color: var(--texto-secundario);
+  }
+  .input:hover:not(:disabled),
+  .select:hover:not(:disabled) {
+    border-color: var(--borde-fuerte);
+  }
+  /* Foco: borde en el secundario y anillo gris de 3 px (sin color). */
+  .input:focus-visible,
+  .select:focus-visible {
+    outline: none;
+    border-color: var(--texto-secundario);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--tinta) 10%, transparent);
+  }
+  .input:disabled,
+  .select:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
+  .input--error,
+  .select--error,
+  .input--error:hover:not(:disabled),
+  .select--error:hover:not(:disabled) {
+    border-color: color-mix(in srgb, var(--tinta) 70%, transparent);
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--tinta) 35%, transparent);
+  }
+  .input--error:focus-visible,
+  .select--error:focus-visible {
+    border-color: var(--tinta);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--tinta) 18%, transparent);
+  }
+  /* Cifras y montos: tabular-nums obligatorio */
+  .input--cifra {
+    font-family: var(--fuente-mono);
+    font-variant-numeric: tabular-nums;
+  }
+  .select {
+    appearance: none;
+    padding-right: 2rem;
+    background-image: linear-gradient(45deg, transparent 50%, currentColor 50%),
+      linear-gradient(135deg, currentColor 50%, transparent 50%);
+    background-position: calc(100% - 15px) calc(50% + 1px), calc(100% - 11px) calc(50% + 1px);
+    background-size: 4px 4px, 4px 4px;
+    background-repeat: no-repeat;
+    color: var(--texto);
+  }
+
+  /* --------------------------------------------------------------------------
+     TABLA — vista de tabla si cabe; de tarjetas si no cabe o bajo 768px
+     -------------------------------------------------------------------------- */
+  .tabla-contenedor {
+    width: 100%;
+  }
+  /* Dentro de su tarjeta la tabla llega de BORDE A BORDE (2026-10-01): la
+     banda gris del encabezado y las líneas de fila tocan los cantos de la
+     tarjeta, y la primera y la última celda recuperan los 16 px interiores
+     para alinear el texto con el buscador. El sangrado es el mismo en los
+     dos modos (tabla o tarjetas): useTablaApilada mide siempre el mismo
+     ancho y no puede oscilar. */
+  .card__cuerpo {
+    --sangrado: 1rem;
+  }
+  .formulario-pantalla {
+    --sangrado: 1.125rem;
+  }
+  :is(.card__cuerpo, .formulario-pantalla) .tabla-contenedor {
+    width: auto;
+    margin-inline: calc(-1 * var(--sangrado));
+  }
+  :is(.card__cuerpo, .formulario-pantalla) .tabla-contenedor:not(.tabla-contenedor--apilada) .tabla th:first-child,
+  :is(.card__cuerpo, .formulario-pantalla) .tabla-contenedor:not(.tabla-contenedor--apilada) .tabla td:first-child {
+    padding-left: var(--sangrado);
+  }
+  :is(.card__cuerpo, .formulario-pantalla) .tabla-contenedor:not(.tabla-contenedor--apilada) .tabla th:last-child,
+  :is(.card__cuerpo, .formulario-pantalla) .tabla-contenedor:not(.tabla-contenedor--apilada) .tabla td:last-child {
+    padding-right: var(--sangrado);
+  }
+  :is(.card__cuerpo, .formulario-pantalla) .tabla-contenedor--apilada {
+    padding-inline: var(--sangrado);
+  }
+  /* Tabla que abre la tarjeta (detalles: "Productos", permisos): la banda
+     gris se pega a la línea del encabezado de la tarjeta, sin franja blanca
+     en medio ni doble línea. */
+  .card__cuerpo > .tabla-contenedor:first-child:not(.tabla-contenedor--apilada) {
+    margin-top: -0.75rem;
+  }
+  .card__cuerpo > .tabla-contenedor:first-child .tabla thead th {
+    border-top: none;
+  }
+  .tabla {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+  /* TODO centrado (decisión del 2026-09-19): cada <th> y cada <td> llevan
+     text-align: center sin excepción por tipo de dato, y vertical-align
+     middle en toda la fila para que texto, badges e iconos compartan
+     línea. Como la clase es la misma en el th y en los td de la columna,
+     encabezado y contenido comparten exactamente el mismo ancho. */
+  /* Encabezado (2026-10-01): banda gris (--relleno), 12 px en mayúsculas,
+     peso 500, color secundario. Filas separadas por la divisoria fina. */
+  .tabla thead th {
+    font-weight: 500;
+    font-size: 12px;
+    line-height: 1.2;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--texto-secundario);
+    background-color: var(--relleno);
+    padding: 0.625rem 0.75rem;
+    border-top: var(--borde-fino) solid var(--linea);
+    border-bottom: var(--borde-fino) solid var(--linea);
+    white-space: nowrap;
+  }
+  .tabla tbody td {
+    padding: 0.5rem 0.75rem;
+    border-bottom: var(--borde-fino) solid var(--linea);
+    color: var(--texto);
+  }
+  .tabla thead th,
+  .tabla tbody td,
+  .tabla .celda {
+    text-align: center;
+    vertical-align: middle;
+  }
+  .tabla tbody tr:last-child td {
+    border-bottom: none;
+  }
+  /* Cifras y montos: JetBrains Mono con tabular-nums (centradas como todo). */
+  .tabla .celda--cifra {
+    font-family: var(--fuente-mono);
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum" 1;
+  }
+  /* El encabezado de una columna de cifras es texto, no un número: va en la
+     fuente base como el resto de la banda. */
+  .tabla thead th.celda--cifra {
+    font-family: var(--fuente-base);
+  }
+  /* Anchos PROPORCIONALES al contenido (2026-09-30, sustituye al `width: 1%`
+     del 2026-09-19): sin anchos fijos, el algoritmo automático de la tabla
+     reparte el espacio sobrante en proporción al contenido de cada columna.
+     Con `width: 1%` todo el sobrante caía en la columna del nombre (872 px
+     para 137 px de texto en el detalle de proveedor) y el dato quedaba
+     flotando lejos de los demás. Las cifras y acciones no parten línea. */
+  .tabla .celda--ajustada {
+    white-space: nowrap;
+  }
+  /* Elementos con flex dentro de celdas (badges, botones): centrados con
+     justify-content, nunca con márgenes automáticos. */
+  .tabla td > .acciones-fila,
+  .tabla td > .flex {
+    justify-content: center;
+  }
+  /* Miniatura de 44 px con radio de 10 px (imagen de producto en listados).
+     Clase reutilizable para cualquier imagen pequeña de fila. */
+  .miniatura {
+    flex-shrink: 0;
+    width: 44px;
+    height: 44px;
+    border-radius: 10px;
+    overflow: hidden;
+    background-color: var(--realce-medio);
+    vertical-align: middle;
+  }
+  .tabla__vacio {
+    padding: 2rem 1rem;
+    text-align: center;
+    color: var(--texto-secundario);
+    font-size: 13px;
+  }
+
+  /* Vista de TARJETAS: una fila = una tarjeta con la etiqueta de cada dato.
+     La activa Table.jsx (hooks/useTablaApilada.js) cuando la tabla NO CABE
+     en su tarjeta o la pantalla mide menos de 768 px. Antes dependía solo
+     del ancho de la ventana: entre 768 y 900 px (y a 1180 px, con el
+     sidebar de vuelta) siete tablas se salían de la tarjeta y la página
+     entera se desplazaba de lado (medido el 2026-09-30). */
+  .tabla-contenedor--apilada .tabla thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+  .tabla-contenedor--apilada .tabla,
+  .tabla-contenedor--apilada .tabla tbody,
+  .tabla-contenedor--apilada .tabla tr,
+  .tabla-contenedor--apilada .tabla td {
+    display: block;
+    width: 100%;
+  }
+  /* Densidad: las tarjetas van en rejilla (dos o más por fila cuando hay
+     ancho, una sola en el teléfono) en vez de una columna con aire a los
+     lados. */
+  .tabla-contenedor--apilada .tabla tbody {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(18rem, 100%), 1fr));
+    gap: 0.75rem;
+  }
+  .tabla-contenedor--apilada .tabla tbody tr {
+    border: var(--borde-fino) solid var(--borde);
+    border-radius: var(--radio-bloque);
+    padding: 0.375rem 0;
+    background-color: var(--superficie);
+  }
+  .tabla-contenedor--apilada .tabla tbody td {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    border-bottom: none;
+    padding: 0.375rem 0.875rem;
+  }
+  .tabla-contenedor--apilada .tabla tbody td::before {
+    content: attr(data-etiqueta);
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--texto-secundario);
+  }
+  .tabla-contenedor--apilada .tabla .celda--ajustada {
+    width: 100%;
+    white-space: normal;
+  }
+  .tabla-contenedor--apilada .tabla tbody td {
+    text-align: right;
+  }
+  .tabla-contenedor--apilada .tabla td > .acciones-fila,
+  .tabla-contenedor--apilada .tabla td > .flex {
+    justify-content: flex-end;
+  }
+
+  /* --------------------------------------------------------------------------
+     PÍLDORAS SEGMENTADAS — el indicador se DESLIZA con translateX
+
+     Un grupo de píldoras donde cada botón se pintara y despintara al cambiar
+     de opción produce dos repintados por clic. Aquí el fondo verde es un solo
+     nodo (`.pildoras__indicador`) que se mueve: una transformación, cero
+     repintados. `--n` (cuántas opciones) y `--i` (cuál está activa) los pone
+     el componente; el resto lo calcula CSS.
+     -------------------------------------------------------------------------- */
+  .pildoras {
+    position: relative;
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: 1fr;
+    padding: 4px;
+    border-radius: var(--radio-pastilla);
+    background-color: var(--hueco-fondo);
+  }
+  .pildoras__indicador {
+    position: absolute;
+    top: 4px;
+    bottom: 4px;
+    left: 4px;
+    /* Ancho de una celda: el interior menos el padding, repartido entre n. */
+    width: calc((100% - 8px) / var(--n, 3));
+    border-radius: var(--radio-pastilla);
+    /* Píldora blanca con borde de 1 px: sin degradado ni sombra (2026-10-01). */
+    background-color: var(--superficie);
+    border: var(--borde-fino) solid var(--borde);
+    transform: translateX(calc(var(--i, 0) * 100%));
+    /* Resorte (rigidez 300, amortiguación 30): el indicador se desliza con
+       física, interrumpible, y se asienta sin rebote visible. */
+    transition: transform var(--resorte-duracion) var(--resorte);
+  }
+  .pildora {
+    position: relative;
+    z-index: 1;
+    min-width: 66px;
+    padding: 9px 20px;
+    border: 0;
+    border-radius: var(--radio-pastilla);
+    background: transparent;
+    color: var(--texto-secundario);
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    /* Solo el color: el fondo ya lo pone el indicador que se desliza. */
+    transition: color var(--dur-entrada) var(--ease-suave);
+  }
+  .pildora[aria-pressed="true"] {
+    color: var(--texto);
+    font-weight: 600;
+  }
+  .pildora:hover:not([aria-pressed="true"]) {
+    color: var(--texto);
+  }
+  .pildoras--compactas .pildora {
+    min-width: 52px;
+    padding: 9px 14px;
+  }
+  @media (max-width: 720px) {
+    .pildora {
+      min-width: 0;
+      padding: 9px 12px;
+    }
+  }
+
+  /* --------------------------------------------------------------------------
+     MODAL
+     -------------------------------------------------------------------------- */
+  .modal__fondo {
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+    /* SIN backdrop-filter (regla de rendimiento de la maqueta, sección 2a).
+       Este velo cubre la pantalla entera: un `backdrop-filter` aquí obliga al
+       navegador a rasterizar todo el documento en una capa aparte solo para
+       desenfocarlo, y al abrir el diálogo se veía el flashazo. Un velo
+       semiopaco un poco más denso separa igual de bien y no cuesta nada. */
+    background-color: var(--velo);
+  }
+  .modal__panel {
+    width: 100%;
+    max-width: 34rem;
+    max-height: calc(100vh - 2rem);
+    overflow-y: auto;
+    background-color: var(--superficie);
+    border: var(--borde-fino) solid var(--borde);
+    border-radius: var(--radio-tarjeta);
+  }
+  .modal__encabezado {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 1rem 1.25rem;
+    border-bottom: var(--borde-fino) solid var(--linea);
+  }
+  .modal__titulo {
+    font-family: var(--fuente-titulo);
+    font-size: 18px;
+    font-weight: 500;
+    margin: 0;
+    color: var(--texto);
+  }
+  .modal__cuerpo {
+    padding: 1rem 1.25rem;
+  }
+  .modal__pie {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.5rem;
+    padding: 0.75rem 1.25rem;
+    border-top: var(--borde-fino) solid var(--linea);
+  }
+
+  /* El modal aparece de una vez, sin animación (Framer Motion se retiró con
+     los paneles laterales). */
+
+  /* Input de línea inferior: sin caja, solo el trazo de abajo. Al enfocarse
+     el trazo pasa al acento con un glow tenue. Se usa en las pantallas de
+     acceso. El trazo en reposo va a la tinta al 45 % (3,9:1 sobre espresso):
+     al 22 % medía 1,74:1 y no llegaba al 3:1 de WCAG 1.4.11 (2026-09-30). */
+  .input--linea {
+    height: 40px;
+    padding: 0 0 0 2px;
+    background-color: transparent;
+    border: none;
+    border-bottom: var(--borde-fino) solid color-mix(in srgb, var(--tinta) 45%, transparent);
+    border-radius: 0;
+    color: var(--texto);
+    /* Solo el color del trazo transiciona: animar box-shadow repinta la caja
+       en cada cuadro (regla de rendimiento 2b). El glow del foco aparece de
+       una vez, que es justo lo que se espera de un foco. */
+    transition: border-color var(--dur-color) var(--ease-suave);
+  }
+  .input--linea::placeholder {
+    color: var(--texto-terciario);
+  }
+  .input--linea:hover:not(:disabled) {
+    border-bottom-color: color-mix(in srgb, var(--tinta) 62%, transparent);
+  }
+  .input--linea:focus-visible {
+    outline: none;
+    border-bottom-color: var(--acento);
+    box-shadow: 0 1px 0 0 var(--acento), 0 6px 18px -8px color-mix(in srgb, var(--acento) 55%, transparent);
+  }
+  .input--linea.input--error {
+    border-bottom-color: var(--negativo-texto);
+    box-shadow: none;
+  }
+
+  /* --------------------------------------------------------------------------
+     CHECKBOX
+     -------------------------------------------------------------------------- */
+  .checkbox {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 13px;
+    color: var(--texto-secundario);
+    cursor: pointer;
+    user-select: none;
+  }
+  .checkbox input {
+    appearance: none;
+    width: 16px;
+    height: 16px;
+    margin: 0;
+    border: var(--borde-fino) solid var(--borde-fuerte);
+    border-radius: 4px;
+    background-color: var(--superficie-alta);
+    cursor: pointer;
+    position: relative;
+    transition: background-color var(--transicion), border-color var(--transicion);
+  }
+  .checkbox input:hover:not(:disabled) {
+    border-color: var(--texto-secundario);
+  }
+  .checkbox input:checked {
+    background-color: var(--boton);
+    border-color: var(--boton);
+  }
+  .checkbox input:checked::after {
+    content: "";
+    position: absolute;
+    left: 4.5px;
+    top: 1px;
+    width: 4px;
+    height: 8px;
+    border: solid var(--texto-sobre-acento);
+    border-width: 0 1.5px 1.5px 0;
+    transform: rotate(45deg);
+  }
+  .checkbox input:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--tinta) 14%, transparent);
+  }
+  .checkbox input:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
+
+  /* --------------------------------------------------------------------------
+     PESTAÑAS
+     -------------------------------------------------------------------------- */
+  .tab {
+    position: relative;
+    padding: 0.625rem 0.875rem;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--texto-secundario);
+    background: none;
+    border: none;
+    border-radius: var(--radio-control) var(--radio-control) 0 0;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background-color var(--transicion), color var(--transicion);
+  }
+  .tab:hover:not(.tab--activo) {
+    color: var(--texto);
+    background-color: var(--realce-suave);
+  }
+  .tab:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--tinta) 14%, transparent);
+  }
+  .tab--activo {
+    color: var(--texto);
+  }
+  .tab--activo::after {
+    content: "";
+    position: absolute;
+    left: 0.5rem;
+    right: 0.5rem;
+    bottom: -0.5px;
+    height: 1.5px;
+    background-color: var(--acento);
+    border-radius: 999px;
+  }
+
+  /* --------------------------------------------------------------------------
+     ESTADOS COMPARTIDOS (carga / error / vacío)
+     -------------------------------------------------------------------------- */
+  .estado {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 13px;
+    color: var(--texto-secundario);
+  }
+  .estado--error {
+    color: var(--negativo-texto);
+  }
+
+}

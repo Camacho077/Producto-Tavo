@@ -1,0 +1,33 @@
+{
+  // Terminal > Ejecutar tarea > "Arrancar backend y frontend" (o Ctrl+Mayús+B).
+  // Usa los mismos scripts que el README: cierran instancias viejas,
+  // comprueban el puerto y arrancan backend en 8001 y frontend en 5173.
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Backend (8001)",
+      "type": "shell",
+      "command": "powershell",
+      "args": ["-ExecutionPolicy", "Bypass", "-File", "${workspaceFolder}/automatizaciones/dev/start-backend.ps1"],
+      "isBackground": true,
+      "problemMatcher": [],
+      "presentation": { "panel": "dedicated", "group": "servidores" }
+    },
+    {
+      "label": "Frontend (5173)",
+      "type": "shell",
+      "command": "powershell",
+      "args": ["-ExecutionPolicy", "Bypass", "-File", "${workspaceFolder}/automatizaciones/dev/start-frontend.ps1"],
+      "isBackground": true,
+      "problemMatcher": [],
+      "presentation": { "panel": "dedicated", "group": "servidores" }
+    },
+    {
+      "label": "Arrancar backend y frontend",
+      "dependsOn": ["Backend (8001)", "Frontend (5173)"],
+      "dependsOrder": "parallel",
+      "problemMatcher": [],
+      "group": { "kind": "build", "isDefault": true }
+    }
+  ]
+}
