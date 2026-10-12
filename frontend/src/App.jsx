@@ -75,6 +75,16 @@ const ComprasLista = pantalla(modComprasPage, "ComprasLista");
 const CompraNueva = pantalla(modComprasPage, "CompraNueva");
 const CompraDetalle = pantalla(modComprasPage, "CompraDetalle");
 
+const modMovimientos = modulo(() => import("@/modules/inventario/MovimientosPage"));
+const MovimientosLista = pantalla(modMovimientos, "MovimientosLista");
+const MermaNueva = pantalla(modMovimientos, "MermaNueva");
+const ConteosLista = pantalla(modMovimientos, "ConteosLista");
+const ConteoNuevo = pantalla(modMovimientos, "ConteoNuevo");
+const ConteoDetalle = pantalla(modMovimientos, "ConteoDetalle");
+
+const modCargaInicial = modulo(() => import("@/modules/inventario/CargaInicialPage"));
+const CargaInicial = pantalla(modCargaInicial, "CargaInicial");
+
 const modProveedores = modulo(() => import("@/modules/inventario/ProveedoresPage"));
 const ProveedoresLista = pantalla(modProveedores, "ProveedoresLista");
 const ProveedorNuevo = pantalla(modProveedores, "ProveedorNuevo");
@@ -126,6 +136,9 @@ const MODULO_POR_RUTA = [
   ["/carta", modPlatos],
   ["/inventario/compras", modComprasPage],
   ["/inventario/proveedores", modProveedores],
+  ["/inventario/movimientos", modMovimientos],
+  ["/inventario/conteos", modMovimientos],
+  ["/inventario/carga-inicial", modCargaInicial],
   ["/inventario", modInsumos],
   ["/ventas/pedidos", modPedidos],
   ["/ventas", modVentas],
@@ -224,6 +237,12 @@ export default function App() {
                     <Route path="/inventario/insumos/nuevo" element={<ConPermiso modulo="insumos" accion="crear"><InsumoNuevo /></ConPermiso>} />
                     <Route path="/inventario/insumos/:id" element={<ConPermiso modulo="insumos" accion="ver"><InsumoDetalle /></ConPermiso>} />
                     <Route path="/inventario/insumos/:id/editar" element={<ConPermiso modulo="insumos" accion="editar"><InsumoEditar /></ConPermiso>} />
+                    <Route path="/inventario/insumos/:id/merma" element={<ConPermiso modulo="movimientos" accion="crear"><MermaNueva /></ConPermiso>} />
+                    <Route path="/inventario/movimientos" element={<ConPermiso modulo="movimientos" accion="ver"><MovimientosLista /></ConPermiso>} />
+                    <Route path="/inventario/conteos" element={<ConPermiso modulo="movimientos" accion="ver"><ConteosLista /></ConPermiso>} />
+                    <Route path="/inventario/conteos/nuevo" element={<ConPermiso modulo="movimientos" accion="crear"><ConteoNuevo /></ConPermiso>} />
+                    <Route path="/inventario/conteos/:id" element={<ConPermiso modulo="movimientos" accion="ver"><ConteoDetalle /></ConPermiso>} />
+                    <Route path="/inventario/carga-inicial" element={<ConPermiso modulo="insumos" accion="crear"><CargaInicial /></ConPermiso>} />
                     <Route path="/inventario/compras" element={<ConPermiso modulo="compras" accion="ver"><ComprasLista /></ConPermiso>} />
                     <Route path="/inventario/compras/nuevo" element={<ConPermiso modulo="compras" accion="crear"><CompraNueva /></ConPermiso>} />
                     <Route path="/inventario/compras/:id" element={<ConPermiso modulo="compras" accion="ver"><CompraDetalle /></ConPermiso>} />

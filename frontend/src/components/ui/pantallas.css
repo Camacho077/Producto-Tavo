@@ -46,6 +46,9 @@
     align-items: center;
     gap: 0.5rem;
     flex-shrink: 0;
+    /* Sin tope, con cuatro botones la fila medía más que la pantalla en
+       375 px y no envolvía (2026-10-12, detalle de insumo). */
+    max-width: 100%;
   }
 
   /* Migas de pan */

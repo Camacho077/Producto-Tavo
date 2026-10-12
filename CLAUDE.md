@@ -39,7 +39,11 @@ código. Nombre provisional del producto: "JS Restaurante".
   es de INSUMOS: módulos `catalogo` (platos/combos con receta, modificadores,
   agotado hoy), `inventario` (insumos, unidades, movimientos, promedio
   ponderado) y `compras` de insumos; costo del plato en vivo y permiso
-  `costos.ver`). Lo de "Stock = suma de movimientos" y "Proveedores ↔
+  `costos.ver`); fase 3 (mermas con motivo, conteos físicos con ajuste
+  valorizado, historial general `/inventario/movimientos`, permiso
+  `movimientos`, carga inicial desde plantilla Excel/CSV en
+  `app/modules/inventario/carga.py`: se revisa fila por fila y se aplica
+  todo o nada). Lo de "Stock = suma de movimientos" y "Proveedores ↔
   Productos" de abajo es HISTÓRICO: hoy aplica a los insumos.
 
 ## Mapa de puertos — CONFIGURACIÓN CRÍTICA (no se borra en limpiezas)
@@ -185,7 +189,8 @@ contenedor, volumen ni base se comparte:
 - Migraciones Alembic: `init`, `compras`, `ventas`,
   `marcas_pedidos_permisos`, `proveedor_tipo_persona`,
   `proveedor_productos_movimientos`, `indices_de_listados`,
-  `permisos_por_rol`, `aceptaciones_legales`. Correr
+  `permisos_por_rol`, `aceptaciones_legales`, `fase1_restaurante`,
+  `fase2_carta_insumos_recetas`, `fase3_conteos`. Correr
   `alembic upgrade head` tras hacer pull. Cada cambio de modelo lleva su
   migración.
 - **Legal (2026-09-30, BORRADORES pendientes de abogado)**: Política de

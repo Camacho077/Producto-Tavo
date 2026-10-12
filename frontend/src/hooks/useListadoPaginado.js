@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "@/lib/api";
+import { guardarBlob } from "@/lib/descargas";
 import { extraerMensaje } from "@/hooks/useApiResource";
 
 const RETARDO_BUSQUEDA_MS = 300;
@@ -79,13 +80,7 @@ export function useListadoPaginado(url, { porPagina = 10, filtros = {}, busqueda
         responseType: "blob",
       });
       const hoy = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Bogota" }).format(new Date());
-      const enlace = document.createElement("a");
-      enlace.href = URL.createObjectURL(res.data);
-      enlace.download = `${nombre}-${hoy}.csv`;
-      document.body.appendChild(enlace);
-      enlace.click();
-      enlace.remove();
-      setTimeout(() => URL.revokeObjectURL(enlace.href), 0);
+      guardarBlob(res.data, `${nombre}-${hoy}.csv`);
     },
     [url, busquedaAplicada, filtrosClave]
   );

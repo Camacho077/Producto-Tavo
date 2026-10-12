@@ -23,6 +23,8 @@ CATALOGO: dict[str, tuple[str, str, tuple[str, ...]]] = {
     "productos": ("Carta (platos y combos)", "platos y combos", ("ver", "crear", "editar", "cambiar_estado", "eliminar")),
     "categorias": ("Categorías de la carta", "categorías", ("ver", "crear", "editar", "cambiar_estado", "eliminar")),
     "insumos": ("Insumos", "insumos", ("ver", "crear", "editar", "cambiar_estado", "eliminar")),
+    # Historial general (ver) y mermas y conteos físicos (crear).
+    "movimientos": ("Movimientos de inventario", "movimientos de inventario", ("ver", "crear")),
     # Costo, margen y % de costo de los platos, costo de los insumos: delata
     # el negocio, así que es un permiso aparte (un cajero no lo tiene).
     "costos": ("Costos y márgenes", "costos y márgenes", ("ver",)),
@@ -49,6 +51,7 @@ GRUPO_DE_MODULO: dict[str, str] = {
     "productos": "carta",
     "categorias": "carta",
     "insumos": "inventario",
+    "movimientos": "inventario",
     "costos": "inventario",
     "compras": "inventario",
     "proveedores": "inventario",

@@ -118,3 +118,72 @@ class MovimientoOut(BaseModel):
 
 class CambioEstado(BaseModel):
     activo: bool
+
+
+# ---------- Merma ----------
+MotivoMerma = Literal["vencido", "danado", "derramado", "preparacion", "otro"]
+
+
+class MermaCreate(BaseModel):
+    """Salida que no es venta: vencido, dañado, derramado, mal preparado."""
+    cantidad: Decimal
+    unidad: Unidad
+    motivo: MotivoMerma
+    detalle: str | None = Field(default=None, max_length=200, validate_default=True)
+
+    @field_validator("cantidad")
+    @classmethod
+    def _cantidad(cls, valor):
+        return v.cantidad_decimal(valor)
+
+    @field_validator("detalle")
+    @classmethod
+    def _detalle(cls, valor, info):
+        texto = " ".join((valor or "").split()) or None
+        if info.data.get("motivo") == "otro" and not texto:
+            raise ValueError("Cuenta qué pasó: con el motivo «Otro» el detalle es obligatorio")
+        return texto
+
+
+# ---------- Conteo físico ----------
+class ConteoLinea(BaseModel):
+    insumo_id: uuid.UUID
+    contado: Decimal
+
+    @field_validator("contado")
+    @classmethod
+    def _contado(cls, valor):
+        return v.cantidad_decimal(valor, permitir_cero=True)
+
+
+class ConteoCreate(BaseModel):
+    motivo: str | None = Field(default=None, max_length=200)
+    lineas: list[ConteoLinea] = Field(min_length=1, max_length=500)
+
+    @field_validator("motivo")
+    @classmethod
+    def _motivo(cls, valor):
+        return " ".join((valor or "").split()) or None
+
+
+class ConteoItemOut(BaseModel):
+    insumo_id: uuid.UUID
+    insumo_nombre: str
+    unidad: str
+    sistema: Decimal
+    contado: Decimal
+    diferencia: Decimal
+    valor: Decimal | None = None
+
+
+class ConteoOut(BaseModel):
+    id: uuid.UUID
+    numero: int
+    codigo: str
+    motivo: str | None = None
+    usuario_nombre: str | None = None
+    lineas: int
+    con_diferencia: int
+    valor_diferencia: Decimal | None = None
+    created_at: datetime
+    items: list[ConteoItemOut] = []

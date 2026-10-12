@@ -16,6 +16,7 @@ export const PERMISOS_ADMIN = {
   categorias: ["ver", "crear", "editar", "cambiar_estado", "eliminar"],
   proveedores: ["ver", "crear", "editar", "cambiar_estado", "eliminar"],
   insumos: ["ver", "crear", "editar", "cambiar_estado", "eliminar"],
+  movimientos: ["ver", "crear"],
   costos: ["ver"],
   ventas: ["ver", "crear", "cambiar_estado", "anular"],
   pedidos: ["ver", "crear", "editar", "cambiar_estado"],

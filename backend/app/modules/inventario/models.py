@@ -1,4 +1,4 @@
-from sqlalchemy import Boolean, Column, ForeignKey, Index, Numeric, String, UniqueConstraint
+from sqlalchemy import Boolean, Column, ForeignKey, Index, Integer, Numeric, String, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 
@@ -78,3 +78,50 @@ class MovimientoInsumo(Base, TenantMixin, TimestampMixin):
     usuario_nombre = Column(String, nullable=True)
 
     insumo = relationship("Insumo", back_populates="movimientos")
+
+
+# Motivos de una merma (salida que no es venta). "otro" exige el detalle.
+MOTIVOS_MERMA = {
+    "vencido": "Vencido",
+    "danado": "Dañado",
+    "derramado": "Se cayó o se derramó",
+    "preparacion": "Error de preparación",
+    "otro": "Otro",
+}
+
+
+class Conteo(Base, TenantMixin, TimestampMixin):
+    """
+    Conteo físico de la bodega: lo que dice el sistema contra lo que de verdad
+    hay. Cada diferencia queda como un movimiento "ajuste" (con signo) que
+    apunta a este conteo, así la existencia vuelve a cuadrar con la realidad
+    y la diferencia queda explicada (y valorizada) en el historial.
+    """
+    __tablename__ = "conteos"
+    __table_args__ = (Index("ix_conteos_tenant_numero", "tenant_id", "numero"),)
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=gen_uuid)
+    numero = Column(Integer, nullable=False)
+    motivo = Column(String(255), nullable=True)
+    usuario_nombre = Column(String, nullable=True)
+    valor_diferencia = Column(Numeric(14, 2), nullable=False, default=0, server_default="0")
+
+    items = relationship("ConteoItem", back_populates="conteo", cascade="all, delete-orphan", order_by="ConteoItem.orden")
+
+
+class ConteoItem(Base, TenantMixin):
+    __tablename__ = "conteo_items"
+    __table_args__ = (Index("ix_conteo_items_conteo", "conteo_id"), Index("ix_conteo_items_insumo_id", "insumo_id"))
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=gen_uuid)
+    conteo_id = Column(UUID(as_uuid=True), ForeignKey("conteos.id", ondelete="CASCADE"), nullable=False)
+    insumo_id = Column(UUID(as_uuid=True), ForeignKey("insumos.id"), nullable=False)
+    sistema = Column(Numeric(14, 3), nullable=False)  # lo que decía el sistema
+    contado = Column(Numeric(14, 3), nullable=False)  # lo que se contó
+    diferencia = Column(Numeric(14, 3), nullable=False)  # contado - sistema
+    costo_unitario = Column(Numeric(14, 4), nullable=False, default=0)
+    valor = Column(Numeric(14, 2), nullable=False, default=0)  # diferencia × costo
+    orden = Column(Integer, nullable=False, default=0)
+
+    conteo = relationship("Conteo", back_populates="items")
+    insumo = relationship("Insumo")

@@ -81,6 +81,14 @@ ESPERADO = {
     ("DELETE", "/catalogo/productos/{producto_id}/imagen"): ("productos", "editar"),
     ("GET", "/inventario/insumos/{insumo_id}/movimientos"): ("insumos", "ver"),
     ("GET", "/inventario/grupos"): ("insumos", "ver"),
+    ("GET", "/inventario/movimientos"): ("movimientos", "ver"),
+    ("POST", "/inventario/insumos/{insumo_id}/merma"): ("movimientos", "crear"),
+    ("GET", "/inventario/conteos"): ("movimientos", "ver"),
+    ("GET", "/inventario/conteos/{conteo_id}"): ("movimientos", "ver"),
+    ("POST", "/inventario/conteos"): ("movimientos", "crear"),
+    ("GET", "/inventario/carga-inicial/plantilla"): ("insumos", "ver"),
+    ("POST", "/inventario/carga-inicial/validar"): ("insumos", "crear"),
+    ("POST", "/inventario/carga-inicial/aplicar"): ("insumos", "crear"),
     ("GET", "/compras/compras"): ("compras", "ver"),
     ("GET", "/compras/compras/{compra_id}"): ("compras", "ver"),
     ("GET", "/compras/compras/{compra_id}/pdf"): ("compras", "ver"),
@@ -157,7 +165,7 @@ def test_toda_ruta_de_negocio_exige_el_permiso_esperado():
 
 
 def test_el_catalogo_cubre_los_modulos_pedidos():
-    for modulo in ("compras", "productos", "categorias", "insumos", "costos", "proveedores", "ventas", "pedidos", "usuarios", "roles", "dashboard", "ajustes", "mesas"):
+    for modulo in ("compras", "productos", "categorias", "insumos", "movimientos", "costos", "proveedores", "ventas", "pedidos", "usuarios", "roles", "dashboard", "ajustes", "mesas"):
         assert modulo in CATALOGO
     # Cada par usado en ESPERADO existe en el catálogo.
     for modulo, accion in ESPERADO.values():
@@ -249,11 +257,12 @@ def dos_empresas(client, tenant_factory, usuario_factory, auth_headers_factory):
     compra = crear("/compras/compras", {"proveedor_id": prov["id"], "fecha": "2026-01-01T09:00:00", "confirmar": True, "items": [{"insumo_id": insumo["id"], "cantidad": "10", "unidad": "unidad", "precio_unitario": "1800"}]})
     venta = crear("/ventas/ventas", {"cliente_nombre": "Cliente Uno", "fecha": "2026-01-02T09:00:00", "confirmar": True, "items": [{"producto_id": prod["id"], "cantidad": 1, "precio_unitario": "3000"}]})
     pedido = crear("/ventas/pedidos", {"cliente_nombre": "Cliente Dos", "fecha": "2026-01-02T09:00:00", "items": [{"producto_id": prod["id"], "cantidad": 1, "precio_unitario": "3000"}]})
+    conteo = crear("/inventario/conteos", {"lineas": [{"insumo_id": insumo["id"], "contado": "8"}]})
     rol = crear("/seguridad/roles", {"nombre": "Vendedor", "permisos": {"ventas": ["ver"]}})
     usuario = crear("/seguridad/usuarios", {"nombre_completo": "Pedro Pérez", "email": f"{uuid.uuid4().hex[:8]}@a.com", "password": "clave-segura-123", "rol_id": rol["id"]})
 
     ids = {
-        "categoria_id": cat["id"], "zona_id": zona["id"], "mesa_id": mesa["id"], "proveedor_id": prov["id"], "producto_id": prod["id"], "insumo_id": insumo["id"],
+        "categoria_id": cat["id"], "zona_id": zona["id"], "mesa_id": mesa["id"], "proveedor_id": prov["id"], "producto_id": prod["id"], "insumo_id": insumo["id"], "conteo_id": conteo["id"],
         "compra_id": compra["id"], "venta_id": venta["id"], "pedido_id": pedido["id"], "rol_id": rol["id"], "usuario_id": usuario["id"],
     }
     return ha, hb, ids
@@ -273,6 +282,7 @@ CUERPOS = {
     ("PUT", "rol_id"): {"descripcion": "robado"},
     ("PATCH", "pedido_id"): {"estado": "cancelado"},
     ("PATCH", None): {"activo": False},
+    ("POST", "insumo_id"): {"cantidad": "1", "unidad": "unidad", "motivo": "vencido"},
 }
 
 
@@ -287,7 +297,7 @@ def _rutas_con_id():
 def test_otra_empresa_recibe_404_y_nunca_datos_ajenos(metodo, path, param, client, dos_empresas):
     ha, hb, ids = dos_empresas
     url = API + path.replace("{" + param + "}", ids[param])
-    cuerpo = CUERPOS.get((metodo, param)) or CUERPOS.get((metodo, None)) if metodo in ("PUT", "PATCH") else None
+    cuerpo = CUERPOS.get((metodo, param)) or CUERPOS.get((metodo, None)) if metodo in ("PUT", "PATCH", "POST") else None
 
     resp = client.request(metodo, url, headers=hb, json=cuerpo)
 
@@ -304,7 +314,7 @@ def test_otra_empresa_recibe_404_y_nunca_datos_ajenos(metodo, path, param, clien
 def test_los_listados_de_otra_empresa_no_traen_nada_ajeno(client, dos_empresas):
     ha, hb, ids = dos_empresas
     for ruta in ("/catalogo/categorias", "/ajustes/zonas", "/ajustes/mesas", "/compras/proveedores", "/catalogo/productos", "/inventario/insumos",
-                 "/compras/compras", "/ventas/ventas", "/ventas/pedidos", "/seguridad/usuarios", "/seguridad/roles"):
+                 "/inventario/movimientos", "/inventario/conteos", "/compras/compras", "/ventas/ventas", "/ventas/pedidos", "/seguridad/usuarios", "/seguridad/roles"):
         texto = client.get(f"{API}{ruta}", headers=hb).text
         for valor in ids.values():
             assert valor not in texto, (ruta, valor)

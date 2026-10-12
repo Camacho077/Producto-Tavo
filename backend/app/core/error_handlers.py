@@ -51,15 +51,20 @@ _MENSAJES_POR_TIPO = {
     "less_than": "Debe ser menor que el máximo permitido",
     "less_than_equal": "Debe ser menor o igual al máximo permitido",
     "enum": "El valor no está entre las opciones permitidas",
+    "literal_error": "El valor no está entre las opciones permitidas",
     "extra_forbidden": "No se admiten campos adicionales",
     "json_invalid": "El cuerpo de la petición no es JSON válido",
 }
 
 
-def _traducir_error(err: dict) -> dict:
+def traducir_error(err: dict) -> dict:
     campo = ".".join(str(p) for p in err["loc"] if p != "body")
     tipo = err.get("type", "")
     mensaje = _MENSAJES_POR_TIPO.get(tipo)
+    if tipo == "literal_error" and (err.get("ctx") or {}).get("expected"):
+        # "'kg', 'g' or 'unidad'" → "Debe ser una de estas opciones: kg, g o unidad"
+        opciones = err["ctx"]["expected"].replace("'", "").replace(" or ", " o ")
+        mensaje = f"Debe ser una de estas opciones: {opciones}"
     if mensaje is None:
         # Los ValueError lanzados por validadores custom (app/core/validaciones.py)
         # ya vienen en español; Pydantic los prefija con "Value error, " y aquí
@@ -83,7 +88,7 @@ def register_exception_handlers(app: FastAPI) -> None:
 
     @app.exception_handler(RequestValidationError)
     async def validation_error_handler(request: Request, exc: RequestValidationError):
-        errores = [_traducir_error(e) for e in exc.errors()]
+        errores = [traducir_error(e) for e in exc.errors()]
         return JSONResponse(
             status_code=422,
             content={"detail": "Los datos enviados no son válidos", "errores": errores},

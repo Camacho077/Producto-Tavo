@@ -1,5 +1,5 @@
 import { useEffect, useId, useMemo, useState } from "react";
-import { Eye, Pencil, Plus, Power, Trash2 } from "lucide-react";
+import { Eye, FileUp, PackageMinus, Pencil, Plus, Power, Trash2 } from "lucide-react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { z } from "zod";
 
@@ -30,6 +30,7 @@ import { formatearFecha, formatearFechaHora, formatearMoneda, formatearNumero } 
 import { MIGAS, migasDe } from "@/lib/migas";
 import { UNIDADES, legible, porUnidad } from "@/lib/unidades";
 import { esquemas } from "@/lib/validaciones";
+import { TIPOS_MOVIMIENTO, enlaceDeDocumento } from "@/modules/inventario/movimientos";
 
 /**
  * INSUMOS (2026-10-12): la materia prima del restaurante. La existencia NO se
@@ -41,16 +42,6 @@ import { esquemas } from "@/lib/validaciones";
 const RUTA = "/inventario/insumos";
 const URL = "/inventario/insumos";
 const migas = (...resto) => migasDe(MIGAS.insumos, ...resto);
-
-export const TIPOS_MOVIMIENTO = {
-  inicial: { etiqueta: "Existencia inicial", variante: "neutro" },
-  compra: { etiqueta: "Compra", variante: "positivo" },
-  anulacion_compra: { etiqueta: "Anulación de compra", variante: "neutro" },
-  venta: { etiqueta: "Venta", variante: "neutro" },
-  anulacion_venta: { etiqueta: "Anulación de venta", variante: "neutro" },
-  merma: { etiqueta: "Merma", variante: "negativo" },
-  ajuste: { etiqueta: "Ajuste por conteo", variante: "neutro" },
-};
 
 function BadgeMinimo({ insumo }) {
   if (!insumo.bajo_minimo) return null;
@@ -181,9 +172,14 @@ export function InsumosLista() {
         migas={migas()}
         acciones={
           puede("insumos", "crear") && (
-            <Button onClick={() => navigate(`${RUTA}/nuevo`)}>
-              <Plus size={14} aria-hidden="true" /> Nuevo insumo
-            </Button>
+            <>
+              <Button variante="secundario" onClick={() => navigate("/inventario/carga-inicial")}>
+                <FileUp size={14} aria-hidden="true" /> Carga inicial
+              </Button>
+              <Button onClick={() => navigate(`${RUTA}/nuevo`)}>
+                <Plus size={14} aria-hidden="true" /> Nuevo insumo
+              </Button>
+            </>
           )
         }
       />
@@ -395,12 +391,6 @@ export function InsumoEditar() {
 // =====================================================================
 // Detalle con historial
 // =====================================================================
-export function enlaceDeDocumento(m) {
-  if (m.documento_tipo === "compra") return `/inventario/compras/${m.documento_id}`;
-  if (m.documento_tipo === "venta") return `/ventas/${m.documento_id}`;
-  return null;
-}
-
 function Movimientos({ insumo }) {
   const { puede } = useAuth();
   const listado = useListadoPaginado(`${URL}/${insumo.id}/movimientos`, { porPagina: 15 });
@@ -480,6 +470,11 @@ export function InsumoDetalle() {
           {puede("insumos", "eliminar") && (
             <Button variante="terciario" onClick={() => setDialogo("eliminar")}>
               <Trash2 size={14} aria-hidden="true" /> Eliminar
+            </Button>
+          )}
+          {puede("movimientos", "crear") && data?.activo && (
+            <Button variante="secundario" onClick={() => navigate(`${RUTA}/${id}/merma`)}>
+              <PackageMinus size={14} aria-hidden="true" /> Registrar merma
             </Button>
           )}
           {puede("insumos", "editar") && (

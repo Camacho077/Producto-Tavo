@@ -8,6 +8,7 @@ const OBJETO = {
   compras: "compras de insumos",
   productos: "platos y combos",
   insumos: "insumos",
+  movimientos: "movimientos de inventario",
   costos: "costos y márgenes",
   categorias: "categorías",
   proveedores: "proveedores",

@@ -21,3 +21,6 @@ reportlab==5.0.1
 # Imágenes de platos y logos: validar, recortar y comprimir a WebP en el
 # servidor (2026-10-12). Ya venía como dependencia de reportlab; se fija.
 pillow==12.3.0
+# Carga inicial (2026-10-12): plantilla Excel que genera el sistema y lectura
+# del archivo que sube el restaurante.
+openpyxl==3.1.5

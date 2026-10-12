@@ -226,6 +226,50 @@ conteos, historial general, alertas, carga inicial).
 historial general de movimientos, alertas de stock bajo y carga inicial
 desde plantilla Excel/CSV con validación fila por fila.
 
+### 2026-10-12 — Fase 3: mermas, conteos físicos, historial y carga inicial
+
+- **Merma** (`POST /inventario/insumos/{id}/merma`, pantalla
+  `/inventario/insumos/:id/merma`): salida con motivo cerrado (vencido,
+  dañado, derramado, error de preparación, otro + detalle obligatorio), en
+  cualquier unidad de la familia del insumo. NO puede dejar la existencia
+  negativa: si en la bodega hay menos de lo que dice el sistema, lo que
+  corresponde es un conteo, y el 409 lo dice.
+- **Conteo físico** (`/inventario/conteos`, consecutivo `CON-000001` por
+  empresa): por cada insumo contado se guarda sistema / contado /
+  diferencia / valor a costo, y la diferencia queda como movimiento
+  `ajuste` que apunta al conteo. Los insumos que se dejan vacíos no se
+  tocan; sin diferencia no hay movimiento. Tablas `conteos` y
+  `conteo_items` (migración `e3b1c2d3e4f5`).
+- **Historial general** (`GET /inventario/movimientos`, pantalla
+  Inventario → Movimientos): todos los movimientos con filtros por tipo,
+  insumo y días de Colombia (`desde`/`hasta`), búsqueda por insumo,
+  documento, motivo o persona, y CSV. El valor a costo solo con `costos.ver`.
+- **Permiso nuevo `movimientos`** (ver: historial y conteos; crear: mermas
+  y conteos), grupo Inventario. Un cocinero puede registrar mermas sin ver
+  costos.
+- **Carga inicial** (`/inventario/carga-inicial`): el sistema genera la
+  plantilla (Excel con hojas Insumos, Platos y Recetas, ejemplos, listas de
+  unidades y Sí/No; o un CSV por hoja, `;` y coma decimal). Subir el archivo
+  primero lo REVISA fila por fila (hoja, fila, columna, qué corregir, en
+  español: los errores de Pydantic pasan por `traducir_error`) sin guardar
+  nada; `aplicar` vuelve a revisar y guarda TODO en una transacción o nada
+  (422 con el informe). Por nombre (sin mayúsculas): lo existente se
+  actualiza, lo nuevo se crea; la existencia entra como movimiento
+  ("inicial" o "ajuste" por la diferencia, motivo "Carga inicial"), nunca
+  escrita directo; las recetas de los platos del archivo se REEMPLAZAN.
+  Platos o recetas exigen además `productos.crear` (403 con la causa).
+  El archivo va como cuerpo crudo (no multipart): sin dependencia nueva
+  más allá de `openpyxl`.
+- **Alertas de stock bajo**: ya existían (aviso del dashboard e insignia del
+  sidebar sobre insumos bajo el mínimo); el badge cuenta ahora insumos.
+- `literal_error` de Pydantic se traduce a "Debe ser una de estas
+  opciones: …" en toda la API.
+- Encabezado de página: las acciones envuelven en pantallas angostas
+  (`max-width: 100%`); con cuatro botones el detalle de insumo se salía
+  144 px a 375 px.
+
+**Sigue (fase 4)**: órdenes de pedido con comanda.
+
 ---
 
 ## 1. Configuración crítica que NO se borra
@@ -1131,6 +1175,7 @@ skill (Impeccable desaconseja Inter; aquí no se cambia).
 
 | Fecha | Decisión / hito |
 |---|---|
+| 2026-10-12 | Fase 3: mermas con motivo, conteos físicos con ajuste valorizado, historial general de movimientos, carga inicial desde plantilla Excel/CSV revisada fila por fila (§0) |
 | 2026-10-12 | Fase 2: carta con recetas (costo, margen, % de costo en vivo), modificadores, combos con vigencia, agotado hoy, fotos de plato; inventario de INSUMOS con unidades y promedio ponderado; compras de insumos; IA y dashboard sobre insumos (§0) |
 | 2026-10-12 | Fase 1: branding en un archivo ("JS Restaurante"), Marcas eliminada, Ajustes del restaurante (negocio, logo, operación, impresoras, jornada, zonas y mesas), imágenes WebP procesadas en el servidor (§0) |
 | 2026-10-12 | **Producto Tavo** nace como copia del Producto JS (`8146ea0`) en repo propio; mapa de puertos 5175/4175/8002/5433/5679, Docker aislado (`name: tavo`), scripts que no tocan al otro producto, `verificar-puertos.ps1`, guarda contra `uvicorn` a secas (§0, §1) |

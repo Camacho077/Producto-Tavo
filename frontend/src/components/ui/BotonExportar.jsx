@@ -3,38 +3,14 @@ import { Download } from "lucide-react";
 
 import Button from "@/components/ui/Button";
 import { useAviso } from "@/context/AvisoContext";
+import { errorLegible } from "@/lib/descargas";
 import { mensajeDeError } from "@/lib/errores";
 
 /**
  * "Exportar CSV" de los listados (lo pinta TablaRecurso). Descarga TODAS las
  * filas que cumplen la búsqueda y los filtros activos, con el mismo permiso
  * que la tabla (backend: `?formato=csv`, app/core/exportar.py).
- *
- * Con `responseType: "blob"` el error también llega como archivo: se lee el
- * JSON de dentro para mostrar la causa concreta del backend, nunca un
- * genérico (regla de alertas, lib/errores.js).
  */
-function leerTexto(blob) {
-  return new Promise((resolver, rechazar) => {
-    const lector = new FileReader();
-    lector.onload = () => resolver(lector.result);
-    lector.onerror = () => rechazar(lector.error);
-    lector.readAsText(blob);
-  });
-}
-
-async function errorLegible(err) {
-  const datos = err?.response?.data;
-  if (datos instanceof Blob) {
-    try {
-      return { ...err, response: { ...err.response, data: JSON.parse(await leerTexto(datos)) } };
-    } catch {
-      return err;
-    }
-  }
-  return err;
-}
-
 export default function BotonExportar({ listado, nombre }) {
   const [exportando, setExportando] = useState(false);
   const aviso = useAviso();

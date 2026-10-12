@@ -1,5 +1,8 @@
 import {
+  ClipboardCheck,
   ClipboardList,
+  FileUp,
+  History,
   Layers,
   LayoutGrid,
   KeyRound,
@@ -54,8 +57,11 @@ export const MODULES = [
     plan: "estandar",
     hijos: [
       { key: "insumos", label: "Insumos", path: "/inventario/insumos", icon: Package },
+      { key: "movimientos", label: "Movimientos", path: "/inventario/movimientos", icon: History },
+      { key: "conteos", permiso: "movimientos", label: "Conteos", path: "/inventario/conteos", icon: ClipboardCheck },
       { key: "compras", label: "Compras", path: "/inventario/compras", icon: ShoppingCart },
       { key: "proveedores", label: "Proveedores", path: "/inventario/proveedores", icon: Truck },
+      { key: "carga_inicial", permiso: "insumos", accion: "crear", label: "Carga inicial", path: "/inventario/carga-inicial", icon: FileUp },
     ],
   },
   {
@@ -138,8 +144,9 @@ export function modulosVisibles(planTenant = "basico", modulosActivos = [], pued
   return porPlan.flatMap((m) => {
     if (!m.hijos) return puede(m.key, "ver") ? [m] : [];
     // `permiso`: el módulo del catálogo que exige el hijo cuando su clave
-    // no es la del permiso (Combos usa el permiso de "productos").
-    const hijos = m.hijos.filter((h) => puede(h.permiso ?? h.key, "ver"));
+    // no es la del permiso (Combos usa el permiso de "productos"); `accion`,
+    // cuando no basta con "ver" (la carga inicial crea insumos).
+    const hijos = m.hijos.filter((h) => puede(h.permiso ?? h.key, h.accion ?? "ver"));
     return hijos.length ? [{ ...m, hijos, path: hijos[0].path }] : [];
   });
 }
