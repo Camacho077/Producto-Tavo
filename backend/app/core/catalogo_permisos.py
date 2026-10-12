@@ -8,7 +8,7 @@ GET /seguridad/permisos y decide qué mostrar con los permisos efectivos que
 devuelve GET /seguridad/me.
 
 Cada módulo trae SOLO las acciones que existen para él: compras y ventas no se
-editan (se anulan), los pedidos no se eliminan, el dashboard solo se ve.
+editan (se anulan), las órdenes no se eliminan (se anulan), el dashboard solo se ve.
 
 Módulo sin dependencias a propósito: lo importan los esquemas, las
 dependencias de FastAPI y los tests sin riesgo de import circular.
@@ -30,7 +30,10 @@ CATALOGO: dict[str, tuple[str, str, tuple[str, ...]]] = {
     "costos": ("Costos y márgenes", "costos y márgenes", ("ver",)),
     "proveedores": ("Proveedores", "proveedores", ("ver", "crear", "editar", "cambiar_estado", "eliminar")),
     "ventas": ("Ventas", "ventas", ("ver", "crear", "cambiar_estado", "anular")),
-    "pedidos": ("Pedidos", "pedidos", ("ver", "crear", "editar", "cambiar_estado")),
+    # Órdenes de pedido con comanda (fase 4): crear = tomar pedidos; editar =
+    # agregar o quitar platos y cambiar datos; cambiar_estado = entregar;
+    # anular = anular la orden completa (con motivo).
+    "ordenes": ("Órdenes", "órdenes", ("ver", "crear", "editar", "cambiar_estado", "anular")),
     "usuarios": ("Usuarios", "usuarios", ("ver", "crear", "editar", "cambiar_estado", "eliminar")),
     "roles": ("Roles", "roles", ("ver", "crear", "editar", "eliminar")),
     "ia": ("Sugerencias IA", "las sugerencias de IA", ("ver",)),
@@ -56,7 +59,7 @@ GRUPO_DE_MODULO: dict[str, str] = {
     "compras": "inventario",
     "proveedores": "inventario",
     "ventas": "ventas",
-    "pedidos": "ventas",
+    "ordenes": "ordenes",
     "usuarios": "seguridad",
     "roles": "seguridad",
     "ia": "ia",
@@ -72,6 +75,7 @@ PLAN_MINIMO_DE_GRUPO: dict[str, str] = {
     "carta": "basico",
     "inventario": "estandar",
     "ventas": "basico",
+    "ordenes": "basico",
     "ia": "pro_ia",
     "ajustes": "basico",
 }
@@ -81,6 +85,7 @@ NOMBRE_GRUPO: dict[str, str] = {
     "carta": "la Carta",
     "inventario": "el Inventario",
     "ventas": "la Caja",
+    "ordenes": "las Órdenes",
     "ia": "las Sugerencias IA",
     "ajustes": "los Ajustes",
 }
@@ -189,7 +194,7 @@ ROLES_DE_EJEMPLO: dict[str, tuple[str, dict[str, list[str]]]] = {
         "Cobra las órdenes y cierra la caja del día. No ve compras, costos ni márgenes.",
         {
             "ventas": ["ver", "crear", "cambiar_estado"],
-            "pedidos": ["ver", "crear", "editar", "cambiar_estado"],
+            "ordenes": ["ver", "crear", "editar", "cambiar_estado"],
             "productos": ["ver"],
             "categorias": ["ver"],
             "mesas": ["ver"],
@@ -198,7 +203,7 @@ ROLES_DE_EJEMPLO: dict[str, tuple[str, dict[str, list[str]]]] = {
     "Mesero": (
         "Toma los pedidos en las mesas desde el celular y sigue sus órdenes.",
         {
-            "pedidos": ["ver", "crear", "editar"],
+            "ordenes": ["ver", "crear", "editar", "cambiar_estado"],
             "productos": ["ver"],
             "categorias": ["ver"],
             "mesas": ["ver"],
@@ -207,7 +212,7 @@ ROLES_DE_EJEMPLO: dict[str, tuple[str, dict[str, list[str]]]] = {
     "Cocinero": (
         "Ve las comandas que entran a cocina, las toma y las marca como listas.",
         {
-            "pedidos": ["ver", "cambiar_estado"],
+            "ordenes": ["ver"],
         },
     ),
 }

@@ -26,15 +26,16 @@ from app.core.tiempo import ahora_utc
 from app.modules.catalogo.models import Producto, RecetaItem
 from app.modules.inventario.models import Insumo
 from app.modules.inventario.unidades import legible
-from app.modules.ventas.models import Pedido, PedidoEvento, Venta, VentaItem
+from app.db.models import Tenant
+from app.modules.ajustes.schemas import configuracion_de
+from app.modules.ordenes.models import Comanda, Orden
+from app.modules.ventas.models import Venta, VentaItem
 
 # Umbrales de las reglas. Viven aquí, con nombre, para que cambiarlos sea
 # un solo sitio y los tests puedan apoyarse en ellos.
 DIAS_SEMANA = 7
-DIAS_PEDIDO_ESTANCADO = 3
 VARIACION_NOTABLE_PCT = 20.0
 MAX_NOMBRES_EN_TEXTO = 3
-ESTADOS_PEDIDO_ABIERTO = ("pendiente", "en_proceso", "listo")
 
 
 def _aviso(clave: str, nivel: str, titulo: str, texto: str, recurso: str, id_: uuid.UUID | None = None) -> dict:
@@ -166,40 +167,32 @@ def variacion_de_ventas(db: Session, tenant_id: uuid.UUID, ahora: datetime) -> d
     )
 
 
-def pedidos_estancados(db: Session, tenant_id: uuid.UUID, ahora: datetime) -> dict | None:
-    """Pedidos abiertos cuyo último movimiento ya tiene varios días."""
-    ultimo_evento = (
-        db.query(PedidoEvento.pedido_id, func.max(PedidoEvento.created_at).label("ultimo"))
-        .filter(PedidoEvento.tenant_id == tenant_id)
-        .group_by(PedidoEvento.pedido_id)
-        .subquery()
-    )
-    corte = ahora - timedelta(days=DIAS_PEDIDO_ESTANCADO)
+def comandas_demoradas(db: Session, tenant_id: uuid.UUID, ahora: datetime) -> dict | None:
+    """Comandas en cocina (entrantes o en preparación) que ya pasaron el
+    tiempo de alerta configurado en Ajustes."""
+    minutos = configuracion_de(db.get(Tenant, tenant_id)).alerta_cocina_minutos
     filas = (
-        db.query(Pedido, ultimo_evento.c.ultimo)
-        .outerjoin(ultimo_evento, ultimo_evento.c.pedido_id == Pedido.id)
+        db.query(Orden.numero, Comanda.created_at)
+        .join(Orden, Orden.id == Comanda.orden_id)
         .filter(
-            Pedido.tenant_id == tenant_id,
-            Pedido.estado.in_(ESTADOS_PEDIDO_ABIERTO),
-            func.coalesce(ultimo_evento.c.ultimo, Pedido.created_at) <= corte,
+            Comanda.tenant_id == tenant_id,
+            Comanda.estado.in_(("entrante", "en_preparacion")),
+            Orden.estado == "abierta",
+            Comanda.created_at <= ahora - timedelta(minutes=minutos),
         )
-        .order_by(func.coalesce(ultimo_evento.c.ultimo, Pedido.created_at))
+        .order_by(Comanda.created_at)
         .all()
     )
     if not filas:
         return None
-
-    pedidos = [p for p, _ in filas]
-    dias = (ahora - (filas[0][1] or pedidos[0].created_at)).days
-    codigos = [f"PED-{p.numero:06d}" for p in pedidos]
-    recurso, id_ = ("pedido", pedidos[0].id) if len(pedidos) == 1 else ("pedidos", None)
+    espera = int((ahora - filas[0][1]).total_seconds() // 60)
+    numeros = list(dict.fromkeys(f"#{n}" for n, _ in filas))
     return _aviso(
-        "pedidos_estancados",
+        "comandas_demoradas",
         "advertencia",
-        f"{plural(len(pedidos), 'pedido sin avanzar', 'pedidos sin avanzar')}",
-        f"{_enumerar(codigos)} sin cambios desde hace {plural(dias, 'día', 'días')} o más.",
-        recurso,
-        id_,
+        f"{plural(len(filas), 'comanda demorada', 'comandas demoradas')} en cocina",
+        f"Órdenes {_enumerar(numeros)}: la más antigua lleva {espera} min (la alerta es a los {minutos} min).",
+        "ordenes",
     )
 
 
@@ -240,7 +233,7 @@ def calcular(db: Session, tenant_id: uuid.UUID, ahora: datetime | None = None) -
         insumos_agotados(db, tenant_id),
         insumos_bajo_minimo(db, tenant_id),
         variacion_de_ventas(db, tenant_id, ahora),
-        pedidos_estancados(db, tenant_id, ahora),
+        comandas_demoradas(db, tenant_id, ahora),
         mas_vendido_de_la_semana(db, tenant_id, ahora),
     ]
     avisos = [a for a in candidatos if a is not None]

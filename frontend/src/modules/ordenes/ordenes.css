@@ -1,0 +1,418 @@
+/* Órdenes: tomar pedido, tablero, detalle y mesas (CSS de ruta: cada
+   selector empieza por una clase propia, ver css-por-ruta.test.js).
+   Pensado para el dedo: blancos táctiles de 44 px como mínimo. */
+@layer components {
+  /* ---------- Tomar pedido ---------- */
+  .pedido__rejilla {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(300px, 380px);
+    gap: var(--hueco);
+    align-items: start;
+  }
+  .pedido__principal {
+    display: grid;
+    gap: var(--hueco);
+    min-width: 0;
+  }
+  .pedido__resumen {
+    position: sticky;
+    top: 12px;
+    min-width: 0;
+  }
+  @media (max-width: 1023px) {
+    .pedido__rejilla {
+      grid-template-columns: minmax(0, 1fr);
+    }
+    .pedido__resumen {
+      position: static;
+    }
+  }
+
+  .pedido__tipos {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+    gap: 8px;
+  }
+  .pedido-opcion {
+    display: grid;
+    gap: 2px;
+    min-height: 56px;
+    padding: 10px 12px;
+    border: var(--borde-fino) solid var(--borde);
+    border-radius: var(--radio-bloque);
+    background: var(--superficie);
+    color: var(--texto);
+    text-align: left;
+    cursor: pointer;
+    transition: border-color var(--transicion), background-color var(--transicion), transform var(--dur-color) var(--ease-suave);
+  }
+  .pedido-opcion:active {
+    transform: scale(0.98);
+  }
+  .pedido-opcion--activa {
+    border-color: var(--texto);
+    background: var(--relleno);
+  }
+  .pedido-opcion__titulo {
+    font-weight: 600;
+    font-size: 14px;
+  }
+  .pedido-opcion__ayuda {
+    font-size: 12px;
+    color: var(--texto-secundario);
+  }
+  .pedido__origenes,
+  .pedido__categorias {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 10px;
+  }
+  .pedido-ficha {
+    min-height: 36px;
+    padding: 0 14px;
+    border: var(--borde-fino) solid var(--borde);
+    border-radius: var(--radio-pastilla);
+    background: var(--superficie);
+    color: var(--texto-suave);
+    font-size: 13px;
+    cursor: pointer;
+    transition: border-color var(--transicion), background-color var(--transicion), color var(--transicion);
+  }
+  .pedido-ficha--activa {
+    border-color: var(--texto);
+    background: var(--texto);
+    color: var(--texto-sobre-acento);
+  }
+  .pedido-ficha--mod {
+    min-height: 40px;
+    font-weight: 600;
+  }
+  .pedido__zona {
+    margin: 0 0 6px;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--texto-secundario);
+  }
+
+  .pedido__buscador {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    height: 44px;
+    padding: 0 12px;
+    border: var(--borde-fino) solid var(--borde);
+    border-radius: var(--radio-control);
+    background: var(--superficie);
+    color: var(--texto-secundario);
+  }
+  .pedido__buscador input {
+    flex: 1;
+    min-width: 0;
+    border: 0;
+    background: transparent;
+    color: var(--texto);
+    font: inherit;
+    font-size: 15px;
+    outline: none;
+  }
+  .pedido__buscador:focus-within {
+    border-color: var(--texto);
+  }
+
+  .pedido__platos {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 8px;
+    margin-top: 12px;
+  }
+  .pedido-plato {
+    position: relative;
+    display: grid;
+    justify-items: center;
+    align-content: start;
+    gap: 6px;
+    min-height: 132px;
+    padding: 12px 8px;
+    border: var(--borde-fino) solid var(--borde);
+    border-radius: var(--radio-bloque);
+    background: var(--superficie);
+    color: var(--texto);
+    text-align: center;
+    cursor: pointer;
+    transition: border-color var(--transicion), transform var(--dur-color) var(--ease-suave);
+  }
+  .pedido-plato:hover {
+    border-color: var(--borde-fuerte);
+  }
+  .pedido-plato:active {
+    transform: scale(0.97);
+  }
+  .pedido-plato--agotado {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+  .pedido-plato__nombre {
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1.25;
+  }
+  .pedido-plato__precio {
+    font-size: 12px;
+    color: var(--texto-secundario);
+  }
+  .pedido-plato__cantidad {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    min-width: 24px;
+    height: 24px;
+    padding: 0 6px;
+    border-radius: var(--radio-pastilla);
+    background: var(--texto);
+    color: var(--texto-sobre-acento);
+    font-size: 12px;
+    line-height: 24px;
+  }
+
+  .pedido__lineas {
+    display: grid;
+    gap: 10px;
+    margin: 0 0 12px;
+    padding: 0;
+    list-style: none;
+  }
+  .pedido-linea {
+    display: grid;
+    gap: 8px;
+    padding-bottom: 10px;
+    border-bottom: var(--borde-fino) solid var(--borde);
+  }
+  .pedido-linea__cabeza {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    font-size: 14px;
+  }
+  .pedido-linea__nombre {
+    font-weight: 600;
+  }
+  .pedido-linea__mods {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .pedido-linea__nota {
+    height: 36px;
+    padding: 0 10px;
+    border: var(--borde-fino) solid var(--borde);
+    border-radius: var(--radio-control);
+    background: var(--superficie);
+    color: var(--texto);
+    font: inherit;
+    font-size: 13px;
+  }
+  .pedido-cantidad {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    border: var(--borde-fino) solid var(--borde);
+    border-radius: var(--radio-pastilla);
+  }
+  .pedido-cantidad button {
+    display: grid;
+    place-items: center;
+    width: 44px;
+    height: 44px;
+    border: 0;
+    border-radius: var(--radio-pastilla);
+    background: transparent;
+    color: var(--texto);
+    cursor: pointer;
+    transition: background-color var(--transicion);
+  }
+  .pedido-cantidad button:hover {
+    background: var(--relleno);
+  }
+  .pedido-cantidad span {
+    min-width: 28px;
+    text-align: center;
+    font-size: 16px;
+    font-weight: 600;
+  }
+  .pedido__fallo {
+    display: grid;
+    gap: 8px;
+    justify-items: start;
+  }
+
+  /* Total y Enviar: dentro del resumen en escritorio; fija abajo en
+     pantallas angostas, donde el resumen queda lejos de la carta. */
+  .pedido__barra {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    margin-top: 12px;
+    padding: 10px 10px 10px 18px;
+    border: var(--borde-fino) solid var(--borde);
+    border-radius: var(--radio-tarjeta);
+    background: var(--superficie);
+  }
+  .pedido__barra > div {
+    display: grid;
+  }
+  .pedido__barra-etiqueta {
+    font-size: 12px;
+    color: var(--texto-secundario);
+  }
+  .pedido__barra-total {
+    font-size: 20px;
+    font-weight: 600;
+  }
+  @media (max-width: 1023px) {
+    .pedido {
+      padding-bottom: 96px; /* la barra fija no tapa el final */
+    }
+    .pedido__barra {
+      position: fixed;
+      right: 12px;
+      bottom: 16px;
+      left: 12px;
+      z-index: 20;
+      margin-top: 0;
+    }
+  }
+  @media (max-width: 767px) {
+    .pedido {
+      padding-bottom: 150px;
+    }
+    .pedido__barra {
+      bottom: 76px; /* sobre la barra de navegación inferior */
+    }
+  }
+
+  /* ---------- Mesas ---------- */
+  .mesas-rejilla {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(84px, 1fr));
+    gap: 8px;
+  }
+  .mesas-rejilla--grande {
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  }
+  .mesas-tile {
+    display: grid;
+    justify-items: center;
+    align-content: center;
+    gap: 4px;
+    min-height: 64px;
+    padding: 10px 8px;
+    border: var(--borde-fino) solid var(--borde);
+    border-radius: var(--radio-bloque);
+    background: var(--superficie);
+    color: var(--texto);
+    text-align: center;
+    font: inherit;
+    transition: border-color var(--transicion), background-color var(--transicion);
+  }
+  button.mesas-tile {
+    cursor: pointer;
+  }
+  .mesas-tile__nombre {
+    font-family: var(--fuente-mono);
+    font-size: 16px;
+    font-weight: 700;
+  }
+  .mesas-tile__estado {
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--texto-secundario);
+  }
+  .mesas-tile__orden {
+    font-size: 12px;
+  }
+  /* Sin color: ocupada = relleno; por cobrar = borde punteado y grueso. */
+  .mesas-tile--ocupada {
+    background: var(--relleno);
+  }
+  .mesas-tile--por_cobrar {
+    border-style: dashed;
+    border-color: var(--texto);
+  }
+  .mesas-tile--elegida {
+    border-color: var(--texto);
+    background: var(--texto);
+    color: var(--texto-sobre-acento);
+  }
+  .mesas-tile--elegida .mesas-tile__estado {
+    color: inherit;
+  }
+
+  /* ---------- Tablero y detalle ---------- */
+  .ordenes-numero {
+    font-size: 15px;
+    font-weight: 700;
+  }
+  .ordenes-comandas {
+    display: grid;
+    gap: 10px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .ordenes-comanda {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    padding-bottom: 10px;
+    border-bottom: var(--borde-fino) solid var(--borde);
+  }
+  .ordenes-comanda__titulo {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0;
+    font-weight: 600;
+  }
+  .ordenes-comanda__tiempos {
+    margin: 4px 0 0;
+    font-size: 12px;
+    color: var(--texto-secundario);
+  }
+  .ordenes-mod {
+    display: block;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+  }
+  .ordenes-nota {
+    display: block;
+    font-size: 12px;
+    font-style: italic;
+    color: var(--texto-secundario);
+  }
+  .ordenes-anulado strong {
+    text-decoration: line-through;
+    color: var(--texto-secundario);
+  }
+  .ordenes-tiempo {
+    display: grid;
+    gap: 8px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    font-size: 13px;
+  }
+  .ordenes-tiempo li {
+    display: grid;
+    grid-template-columns: 5.5rem minmax(0, 1fr);
+    gap: 8px;
+  }
+  .ordenes-tiempo__quien {
+    color: var(--texto-secundario);
+  }
+}

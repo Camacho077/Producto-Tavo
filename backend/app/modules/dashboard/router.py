@@ -27,7 +27,8 @@ from app.modules.dashboard.periodos import (
     variacion,
     ventana_de_periodo,
 )
-from app.modules.ventas.models import Pedido, Venta, VentaItem
+from app.modules.ordenes.models import Orden
+from app.modules.ventas.models import Venta, VentaItem
 
 router = APIRouter(prefix="/dashboard", tags=["Dashboard"])
 
@@ -181,10 +182,8 @@ def _inventario(db: Session, tenant_id, v: Ventana) -> dict:
         .filter(Insumo.tenant_id == tenant_id)
         .one()
     )
-    pedidos_abiertos = (
-        db.query(func.count(Pedido.id))
-        .filter(Pedido.tenant_id == tenant_id, Pedido.estado.in_(("pendiente", "en_proceso", "listo")))
-        .scalar()
+    ordenes_abiertas = (
+        db.query(func.count(Orden.id)).filter(Orden.tenant_id == tenant_id, Orden.estado == "abierta").scalar()
     )
 
     grupo = func.coalesce(Insumo.grupo, "Sin grupo")
@@ -239,7 +238,7 @@ def _inventario(db: Session, tenant_id, v: Ventana) -> dict:
         "insumos_activos": int(fila.activos or 0),
         "bajo_minimo": int(fila.bajo_minimo or 0),
         "valor_inventario": float(fila.valor or 0),
-        "pedidos_abiertos": int(pedidos_abiertos or 0),
+        "ordenes_abiertas": int(ordenes_abiertas or 0),
         "categorias": grupos,
     }
 
@@ -386,7 +385,7 @@ def avisos_del_negocio(
     """
     Lo que merece atención hoy, calculado con los datos reales del tenant:
     stock agotado o bajo el mínimo, variación notable de ventas frente a la
-    semana anterior, pedidos abiertos sin avanzar y el más vendido de la
+    semana anterior, comandas demoradas en cocina y el más vendido de la
     semana. Las reglas viven en `avisos.py`.
     """
     return reglas_de_aviso.calcular(db, tenant_id)

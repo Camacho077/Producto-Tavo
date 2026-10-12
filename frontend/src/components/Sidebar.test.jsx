@@ -20,7 +20,7 @@ beforeEach(() => {
 });
 
 describe("Sidebar con grupos desplegables", () => {
-  it("muestra los grupos Carta, Inventario, Caja, Seguridad y Ajustes con sus submódulos", () => {
+  it("muestra los grupos Órdenes, Carta, Inventario, Seguridad y Ajustes y la Caja con sus submódulos", () => {
     renderizar();
     const grupo = screen.getByRole("button", { name: /inventario/i });
     expect(grupo).toHaveAttribute("aria-expanded", "false");
@@ -36,8 +36,10 @@ describe("Sidebar con grupos desplegables", () => {
     expect(screen.getByRole("link", { name: "Combos" })).toHaveAttribute("href", "/carta/combos");
     expect(screen.getByRole("link", { name: "Categorías" })).toHaveAttribute("href", "/carta/categorias");
 
-    fireEvent.click(screen.getByRole("button", { name: /caja/i }));
-    expect(screen.getByRole("link", { name: "Órdenes" })).toHaveAttribute("href", "/ventas/pedidos");
+    expect(screen.getByRole("link", { name: "Caja" })).toHaveAttribute("href", "/ventas");
+    fireEvent.click(screen.getByRole("button", { name: /órdenes/i }));
+    expect(screen.getByRole("link", { name: "Tomar pedido" })).toHaveAttribute("href", "/ordenes/nueva");
+    expect(screen.getByRole("link", { name: "Tablero" })).toHaveAttribute("href", "/ordenes");
 
 
     fireEvent.click(screen.getByRole("button", { name: /seguridad/i }));
@@ -60,7 +62,7 @@ describe("Sidebar con grupos desplegables", () => {
 
   it("al cargar TODOS los grupos están cerrados, aunque la ruta sea de un grupo", () => {
     renderizar("/inventario/proveedores");
-    for (const nombre of [/carta/i, /inventario/i, /caja/i, /seguridad/i, /ajustes/i]) {
+    for (const nombre of [/órdenes/i, /carta/i, /inventario/i, /seguridad/i, /ajustes/i]) {
       expect(screen.getByRole("button", { name: nombre })).toHaveAttribute("aria-expanded", "false");
     }
     expect(screen.queryByRole("link", { name: "Proveedores" })).toBeNull();
@@ -68,17 +70,17 @@ describe("Sidebar con grupos desplegables", () => {
 
   it("no recuerda el grupo abierto entre recargas", () => {
     const { unmount } = renderizar();
-    fireEvent.click(screen.getByRole("button", { name: /caja/i }));
+    fireEvent.click(screen.getByRole("button", { name: /órdenes/i }));
     unmount();
 
     renderizar();
-    expect(screen.getByRole("button", { name: /caja/i })).toHaveAttribute("aria-expanded", "false");
+    expect(screen.getByRole("button", { name: /órdenes/i })).toHaveAttribute("aria-expanded", "false");
   });
 
   it("solo un grupo abierto a la vez: abrir uno cierra el anterior", () => {
     renderizar();
     const compras = screen.getByRole("button", { name: /inventario/i });
-    const ventas = screen.getByRole("button", { name: /caja/i });
+    const ventas = screen.getByRole("button", { name: /órdenes/i });
     fireEvent.click(compras);
     expect(compras).toHaveAttribute("aria-expanded", "true");
     fireEvent.click(ventas);
@@ -128,11 +130,12 @@ describe("Sidebar con grupos desplegables", () => {
     expect(screen.queryByRole("link", { name: "Insumos" })).toBeNull();
   });
 
-  it("el plan básico trae Carta y Caja pero no Inventario ni IA", () => {
+  it("el plan básico trae Órdenes, Carta y Caja pero no Inventario ni IA", () => {
     renderizar("/", "basico");
     expect(screen.queryByRole("button", { name: /inventario/i })).toBeNull();
     expect(screen.queryByRole("link", { name: /sugerencias/i })).toBeNull();
     expect(screen.getByRole("button", { name: /carta/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /caja/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /órdenes/i })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Caja" })).toBeInTheDocument();
   });
 });

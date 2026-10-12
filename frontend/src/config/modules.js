@@ -2,6 +2,7 @@ import {
   ClipboardCheck,
   ClipboardList,
   FileUp,
+  HandPlatter,
   History,
   Layers,
   LayoutGrid,
@@ -32,6 +33,20 @@ export const MODULES = [
     path: "/",
     icon: LayoutDashboard,
     plan: "basico",
+  },
+  {
+    // Órdenes de pedido con comanda (fase 4, 2026-10-12). Tomar pedido va
+    // primero: es la pantalla del mesero.
+    key: "ordenes",
+    label: "Órdenes",
+    path: "/ordenes/nueva",
+    icon: ClipboardList,
+    plan: "basico",
+    hijos: [
+      { key: "tomar_pedido", permiso: "ordenes", accion: "crear", label: "Tomar pedido", path: "/ordenes/nueva", icon: HandPlatter },
+      { key: "ordenes", label: "Tablero", path: "/ordenes", icon: ClipboardList },
+      { key: "mesas_servicio", permiso: "ordenes", label: "Mesas", path: "/ordenes/mesas", icon: LayoutGrid },
+    ],
   },
   {
     // Carta (2026-10-12): platos con receta, combos y categorías. Desde
@@ -65,18 +80,12 @@ export const MODULES = [
     ],
   },
   {
-    // Restaurante (2026-10-12): Ventas pasa a ser la CAJA y Pedidos, las
-    // ÓRDENES con comanda. Las rutas y las claves de permiso se quedan hasta
-    // que sus fases las reemplacen (docs/DECISIONES.md §0).
+    // Restaurante (2026-10-12): Ventas pasa a ser la CAJA (fase 6).
     key: "ventas",
     label: "Caja",
     path: "/ventas",
     icon: Receipt,
     plan: "basico",
-    hijos: [
-      { key: "ventas", label: "Caja", path: "/ventas", icon: Receipt },
-      { key: "pedidos", label: "Órdenes", path: "/ventas/pedidos", icon: ClipboardList },
-    ],
   },
   {
     key: "seguridad",

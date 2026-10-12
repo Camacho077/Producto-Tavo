@@ -17,7 +17,6 @@ caja, gastos, mesas y un usuario por rol):
       ellas, con su fila en movimientos_insumo.
     - 9 ventas completadas que descuentan insumos POR RECETA: una por mes en
       los últimos 5 meses, una a mitad de semana, anteayer, ayer y HOY.
-    - 2 pedidos (el módulo viejo, hasta que la fase 4 traiga las órdenes).
 
     FECHAS RELATIVAS A HOY EN CADA CORRIDA (2026-09-30): cada documento se
     re-ancla a sus "días atrás" contados desde el momento en que se corre el
@@ -59,7 +58,7 @@ from app.modules.inventario import schemas as si  # noqa: E402
 from app.modules.inventario.models import Insumo, MovimientoInsumo  # noqa: E402
 from app.modules.inventario.unidades import legible  # noqa: E402
 from app.modules.ventas import schemas as sv, services as svc_ventas  # noqa: E402
-from app.modules.ventas.models import Pedido, Venta  # noqa: E402
+from app.modules.ventas.models import Venta  # noqa: E402
 
 USUARIO = "Carga de demostración"
 # "restaurante" en la nota: la demo del ERP heredado usaba las mismas notas
@@ -441,53 +440,8 @@ def reanclar_fechas(db, tenant_id, ahora):
             mov.created_at = fecha
         movidos += 1
 
-    for texto, dias_atras, entrega_en in ((nota("pedido en proceso"), 1, 2), (nota("pedido pendiente"), 4, 5)):
-        pedido = db.query(Pedido).filter(Pedido.tenant_id == tenant_id, Pedido.notas == texto).first()
-        if pedido is None:
-            continue
-        fecha = hace(dias_atras, ahora)
-        pedido.fecha = fecha
-        pedido.created_at = fecha
-        pedido.fecha_entrega = (ahora + timedelta(days=entrega_en)).replace(hour=15, minute=0, second=0, microsecond=0)
-        for n, evento in enumerate(sorted(pedido.eventos, key=lambda e: e.created_at)):
-            evento.created_at = fecha + timedelta(hours=3 * n)
-        movidos += 1
     db.commit()
     return movidos
-
-
-def cargar_pedidos(db, tenant_id, productos, ahora):
-    """Dos pedidos del módulo viejo (hasta que la fase 4 traiga las órdenes):
-    uno en proceso y uno pendiente que lleva 4 días sin avanzar (aviso)."""
-    creados = 0
-    for texto, cliente, telefono, direccion, lineas, avanzar in (
-        (nota("pedido en proceso"), "Oficina de Bienestar", "3112223344", "Edificio de Bienestar, piso 2",
-         [("Bandeja del día", 15), ("Gaseosa 400 ml", 15)], True),
-        (nota("pedido pendiente"), "Grupo de Estudio Ingeniería", "6017654321", "Biblioteca central, sala 4",
-         [("Hamburguesa clásica", 8), ("Papas a la francesa", 8)], False),
-    ):
-        if existe(db, Pedido, tenant_id, texto):
-            continue
-        pedido = svc_ventas.crear_pedido(
-            db, tenant_id,
-            sv.PedidoCreate(
-                cliente_nombre=cliente, cliente_telefono=telefono, cliente_direccion=direccion,
-                fecha=ahora, fecha_entrega=ahora + timedelta(days=2), prioridad="alta" if avanzar else "media", notas=texto,
-                items=[sv.ItemCreate(producto_id=productos[n].id, cantidad=c, precio_unitario=productos[n].precio) for n, c in lineas],
-            ),
-            USUARIO,
-        )
-        if avanzar:
-            svc_ventas.cambiar_estado_pedido(db, tenant_id, pedido.id, sv.PedidoCambioEstado(estado="en_proceso", nota="En cocina"), USUARIO)
-        else:
-            antes = ahora - timedelta(days=4)
-            pedido.fecha = antes
-            pedido.created_at = antes
-            for evento in pedido.eventos:
-                evento.created_at = antes
-            db.commit()
-        creados += 1
-    return creados
 
 
 def cargar_demo(db, tenant_id, ahora):
@@ -498,11 +452,10 @@ def cargar_demo(db, tenant_id, ahora):
     productos, n_prod = cargar_platos(db, tenant_id, categorias, insumos)
     proveedores, n_prov = cargar_proveedores(db, tenant_id, insumos)
     n_com, n_ven = cargar_compras_y_ventas(db, tenant_id, proveedores, insumos, productos, ahora)
-    n_ped = cargar_pedidos(db, tenant_id, productos, ahora)
     n_fechas = reanclar_fechas(db, tenant_id, ahora)
     return {
         "productos": productos, "insumos": insumos, "categorias": n_cat, "n_insumos": n_ins, "n_productos": n_prod,
-        "proveedores": n_prov, "compras": n_com, "ventas": n_ven, "pedidos": n_ped, "reanclados": n_fechas,
+        "proveedores": n_prov, "compras": n_com, "ventas": n_ven, "reanclados": n_fechas,
     }
 
 
@@ -522,7 +475,7 @@ def main():
         r = cargar_demo(db, tenant.id, ahora)
         print(f"✔ Empresa '{tenant.nombre_empresa}' (id={tenant.id})")
         print(f"   Nuevos en esta corrida: {r['categorias']} categorías, {r['n_insumos']} insumos, {r['n_productos']} platos y combos, "
-              f"{r['proveedores']} proveedores, {r['compras']} compras, {r['ventas']} ventas, {r['pedidos']} pedidos")
+              f"{r['proveedores']} proveedores, {r['compras']} compras, {r['ventas']} ventas")
         print(f"   Fechas llevadas a hoy: {r['reanclados']} documentos")
         print("   Existencias:")
         for insumo in r["insumos"].values():

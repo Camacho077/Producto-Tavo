@@ -24,7 +24,7 @@ LISTADOS = [
     "/catalogo/productos",
     "/compras/compras",
     "/ventas/ventas",
-    "/ventas/pedidos",
+    "/ordenes",
     "/seguridad/usuarios",
     "/seguridad/roles",
 ]

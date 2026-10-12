@@ -111,16 +111,10 @@ def _venta(client, headers, producto_id):
     ).json()
 
 
-def _pedido(client, headers, producto_id):
-    return client.post(
-        "/api/v1/ventas/pedidos",
-        headers=headers,
-        json={
-            "cliente_nombre": "Carlos Cliente",
-            "fecha": "2026-01-02T09:00:00",
-            "items": [{"producto_id": producto_id, "cantidad": 1, "precio_unitario": "1000"}],
-        },
-    ).json()
+def _orden(client, headers, producto_id):
+    resp = client.post("/api/v1/ordenes", headers=headers, json={"tipo": "llevar", "items": [{"producto_id": producto_id}]})
+    assert resp.status_code == 201, resp.json()
+    return resp.json()
 
 
 def _consultas_de(client, db_session, url, headers):
@@ -169,10 +163,13 @@ def test_listado_de_ventas_cuesta_lo_mismo_con_1_que_con_10(sesion, db_session):
     _comparar(client, db_session, headers, "/api/v1/ventas/ventas", lambda i: _venta(client, headers, productos[i]["id"]))
 
 
-def test_listado_de_pedidos_cuesta_lo_mismo_con_1_que_con_10(sesion, db_session):
+def test_tablero_de_ordenes_cuesta_lo_mismo_con_1_que_con_10(sesion, db_session):
     client, headers = sesion
     productos = [_producto(client, headers, i) for i in range(10)]
-    _comparar(client, db_session, headers, "/api/v1/ventas/pedidos", lambda i: _pedido(client, headers, productos[i]["id"]))
+    proveedor = _proveedor(client, headers, 0)
+    for p in productos:
+        _compra(client, headers, proveedor["id"], p)
+    _comparar(client, db_session, headers, "/api/v1/ordenes?vista=todas", lambda i: _orden(client, headers, productos[i]["id"]))
 
 
 def test_listado_de_la_carta_cuesta_lo_mismo_con_1_que_con_10(sesion, db_session):

@@ -13,7 +13,7 @@ const OBJETO = {
   categorias: "categorías",
   proveedores: "proveedores",
   ventas: "ventas",
-  pedidos: "pedidos",
+  ordenes: "órdenes",
   usuarios: "usuarios",
   roles: "roles",
   ia: "las sugerencias de IA",

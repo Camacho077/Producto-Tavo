@@ -49,7 +49,7 @@ const PANEL = {
     unidades_stock: 1778,
     bajo_stock: 2,
     valor_inventario: 2900836000,
-    pedidos_abiertos: 3,
+    ordenes_abiertas: 3,
     categorias: [
       { categoria_id: "c-1", nombre: "Materiales", valor: 1784500000, unidades: 430, vendido: 1, variacion: 122.2 },
       { categoria_id: "c-2", nombre: "Cocina", valor: 111438000, unidades: 453, vendido: 1, variacion: -52.5 },

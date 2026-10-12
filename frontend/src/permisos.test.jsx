@@ -24,7 +24,7 @@ import { ConSesion } from "@/test/sesion";
 // El rol de ejemplo Cajero (backend/app/core/catalogo_permisos.py).
 const CAJERO = {
   ventas: ["ver", "crear", "cambiar_estado"],
-  pedidos: ["ver", "crear", "editar", "cambiar_estado"],
+  ordenes: ["ver", "crear", "editar", "cambiar_estado"],
   productos: ["ver"],
   categorias: ["ver"],
   mesas: ["ver"],
@@ -42,16 +42,17 @@ describe("sidebar según el rol", () => {
   it("el Cajero ve Caja y Órdenes, el catálogo y las mesas en solo lectura, y nada de dashboard, compras ni seguridad", () => {
     const modulos = modulosVisibles("pro_ia", [], puedeCon(CAJERO));
     const claves = modulos.map((m) => m.key);
-    expect(claves).toEqual(["carta", "ventas", "ajustes"]);
+    expect(claves).toEqual(["ordenes", "carta", "ventas", "ajustes"]);
+    expect(modulos.find((m) => m.key === "ordenes").hijos.map((h) => h.key)).toEqual(["tomar_pedido", "ordenes", "mesas_servicio"]);
     const carta = modulos.find((m) => m.key === "carta");
     expect(carta.hijos.map((h) => h.key)).toEqual(["productos", "combos", "categorias"]);
     expect(modulos.find((m) => m.key === "ajustes").hijos.map((h) => h.key)).toEqual(["mesas"]);
     expect(carta.path).toBe("/carta");
-    expect(primeraRutaPermitida(modulos)).toBe("/carta");
+    expect(primeraRutaPermitida(modulos)).toBe("/ordenes/nueva");
   });
 
   it("sin `puede` (plan solamente) se ve todo lo del plan", () => {
-    expect(modulosVisibles("pro_ia", []).length).toBe(7);
+    expect(modulosVisibles("pro_ia", []).length).toBe(8);
   });
 });
 
@@ -68,7 +69,7 @@ describe("rutas bloqueadas", () => {
     );
     expect(screen.queryByText("formulario")).toBeNull();
     expect(screen.getByRole("alert")).toHaveTextContent("no tiene permiso para crear categorías");
-    expect(screen.getByRole("link", { name: "Ir a una pantalla disponible" })).toHaveAttribute("href", "/carta");
+    expect(screen.getByRole("link", { name: "Ir a una pantalla disponible" })).toHaveAttribute("href", "/ordenes/nueva");
   });
 
   it("una ruta de un módulo NO contratado muestra el plan, aunque el rol sea administrador", () => {
@@ -119,13 +120,13 @@ describe("rutas bloqueadas", () => {
         <ConSesion permisos={CAJERO}>
           <Routes>
             <Route path="/" element={<InicioSegunPermiso><p>dashboard</p></InicioSegunPermiso>} />
-            <Route path="/carta" element={<p>productos</p>} />
+            <Route path="/ordenes/nueva" element={<p>tomar pedido</p>} />
           </Routes>
         </ConSesion>
       </MemoryRouter>
     );
     expect(screen.queryByText("dashboard")).toBeNull();
-    expect(screen.getByText("productos")).toBeInTheDocument();
+    expect(screen.getByText("tomar pedido")).toBeInTheDocument();
   });
 });
 

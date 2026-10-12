@@ -4,12 +4,12 @@ import { modulosVisibles } from "@/config/modules";
 describe("modulosVisibles", () => {
   it("el plan básico trae lo que un restaurante necesita para operar", () => {
     const claves = modulosVisibles("basico").map((m) => m.key);
-    expect(claves).toEqual(["dashboard", "carta", "ventas", "seguridad", "ajustes"]);
+    expect(claves).toEqual(["dashboard", "ordenes", "carta", "ventas", "seguridad", "ajustes"]);
   });
 
   it("agrega el inventario en el plan estándar", () => {
     const claves = modulosVisibles("estandar").map((m) => m.key);
-    expect(claves).toEqual(["dashboard", "carta", "inventario", "ventas", "seguridad", "ajustes"]);
+    expect(claves).toEqual(["dashboard", "ordenes", "carta", "inventario", "ventas", "seguridad", "ajustes"]);
   });
 
   it("un submódulo con `permiso` se muestra según ese permiso (Combos usa el de productos)", () => {

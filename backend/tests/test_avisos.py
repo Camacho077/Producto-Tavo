@@ -2,7 +2,7 @@
 Panel de avisos del dashboard: se calcula con los datos reales del negocio.
 
 Cada test monta una situación concreta (un producto en cero, una caída de
-ventas, un pedido detenido) y comprueba que el aviso aparece con las cifras
+ventas, una comanda demorada) y comprueba que el aviso aparece con las cifras
 correctas — y que NO aparece cuando la situación no se da.
 """
 from datetime import datetime, timedelta
@@ -206,55 +206,41 @@ def test_el_mas_vendido_de_la_semana_enlaza_al_producto(sesion, db_session):
 
 
 # =====================================================================
-# Pedidos
+# Comandas demoradas en cocina
 # =====================================================================
-def _pedido(client, headers, producto_id, fecha):
-    resp = client.post(
-        "/api/v1/ventas/pedidos",
-        headers=headers,
-        json={
-            "cliente_nombre": "Carlos Cliente",
-            "fecha": fecha,
-            "items": [{"producto_id": producto_id, "cantidad": 1, "precio_unitario": "100"}],
-        },
-    )
+def _orden(client, headers, producto_id):
+    resp = client.post("/api/v1/ordenes", headers=headers, json={"tipo": "llevar", "items": [{"producto_id": producto_id}]})
     assert resp.status_code == 201, resp.json()
     return resp.json()
 
 
-def test_pedido_abierto_sin_avanzar_varios_dias_genera_aviso(sesion, db_session):
+def test_comanda_que_pasa_el_tiempo_de_alerta_genera_aviso(sesion, db_session):
     client, headers, tenant = sesion
-    producto = crear_producto(client, headers, "Cable", "CAB-1")
-    pedido = _pedido(client, headers, producto["id"], "2026-01-01T09:00:00")
+    producto = crear_producto(client, headers, "Arepa", "ARE-1")
+    dar_stock(client, headers, producto["id"], 5)
+    orden = _orden(client, headers, producto["id"])
 
-    # El pedido se creó ahora; se mira el panel varios días después.
-    futuro = ahora_utc() + timedelta(days=reglas.DIAS_PEDIDO_ESTANCADO + 1)
-    a = next(x for x in reglas.calcular(db_session, tenant.id, futuro)["avisos"] if x["clave"] == "pedidos_estancados")
-    assert a["nivel"] == "advertencia"
-    assert a["titulo"] == "1 pedido sin avanzar"
-    assert pedido["codigo"] in a["texto"]
-    assert a["enlace"] == {"recurso": "pedido", "id": pedido["id"]}
+    # Alerta por defecto: 15 minutos.
+    a = next(x for x in reglas.calcular(db_session, tenant.id, ahora_utc() + timedelta(minutes=20))["avisos"] if x["clave"] == "comandas_demoradas")
+    assert a["nivel"] == "advertencia" and a["titulo"] == "1 comanda demorada en cocina"
+    assert f"#{orden['numero']}" in a["texto"] and "la alerta es a los 15 min" in a["texto"]
+    assert a["enlace"] == {"recurso": "ordenes", "id": None}
 
 
-def test_un_pedido_recien_creado_no_esta_estancado(sesion, db_session):
+def test_una_comanda_reciente_o_lista_no_esta_demorada(sesion, db_session):
     client, headers, tenant = sesion
-    producto = crear_producto(client, headers, "Cable", "CAB-1")
-    _pedido(client, headers, producto["id"], "2026-01-01T09:00:00")
-    cuerpo = reglas.calcular(db_session, tenant.id, ahora_utc())
-    assert "pedidos_estancados" not in [a["clave"] for a in cuerpo["avisos"]]
+    producto = crear_producto(client, headers, "Arepa", "ARE-1")
+    dar_stock(client, headers, producto["id"], 5)
+    _orden(client, headers, producto["id"])
+    assert "comandas_demoradas" not in [a["clave"] for a in reglas.calcular(db_session, tenant.id, ahora_utc())["avisos"]]
 
+    from app.modules.ordenes.models import Comanda
 
-def test_un_pedido_entregado_ya_no_cuenta_como_estancado(sesion, db_session):
-    client, headers, tenant = sesion
-    producto = crear_producto(client, headers, "Cable", "CAB-1")
-    pedido = _pedido(client, headers, producto["id"], "2026-01-01T09:00:00")
-    for destino in ("en_proceso", "listo", "entregado"):
-        resp = client.patch(f"/api/v1/ventas/pedidos/{pedido['id']}/estado", headers=headers, json={"estado": destino})
-        assert resp.status_code == 200, resp.json()
-
-    futuro = ahora_utc() + timedelta(days=reglas.DIAS_PEDIDO_ESTANCADO + 1)
-    cuerpo = reglas.calcular(db_session, tenant.id, futuro)
-    assert "pedidos_estancados" not in [a["clave"] for a in cuerpo["avisos"]]
+    for c in db_session.query(Comanda).filter(Comanda.tenant_id == tenant.id):
+        c.estado = "lista"
+    db_session.commit()
+    futuro = ahora_utc() + timedelta(hours=2)
+    assert "comandas_demoradas" not in [a["clave"] for a in reglas.calcular(db_session, tenant.id, futuro)["avisos"]]
 
 
 # =====================================================================

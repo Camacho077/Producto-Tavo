@@ -47,8 +47,8 @@ const SALIDA_GRUPO_MS = 130;
  */
 
 /**
- * Badge numérico redondo (avisos del negocio: stock bajo, pedidos sin
- * avanzar). El número es visual; el lector de pantalla oye "N avisos".
+ * Badge numérico redondo (avisos del negocio: stock bajo, comandas demoradas en
+ * cocina). El número es visual; el lector de pantalla oye "N avisos".
  */
 function InsigniaNumero({ valor }) {
   const ref = useRef(null);

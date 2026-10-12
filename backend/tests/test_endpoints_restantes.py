@@ -1,7 +1,7 @@
 """
 COMPORTAMIENTO de los endpoints que solo cubría test_permisos.py (que
 comprueba el 403/acceso de las 65 rutas, pero no lo que hacen). Revisión del
-2026-10-02: detalle por id, cambio de estado, borrado con historial y PDF de compras y pedidos.
+2026-10-02: detalle por id, cambio de estado, borrado con historial y PDF de compras.
 """
 import uuid
 
@@ -137,17 +137,10 @@ def test_plato_sin_ventas_se_elimina_y_con_ventas_no(s):
 
 
 # ---------------------------------------------------------------- PDF
-def test_pdf_de_compra_y_de_pedido(s):
+def test_pdf_de_compra(s):
     client, h = s
     pid = producto(client, h)["id"]
     _, c = compra(client, h, pid)
     r = client.get(f"{API}/compras/compras/{c['id']}/pdf", headers=h)
     assert r.status_code == 200 and r.headers["content-type"] == "application/pdf" and r.content.startswith(b"%PDF")
-
-    pedido = crear(client, h, "/ventas/pedidos", {
-        "cliente_nombre": "Carlos Cliente", "fecha": "2026-03-10T09:00:00",
-        "items": [{"producto_id": pid, "cantidad": 1, "precio_unitario": "1000"}],
-    })
-    r = client.get(f"{API}/ventas/pedidos/{pedido['id']}/pdf", headers=h)
-    assert r.status_code == 200 and r.content.startswith(b"%PDF")
-    assert client.get(f"{API}/ventas/pedidos/{AJENO}/pdf", headers=h).status_code == 404
+    assert client.get(f"{API}/compras/compras/{AJENO}/pdf", headers=h).status_code == 404

@@ -63,3 +63,18 @@ export function fechaLocalAhora() {
   const pad = (n) => String(n).padStart(2, "0");
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
+
+/** "07:45 a. m." en hora de Colombia (comandas, tablero, cocina). */
+export function formatearHora(iso) {
+  if (!iso) return "—";
+  const fecha = new Date(/[zZ]|[+-]\d\d:\d\d$/.test(iso) ? iso : `${iso}Z`);
+  if (Number.isNaN(fecha.getTime())) return "—";
+  return fecha.toLocaleTimeString("es-CO", { hour: "2-digit", minute: "2-digit", timeZone: "America/Bogota" });
+}
+
+/** Minutos enteros desde un instante del backend (UTC sin zona). */
+export function minutosDesde(iso, ahora = Date.now()) {
+  if (!iso) return 0;
+  const fecha = new Date(/[zZ]|[+-]\d\d:\d\d$/.test(iso) ? iso : `${iso}Z`);
+  return Math.max(0, Math.floor((ahora - fecha.getTime()) / 60000));
+}

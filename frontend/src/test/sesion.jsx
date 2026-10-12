@@ -19,7 +19,7 @@ export const PERMISOS_ADMIN = {
   movimientos: ["ver", "crear"],
   costos: ["ver"],
   ventas: ["ver", "crear", "cambiar_estado", "anular"],
-  pedidos: ["ver", "crear", "editar", "cambiar_estado"],
+  ordenes: ["ver", "crear", "editar", "cambiar_estado", "anular"],
   usuarios: ["ver", "crear", "editar", "cambiar_estado", "eliminar"],
   roles: ["ver", "crear", "editar", "eliminar"],
   ia: ["ver"],

@@ -15,18 +15,6 @@ from app.modules.compras.services import siguiente_numero
 from app.modules.inventario import services as inventario
 from app.modules.ventas import models, schemas
 
-# Transiciones permitidas del pedido: desde cada estado, a cuáles se puede pasar.
-TRANSICIONES_PEDIDO = {
-    "pendiente": ("en_proceso", "cancelado"),
-    "en_proceso": ("listo", "cancelado"),
-    "listo": ("entregado", "en_proceso", "cancelado"),
-    "entregado": (),
-    "cancelado": (),
-}
-
-ORDEN_PRIORIDAD = {"urgente": 0, "alta": 1, "media": 2, "baja": 3}
-
-
 # ---------- Serialización ----------
 def _serializar_items(items) -> list[dict]:
     return [
@@ -47,10 +35,6 @@ def codigo_venta(numero: int) -> str:
     return f"VEN-{numero:06d}"
 
 
-def codigo_pedido(numero: int) -> str:
-    return f"PED-{numero:06d}"
-
-
 def serializar_venta(v: models.Venta) -> dict:
     return {
         "id": v.id,
@@ -64,36 +48,6 @@ def serializar_venta(v: models.Venta) -> dict:
         "notas": v.notas,
         "created_at": v.created_at,
         "items": _serializar_items(v.items),
-    }
-
-
-def serializar_pedido(p: models.Pedido) -> dict:
-    return {
-        "id": p.id,
-        "numero": p.numero,
-        "codigo": codigo_pedido(p.numero),
-        "cliente_nombre": p.cliente_nombre,
-        "cliente_telefono": p.cliente_telefono,
-        "cliente_direccion": p.cliente_direccion,
-        "fecha": p.fecha,
-        "fecha_entrega": p.fecha_entrega,
-        "prioridad": p.prioridad,
-        "estado": p.estado,
-        "total": p.total,
-        "notas": p.notas,
-        "created_at": p.created_at,
-        "updated_at": p.updated_at,
-        "items": _serializar_items(p.items),
-        "eventos": [
-            {
-                "id": e.id,
-                "estado": e.estado,
-                "nota": e.nota,
-                "usuario_nombre": e.usuario_nombre,
-                "created_at": e.created_at,
-            }
-            for e in p.eventos
-        ],
     }
 
 
@@ -224,93 +178,3 @@ def anular_venta(db: Session, tenant_id: uuid.UUID, venta_id: uuid.UUID, usuario
     db.commit()
     db.refresh(venta)
     return venta
-
-
-# ---------- Pedidos ----------
-def obtener_pedido_o_404(db: Session, tenant_id: uuid.UUID, pedido_id: uuid.UUID) -> models.Pedido:
-    return obtener_del_tenant(db, models.Pedido, tenant_id, pedido_id, "El pedido indicado")
-
-
-def crear_pedido(db: Session, tenant_id: uuid.UUID, payload: schemas.PedidoCreate, usuario_nombre: str) -> models.Pedido:
-    items, total = _construir_items(db, tenant_id, payload.items, models.PedidoItem)
-    pedido = models.Pedido(
-        tenant_id=tenant_id,
-        numero=siguiente_numero(db, tenant_id, models.Pedido),
-        cliente_nombre=payload.cliente_nombre,
-        cliente_telefono=payload.cliente_telefono,
-        cliente_direccion=payload.cliente_direccion,
-        fecha=payload.fecha,
-        fecha_entrega=payload.fecha_entrega,
-        prioridad=payload.prioridad,
-        estado="pendiente",
-        total=total,
-        notas=payload.notas,
-        items=items,
-        eventos=[
-            models.PedidoEvento(
-                tenant_id=tenant_id, estado="pendiente", nota="Pedido registrado", usuario_nombre=usuario_nombre
-            )
-        ],
-    )
-    db.add(pedido)
-    db.commit()
-    db.refresh(pedido)
-    return pedido
-
-
-def actualizar_pedido(
-    db: Session, tenant_id: uuid.UUID, pedido_id: uuid.UUID, payload: schemas.PedidoUpdate, usuario_nombre: str
-) -> models.Pedido:
-    pedido = obtener_pedido_o_404(db, tenant_id, pedido_id)
-    if pedido.estado in ("entregado", "cancelado"):
-        raise ConflictError(
-            f"No se puede editar el pedido {codigo_pedido(pedido.numero)}: ya está "
-            f"{pedido.estado} y los pedidos cerrados no admiten cambios."
-        )
-
-    datos = payload.model_dump(exclude_unset=True)
-    items_payload = datos.pop("items", None)
-    for campo, valor in datos.items():
-        setattr(pedido, campo, valor)
-
-    if items_payload is not None:
-        items, total = _construir_items(db, tenant_id, payload.items, models.PedidoItem)
-        pedido.items = items
-        pedido.total = total
-
-    pedido.eventos.append(
-        models.PedidoEvento(tenant_id=tenant_id, estado=pedido.estado, nota="Pedido editado", usuario_nombre=usuario_nombre)
-    )
-    db.commit()
-    db.refresh(pedido)
-    return pedido
-
-
-def cambiar_estado_pedido(
-    db: Session, tenant_id: uuid.UUID, pedido_id: uuid.UUID, payload: schemas.PedidoCambioEstado, usuario_nombre: str
-) -> models.Pedido:
-    pedido = obtener_pedido_o_404(db, tenant_id, pedido_id)
-    permitidos = TRANSICIONES_PEDIDO.get(pedido.estado, ())
-    if payload.estado not in permitidos:
-        actual = pedido.estado.replace("_", " ")
-        destino = payload.estado.replace("_", " ")
-        if not permitidos:
-            raise ConflictError(
-                f"No se puede pasar el pedido {codigo_pedido(pedido.numero)} a {destino}: "
-                f"ya está {actual} y es un estado final."
-            )
-        legibles = ", ".join(p.replace("_", " ") for p in permitidos)
-        raise ConflictError(
-            f"No se puede pasar el pedido {codigo_pedido(pedido.numero)} a {destino}: "
-            f"está {actual} y desde ahí solo puede pasar a {legibles}."
-        )
-
-    pedido.estado = payload.estado
-    pedido.eventos.append(
-        models.PedidoEvento(
-            tenant_id=tenant_id, estado=payload.estado, nota=payload.nota, usuario_nombre=usuario_nombre
-        )
-    )
-    db.commit()
-    db.refresh(pedido)
-    return pedido

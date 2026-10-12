@@ -10,7 +10,7 @@ import { enlaceDeAviso } from "@/modules/dashboard/avisos";
 /**
  * PANEL DE AVISOS — las cuatro fichas de la maqueta
  * (docs/dashboard-referencia.html) con los datos reales del negocio: stock
- * agotado o bajo el mínimo, subida o caída de ventas, pedidos sin avanzar y el
+ * agotado o bajo el mínimo, subida o caída de ventas, comandas demoradas en cocina y el
  * producto estrella de la semana. Las reglas las calcula el backend en
  * /dashboard/avisos; aquí solo se pintan.
  *
@@ -50,7 +50,7 @@ export default function PanelAvisos() {
       <ul className="avisos-rejilla">
         <li className="avisos-panel__vacio">
           <CheckCircle2 size={18} className="avisos-panel__vacio-icono" aria-hidden="true" />
-          <span>Todo en orden: sin productos agotados, sin pedidos detenidos y sin caídas de ventas esta semana.</span>
+          <span>Todo en orden: sin insumos agotados, sin comandas demoradas y sin caídas de ventas esta semana.</span>
         </li>
       </ul>
     );

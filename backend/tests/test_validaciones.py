@@ -170,25 +170,17 @@ def test_compra_rechaza_fecha_futura_y_cantidad_fuera_de_rango(client, tenant_fa
     assert errores["items.0.cantidad"] == v.MSG_CANTIDAD_DECIMAL
 
 
-def test_pedido_rechaza_entrega_anterior_a_hoy_y_telefono_invalido(client, tenant_factory, usuario_factory, auth_headers_factory):
+def test_orden_a_domicilio_valida_telefono_y_exige_direccion(client, tenant_factory, usuario_factory, auth_headers_factory):
     headers = _headers(tenant_factory, usuario_factory, auth_headers_factory)
     producto = client.post("/api/v1/catalogo/productos", headers=headers, json={"nombre": "Almuerzo", "precio": "100"}).json()
-    ayer = (datetime.now(timezone.utc) - timedelta(days=1)).isoformat()
     resp = client.post(
-        "/api/v1/ventas/pedidos",
+        "/api/v1/ordenes",
         headers=headers,
-        json={
-            "cliente_nombre": "Obras del Valle",
-            "cliente_telefono": "2001234567",
-            "fecha": datetime.now(timezone.utc).isoformat(),
-            "fecha_entrega": ayer,
-            "items": [{"producto_id": producto["id"], "cantidad": 1, "precio_unitario": "100"}],
-        },
+        json={"tipo": "domicilio", "cliente_nombre": "Ana María", "cliente_telefono": "2001234567", "cliente_direccion": "Calle 5 # 3-20",
+              "items": [{"producto_id": producto["id"]}]},
     )
     assert resp.status_code == 422
-    errores = _errores(resp)
-    assert errores["fecha_entrega"] == "La fecha de entrega no puede ser anterior a hoy"
-    assert errores["cliente_telefono"] == v.MSG_TELEFONO
+    assert _errores(resp)["cliente_telefono"] == v.MSG_TELEFONO
 
 
 BOGOTA = timezone(timedelta(hours=-5))

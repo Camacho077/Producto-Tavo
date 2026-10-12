@@ -30,6 +30,8 @@ export default function ModalConfirmar({
   accion,
   textoConfirmar = "Confirmar",
   destructivo = false,
+  // Deja el botón de confirmar apagado (p. ej. mientras falta el motivo).
+  deshabilitado = false,
   children,
 }) {
   const { exito, error } = useAviso();
@@ -59,7 +61,7 @@ export default function ModalConfirmar({
           <Button variante="terciario" onClick={onCerrar} disabled={enviando}>
             Cancelar
           </Button>
-          <Button variante={destructivo ? "destructivo" : "primario"} onClick={confirmar} cargando={enviando}>
+          <Button variante={destructivo ? "destructivo" : "primario"} onClick={confirmar} cargando={enviando} disabled={deshabilitado}>
             {textoConfirmar}
           </Button>
         </>

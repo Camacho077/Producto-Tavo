@@ -14,7 +14,7 @@ import pytest
 
 from app.modules.compras.models import Compra
 from app.modules.inventario.models import MovimientoInsumo
-from app.modules.ventas.models import Pedido, Venta
+from app.modules.ventas.models import Venta
 
 RUTA_SEED = Path(__file__).resolve().parents[2] / "automatizaciones" / "deploy" / "seed_demo.py"
 
@@ -65,7 +65,7 @@ def test_es_idempotente(client, db_session, empresa_demo, seed):
     tenant, _ = empresa_demo
     antes = (db_session.query(Compra).filter_by(tenant_id=tenant.id).count(), db_session.query(Venta).filter_by(tenant_id=tenant.id).count())
     r = seed.cargar_demo(db_session, tenant.id, _ahora())
-    assert (r["compras"], r["ventas"], r["pedidos"]) == (0, 0, 0)
+    assert (r["compras"], r["ventas"]) == (0, 0)
     despues = (db_session.query(Compra).filter_by(tenant_id=tenant.id).count(), db_session.query(Venta).filter_by(tenant_id=tenant.id).count())
     assert antes == despues
 
@@ -74,7 +74,7 @@ def test_una_demo_vieja_vuelve_a_hoy_al_correr_el_seed(client, db_session, empre
     """El caso real: la demo se cargó hace 10 días y el dashboard está en ceros."""
     tenant, headers = empresa_demo
     hace_10 = timedelta(days=10)
-    for modelo in (Compra, Venta, Pedido):
+    for modelo in (Compra, Venta):
         for doc in db_session.query(modelo).filter_by(tenant_id=tenant.id):
             doc.fecha -= hace_10
     for mov in db_session.query(MovimientoInsumo).filter_by(tenant_id=tenant.id):

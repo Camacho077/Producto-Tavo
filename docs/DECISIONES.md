@@ -270,6 +270,63 @@ desde plantilla Excel/CSV con validación fila por fila.
 
 **Sigue (fase 4)**: órdenes de pedido con comanda.
 
+### 2026-10-12 — Fase 4: órdenes de pedido con comanda
+
+- **Módulo `ordenes`** (backend y frontend) reemplaza a los Pedidos del ERP,
+  que se BORRAN (tablas, rutas, pantalla, pruebas). Migración
+  `f4c2d3e4f5a6`; los roles guardados pasan su permiso `pedidos` a
+  `ordenes`. Permiso `ordenes`: ver, crear (tomar pedidos), editar
+  (agregar/quitar platos y datos), cambiar_estado (entregar), anular.
+  Grupo "Órdenes" desde el plan Básico.
+- **Modelo**: `Orden` (consecutivo POR JORNADA, único por empresa y
+  jornada, con candado de transacción `pg_advisory_xact_lock`; la jornada
+  empieza a la hora de inicio de Ajustes en hora de Colombia), `Comanda`
+  (cada envío a cocina: la 1 es el pedido, las siguientes solo lo
+  agregado; sin nada para cocina nace "lista"), `OrdenItem` (precio con
+  extras, costo por receta del momento y `consumo`: lo que sacó de cada
+  insumo) y `OrdenEvento` (línea de tiempo con quién y cuándo).
+- **Enviar = una transacción**: numera, descuenta los insumos (movimiento
+  "venta" con documento `ORD-aammdd-nnn`) y deja la comanda. Si un insumo
+  no alcanza: 409 "No se pudo enviar la orden: quedan 200 g de Queso y la
+  orden necesita 300 g." y en `datos` los faltantes y los platos que los
+  usan; la pantalla ofrece "Marcar «X» agotado hoy" (`POST
+  /ordenes/agotados`, con el permiso de tomar pedidos). Nada se guarda y
+  el consecutivo no se gasta.
+- **Quitar un plato o anular la orden** (antes de cobrar) exige motivo y
+  devuelve EXACTAMENTE lo que salió (movimiento `anulacion_orden`, desde el
+  `consumo` guardado, aunque la receta haya cambiado). Lo último que queda
+  no se quita: se anula la orden. Las comandas anuladas salen de cocina.
+- **Estado de cocina de la orden** = el de su comanda más atrasada.
+  Tablero: Activas (algo sin entregar), Entregadas, Anuladas; jornada
+  visible ("Jornada del lunes 12/10 · 5 en curso") y refresco cada 20 s.
+  Mesas: libre / ocupada (algo sin entregar) / por cobrar (todo
+  entregado), calculado de las órdenes abiertas (no se guarda).
+- **Tomar pedido** (`/ordenes/nueva`): tipo (Local con mesa, Para llevar,
+  Domicilio con dirección y teléfono) y origen según Ajustes, cuadrícula de
+  mesas por zona con su estado, carta por categorías con buscador, tocar
+  un plato lo agrega, modificadores como fichas de un toque, nota por
+  plato, botones de cantidad de 44 px. El borrador se guarda en
+  localStorage hasta enviarlo. Agregar a una orden enviada reutiliza la
+  pantalla (`/ordenes/:id/agregar`).
+- **Impresión detrás de una interfaz** (`lib/impresion.js`): `imprimir(
+  documento, impresora)` con un conector por tipo de conexión. Hoy solo
+  existe el del NAVEGADOR (iframe invisible + CSS de impresión de 58/80
+  mm); el de IP (ESC/POS) responde con un mensaje claro. La comanda sale
+  sola al enviar si hay una impresora activa para comandas, y se
+  reimprime desde el detalle. Solo lleva lo que va a cocina, en grande,
+  con modificadores en mayúsculas y la nota.
+- **Respuesta del usuario (2026-10-12)** a la PREGUNTA de impresora y
+  equipos: "Aún no se sabe". Queda la impresión desde el navegador; el
+  conector directo se agrega cuando el restaurante elija la impresora.
+- Aviso del dashboard "pedidos sin avanzar" → **"comandas demoradas en
+  cocina"** (entrantes o en preparación más allá de `alerta_cocina_minutos`);
+  la cifra `pedidos_abiertos` pasa a `ordenes_abiertas`.
+- `ModalConfirmar` acepta `deshabilitado` (confirmar apagado mientras
+  falta el motivo).
+- La Caja todavía es la venta heredada: cobrar una orden llega en la fase 6.
+
+**Sigue (fase 5)**: pantalla de cocina.
+
 ---
 
 ## 1. Configuración crítica que NO se borra
@@ -1175,6 +1232,7 @@ skill (Impeccable desaconseja Inter; aquí no se cambia).
 
 | Fecha | Decisión / hito |
 |---|---|
+| 2026-10-12 | Fase 4: órdenes con comanda (consecutivo por jornada, descuento de insumos en una transacción, comandas por envío, anular con motivo devolviendo lo que salió, tablero, mesas, impresión detrás de una interfaz) reemplazan a los Pedidos (§0) |
 | 2026-10-12 | Fase 3: mermas con motivo, conteos físicos con ajuste valorizado, historial general de movimientos, carga inicial desde plantilla Excel/CSV revisada fila por fila (§0) |
 | 2026-10-12 | Fase 2: carta con recetas (costo, margen, % de costo en vivo), modificadores, combos con vigencia, agotado hoy, fotos de plato; inventario de INSUMOS con unidades y promedio ponderado; compras de insumos; IA y dashboard sobre insumos (§0) |
 | 2026-10-12 | Fase 1: branding en un archivo ("JS Restaurante"), Marcas eliminada, Ajustes del restaurante (negocio, logo, operación, impresoras, jornada, zonas y mesas), imágenes WebP procesadas en el servidor (§0) |

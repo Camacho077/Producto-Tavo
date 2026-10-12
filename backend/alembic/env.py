@@ -20,7 +20,8 @@ from app.modules.seguridad.models import Usuario, Rol  # noqa: F401
 from app.modules.catalogo.models import Categoria, Producto, RecetaItem, Modificador, ComboItem  # noqa: F401
 from app.modules.inventario.models import Insumo, MovimientoInsumo, Conteo, ConteoItem  # noqa: F401
 from app.modules.compras.models import Proveedor, Compra, CompraItem, proveedor_insumos  # noqa: F401
-from app.modules.ventas.models import Venta, VentaItem, Pedido, PedidoItem, PedidoEvento  # noqa: F401
+from app.modules.ventas.models import Venta, VentaItem  # noqa: F401
+from app.modules.ordenes.models import Orden, Comanda, OrdenItem, OrdenEvento  # noqa: F401
 from app.modules.ajustes.models import Zona, Mesa  # noqa: F401
 from app.modules.imagenes.models import Imagen  # noqa: F401
 

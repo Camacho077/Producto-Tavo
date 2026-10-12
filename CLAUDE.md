@@ -43,7 +43,11 @@ código. Nombre provisional del producto: "JS Restaurante".
   valorizado, historial general `/inventario/movimientos`, permiso
   `movimientos`, carga inicial desde plantilla Excel/CSV en
   `app/modules/inventario/carga.py`: se revisa fila por fila y se aplica
-  todo o nada). Lo de "Stock = suma de movimientos" y "Proveedores ↔
+  todo o nada); fase 4 (módulo `ordenes`: orden con consecutivo por
+  jornada, comandas por envío, descuento de insumos en una transacción,
+  anular con motivo devolviendo el `consumo` guardado, tablero, mesas y
+  `lib/impresion.js` con el conector del navegador; los Pedidos del ERP se
+  borraron). Lo de "Stock = suma de movimientos" y "Proveedores ↔
   Productos" de abajo es HISTÓRICO: hoy aplica a los insumos.
 
 ## Mapa de puertos — CONFIGURACIÓN CRÍTICA (no se borra en limpiezas)
@@ -190,7 +194,7 @@ contenedor, volumen ni base se comparte:
   `marcas_pedidos_permisos`, `proveedor_tipo_persona`,
   `proveedor_productos_movimientos`, `indices_de_listados`,
   `permisos_por_rol`, `aceptaciones_legales`, `fase1_restaurante`,
-  `fase2_carta_insumos_recetas`, `fase3_conteos`. Correr
+  `fase2_carta_insumos_recetas`, `fase3_conteos`, `fase4_ordenes`. Correr
   `alembic upgrade head` tras hacer pull. Cada cambio de modelo lleva su
   migración.
 - **Legal (2026-09-30, BORRADORES pendientes de abogado)**: Política de

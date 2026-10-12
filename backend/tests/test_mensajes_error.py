@@ -212,20 +212,17 @@ def test_estado_invalido_nombra_el_documento_y_los_estados(sesion):
     assert_util(resp.json()["detail"], compra["codigo"], "confirmada", "pendiente")
 
 
-def test_transicion_de_pedido_invalida_dice_a_donde_si_puede_ir(sesion):
+def test_entregar_sin_nada_listo_dice_que_comanda_falta(sesion):
     client, headers, _ = sesion
-    producto, _ = _plato(client, headers, "Cable", "100")
-    pedido = _crear(
-        client, headers, "ventas/pedidos",
-        {
-            "cliente_nombre": "Carlos Cliente",
-            "fecha": "2026-01-01T09:00:00",
-            "items": [{"producto_id": producto["id"], "cantidad": 1, "precio_unitario": "100"}],
-        },
-    )
-    resp = client.patch(f"/api/v1/ventas/pedidos/{pedido['id']}/estado", headers=headers, json={"estado": "entregado"})
+    producto, insumo = _plato(client, headers, "Cable", "100")
+    _crear(client, headers, "compras/compras", {
+        "proveedor_id": _crear(client, headers, "compras/proveedores", PROVEEDOR_PRUEBA)["id"], "fecha": "2026-01-01T09:00:00",
+        "confirmar": True, "items": [_linea(insumo, 5, "80")],
+    })
+    orden = _crear(client, headers, "ordenes", {"tipo": "llevar", "items": [{"producto_id": producto["id"]}]})
+    resp = client.post(f"/api/v1/ordenes/{orden['id']}/entregar", headers=headers)
     assert resp.status_code == 409
-    assert_util(resp.json()["detail"], pedido["codigo"], "entregado", "en proceso")
+    assert_util(resp.json()["detail"], f"#{orden['numero']}", "comanda 1", "por empezar")
 
 
 def test_registro_inexistente_dice_que_puede_ser_de_otra_empresa(sesion):

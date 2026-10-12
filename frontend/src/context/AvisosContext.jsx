@@ -69,7 +69,7 @@ function cantidadDe(aviso) {
 /** Qué avisos suman en el badge de cada submódulo del sidebar. */
 const AVISOS_POR_MODULO = {
   insumos: ["stock_agotado", "stock_bajo"],
-  pedidos: ["pedidos_estancados"],
+  ordenes: ["comandas_demoradas"],
 };
 
 /** {clave de módulo: número} para los badges del sidebar (solo los > 0). */

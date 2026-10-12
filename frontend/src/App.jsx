@@ -96,11 +96,15 @@ const VentasLista = pantalla(modVentas, "VentasLista");
 const VentaNueva = pantalla(modVentas, "VentaNueva");
 const VentaDetalle = pantalla(modVentas, "VentaDetalle");
 
-const modPedidos = modulo(() => import("@/modules/ventas/PedidosPage"));
-const PedidosLista = pantalla(modPedidos, "PedidosLista");
-const PedidoNuevo = pantalla(modPedidos, "PedidoNuevo");
-const PedidoDetalle = pantalla(modPedidos, "PedidoDetalle");
-const PedidoEditar = pantalla(modPedidos, "PedidoEditar");
+const modOrdenes = modulo(() => import("@/modules/ordenes/OrdenesPage"));
+const OrdenesLista = pantalla(modOrdenes, "OrdenesLista");
+const OrdenDetalle = pantalla(modOrdenes, "OrdenDetalle");
+const OrdenEditar = pantalla(modOrdenes, "OrdenEditar");
+const MesasServicio = pantalla(modOrdenes, "MesasServicio");
+
+const modTomarPedido = modulo(() => import("@/modules/ordenes/TomarPedidoPage"));
+const OrdenNueva = pantalla(modTomarPedido, "OrdenNueva");
+const OrdenAgregar = pantalla(modTomarPedido, "OrdenAgregar");
 
 const modUsuarios = modulo(() => import("@/modules/seguridad/UsuariosPage"));
 const UsuariosLista = pantalla(modUsuarios, "UsuariosLista");
@@ -140,7 +144,8 @@ const MODULO_POR_RUTA = [
   ["/inventario/conteos", modMovimientos],
   ["/inventario/carga-inicial", modCargaInicial],
   ["/inventario", modInsumos],
-  ["/ventas/pedidos", modPedidos],
+  ["/ordenes/nueva", modTomarPedido],
+  ["/ordenes", modOrdenes],
   ["/ventas", modVentas],
   ["/seguridad/roles", modRoles],
   ["/seguridad", modUsuarios],
@@ -251,14 +256,16 @@ export default function App() {
                     <Route path="/inventario/proveedores/:id" element={<ConPermiso modulo="proveedores" accion="ver"><ProveedorDetalle /></ConPermiso>} />
                     <Route path="/inventario/proveedores/:id/editar" element={<ConPermiso modulo="proveedores" accion="editar"><ProveedorEditar /></ConPermiso>} />
 
+                    <Route path="/ordenes" element={<ConPermiso modulo="ordenes" accion="ver"><OrdenesLista /></ConPermiso>} />
+                    <Route path="/ordenes/nueva" element={<ConPermiso modulo="ordenes" accion="crear"><OrdenNueva /></ConPermiso>} />
+                    <Route path="/ordenes/mesas" element={<ConPermiso modulo="ordenes" accion="ver"><MesasServicio /></ConPermiso>} />
+                    <Route path="/ordenes/:id" element={<ConPermiso modulo="ordenes" accion="ver"><OrdenDetalle /></ConPermiso>} />
+                    <Route path="/ordenes/:id/editar" element={<ConPermiso modulo="ordenes" accion="editar"><OrdenEditar /></ConPermiso>} />
+                    <Route path="/ordenes/:id/agregar" element={<ConPermiso modulo="ordenes" accion="editar"><OrdenAgregar /></ConPermiso>} />
                     <Route path="/ventas" element={<ConPermiso modulo="ventas" accion="ver"><VentasLista /></ConPermiso>} />
                     <Route path="/ventas/nuevo" element={<ConPermiso modulo="ventas" accion="crear"><VentaNueva /></ConPermiso>} />
                     <Route path="/ventas/:id" element={<ConPermiso modulo="ventas" accion="ver"><VentaDetalle /></ConPermiso>} />
 
-                    <Route path="/ventas/pedidos" element={<ConPermiso modulo="pedidos" accion="ver"><PedidosLista /></ConPermiso>} />
-                    <Route path="/ventas/pedidos/nuevo" element={<ConPermiso modulo="pedidos" accion="crear"><PedidoNuevo /></ConPermiso>} />
-                    <Route path="/ventas/pedidos/:id" element={<ConPermiso modulo="pedidos" accion="ver"><PedidoDetalle /></ConPermiso>} />
-                    <Route path="/ventas/pedidos/:id/editar" element={<ConPermiso modulo="pedidos" accion="editar"><PedidoEditar /></ConPermiso>} />
 
                     <Route path="/seguridad" element={<Navigate to="/seguridad/usuarios" replace />} />
                     <Route path="/seguridad/usuarios" element={<ConPermiso modulo="usuarios" accion="ver"><UsuariosLista /></ConPermiso>} />

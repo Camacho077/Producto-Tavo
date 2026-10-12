@@ -56,7 +56,7 @@ describe("Panel de avisos del dashboard", () => {
         todo_en_orden: false,
         avisos: [
           AVISO_STOCK,
-          { ...AVISO_STOCK, clave: "pedidos_estancados", nivel: "advertencia", titulo: "1 pedido sin avanzar", enlace: { recurso: "pedidos", id: null } },
+          { ...AVISO_STOCK, clave: "comandas_demoradas", nivel: "advertencia", titulo: "1 comanda demorada en cocina", enlace: { recurso: "ordenes", id: null } },
           { ...AVISO_STOCK, clave: "ventas_subida", nivel: "positivo", titulo: "Las ventas subieron 40% esta semana", enlace: { recurso: "ventas", id: null } },
         ],
       },
