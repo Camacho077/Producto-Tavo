@@ -17,9 +17,15 @@ dependencias de FastAPI y los tests sin riesgo de import circular.
 # modulo -> (nombre visible, objeto en las frases de error, acciones permitidas)
 CATALOGO: dict[str, tuple[str, str, tuple[str, ...]]] = {
     "dashboard": ("Dashboard", "el dashboard", ("ver",)),
-    "compras": ("Compras", "compras", ("ver", "crear", "cambiar_estado", "anular")),
-    "productos": ("Productos", "productos", ("ver", "crear", "editar", "cambiar_estado", "eliminar")),
-    "categorias": ("Categorías", "categorías", ("ver", "crear", "editar", "cambiar_estado", "eliminar")),
+    "compras": ("Compras de insumos", "compras", ("ver", "crear", "cambiar_estado", "anular")),
+    # Restaurante (2026-10-12): "productos" es la CARTA (platos y combos); la
+    # clave se conserva para no reescribir los roles guardados.
+    "productos": ("Carta (platos y combos)", "platos y combos", ("ver", "crear", "editar", "cambiar_estado", "eliminar")),
+    "categorias": ("Categorías de la carta", "categorías", ("ver", "crear", "editar", "cambiar_estado", "eliminar")),
+    "insumos": ("Insumos", "insumos", ("ver", "crear", "editar", "cambiar_estado", "eliminar")),
+    # Costo, margen y % de costo de los platos, costo de los insumos: delata
+    # el negocio, así que es un permiso aparte (un cajero no lo tiene).
+    "costos": ("Costos y márgenes", "costos y márgenes", ("ver",)),
     "proveedores": ("Proveedores", "proveedores", ("ver", "crear", "editar", "cambiar_estado", "eliminar")),
     "ventas": ("Ventas", "ventas", ("ver", "crear", "cambiar_estado", "anular")),
     "pedidos": ("Pedidos", "pedidos", ("ver", "crear", "editar", "cambiar_estado")),
@@ -40,10 +46,12 @@ ORDEN_PLANES: tuple[str, ...] = ("basico", "estandar", "pro_ia")
 NOMBRE_PLANES: dict[str, str] = {"basico": "Básico", "estandar": "Estándar", "pro_ia": "Pro + IA"}
 GRUPO_DE_MODULO: dict[str, str] = {
     "dashboard": "dashboard",
-    "compras": "compras",
-    "productos": "compras",
-    "categorias": "compras",
-    "proveedores": "compras",
+    "productos": "carta",
+    "categorias": "carta",
+    "insumos": "inventario",
+    "costos": "inventario",
+    "compras": "inventario",
+    "proveedores": "inventario",
     "ventas": "ventas",
     "pedidos": "ventas",
     "usuarios": "seguridad",
@@ -52,19 +60,24 @@ GRUPO_DE_MODULO: dict[str, str] = {
     "ajustes": "ajustes",
     "mesas": "ajustes",
 }
+# Planes provisionales (2026-10-12; precios y módulos exactos los decide el
+# usuario): sin Carta, Órdenes y Caja un restaurante no puede operar, así
+# que van desde Básico; el inventario con recetas y costos, desde Estándar.
 PLAN_MINIMO_DE_GRUPO: dict[str, str] = {
     "dashboard": "basico",
     "seguridad": "basico",
-    "compras": "estandar",
-    "ventas": "estandar",
+    "carta": "basico",
+    "inventario": "estandar",
+    "ventas": "basico",
     "ia": "pro_ia",
     "ajustes": "basico",
 }
 NOMBRE_GRUPO: dict[str, str] = {
     "dashboard": "el Dashboard",
     "seguridad": "Seguridad",
-    "compras": "Compras",
-    "ventas": "Ventas",
+    "carta": "la Carta",
+    "inventario": "el Inventario",
+    "ventas": "la Caja",
     "ia": "las Sugerencias IA",
     "ajustes": "los Ajustes",
 }

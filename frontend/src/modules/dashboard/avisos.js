@@ -11,18 +11,22 @@
  * de color, que es una clase CSS y no un paquete de iconos más en el bundle.
  */
 const RUTAS = {
-  producto: (id) => `/compras/productos/${id}`,
-  productos: () => "/compras/productos",
+  producto: (id) => `/carta/${id}`,
+  productos: () => "/carta",
+  insumo: (id) => `/inventario/insumos/${id}`,
+  insumos: () => "/inventario/insumos?bajo_minimo=1",
   pedido: (id) => `/ventas/pedidos/${id}`,
   pedidos: () => "/ventas/pedidos",
   venta: (id) => `/ventas/${id}`,
   ventas: () => "/ventas",
-  proveedor: (id) => `/compras/proveedores/${id}`,
+  proveedor: (id) => `/inventario/proveedores/${id}`,
 };
 
 const TEXTOS_ENLACE = {
-  producto: "Ver producto",
-  productos: "Ver productos",
+  producto: "Ver plato",
+  productos: "Ver la carta",
+  insumo: "Ver insumo",
+  insumos: "Ver insumos",
   pedido: "Ver pedido",
   pedidos: "Ver pedidos",
   venta: "Ver venta",

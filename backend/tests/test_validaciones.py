@@ -97,19 +97,33 @@ def test_proveedor_natural_exige_documento_valido_y_deriva_nombre(client, tenant
     assert resp.json()["nit"] is None
 
 
-def test_producto_rechaza_negativos_decimales_y_nombre_con_espacios(client, tenant_factory, usuario_factory, auth_headers_factory):
+def test_plato_rechaza_negativos_decimales_y_nombre_con_espacios(client, tenant_factory, usuario_factory, auth_headers_factory):
     headers = _headers(tenant_factory, usuario_factory, auth_headers_factory)
     resp = client.post(
-        "/api/v1/compras/productos",
+        "/api/v1/catalogo/productos",
         headers=headers,
-        json={"nombre": " Taladro ", "sku": "TAL 1", "precio": "12.345", "stock_minimo": 2_000_000},
+        json={"nombre": " Pizza ", "sku": "PIZ 1", "precio": "12.345", "dias_semana": [7]},
     )
     assert resp.status_code == 422
     errores = _errores(resp)
-    assert errores["nombre"] == v.MSG_NOMBRE_ITEM
+    assert errores["nombre"] == v.MSG_NOMBRE_CARTA
     assert errores["sku"] == v.MSG_SKU
     assert errores["precio"] == v.MSG_PRECIO
-    assert "entre 0 y 1000000" in errores["stock_minimo"]
+    assert "0 (lunes) a 6 (domingo)" in errores["dias_semana"]
+
+
+def test_insumo_rechaza_cantidades_negativas_y_costos_con_muchos_decimales(client, tenant_factory, usuario_factory, auth_headers_factory):
+    headers = _headers(tenant_factory, usuario_factory, auth_headers_factory)
+    resp = client.post(
+        "/api/v1/inventario/insumos",
+        headers=headers,
+        json={"nombre": "Queso", "unidad": "libra", "minimo": "-1", "costo_unitario": "1.23456", "existencia_inicial": "0.0001"},
+    )
+    assert resp.status_code == 422
+    errores = _errores(resp)
+    assert set(errores) == {"unidad", "minimo", "costo_unitario", "existencia_inicial"}
+    assert errores["costo_unitario"] == v.MSG_COSTO
+    assert errores["minimo"] == v.MSG_CANTIDAD_DECIMAL_CERO
 
 
 def test_usuario_nombre_solo_letras_y_email_normalizado(client, tenant_factory, usuario_factory, rol_factory, auth_headers_factory):
@@ -137,9 +151,7 @@ def test_usuario_nombre_solo_letras_y_email_normalizado(client, tenant_factory, 
 
 def test_compra_rechaza_fecha_futura_y_cantidad_fuera_de_rango(client, tenant_factory, usuario_factory, auth_headers_factory):
     headers = _headers(tenant_factory, usuario_factory, auth_headers_factory)
-    producto = client.post(
-        "/api/v1/compras/productos", headers=headers, json={"nombre": "Clavo", "sku": "CLA-1", "precio": "100"}
-    ).json()
+    insumo = client.post("/api/v1/inventario/insumos", headers=headers, json={"nombre": "Arroz", "unidad": "kg"}).json()
     proveedor = client.post("/api/v1/compras/proveedores", headers=headers, json=PROVEEDOR_JURIDICA).json()
     futura = (datetime.now(timezone.utc) + timedelta(days=2)).isoformat()
 
@@ -149,20 +161,18 @@ def test_compra_rechaza_fecha_futura_y_cantidad_fuera_de_rango(client, tenant_fa
         json={
             "proveedor_id": proveedor["id"],
             "fecha": futura,
-            "items": [{"producto_id": producto["id"], "cantidad": 200000, "precio_unitario": "10"}],
+            "items": [{"insumo_id": insumo["id"], "cantidad": "2000000", "unidad": "kg", "precio_unitario": "10"}],
         },
     )
     assert resp.status_code == 422
     errores = _errores(resp)
     assert errores["fecha"] == "La fecha no puede ser futura"
-    assert "entre 1 y 100000" in errores["items.0.cantidad"]
+    assert errores["items.0.cantidad"] == v.MSG_CANTIDAD_DECIMAL
 
 
 def test_pedido_rechaza_entrega_anterior_a_hoy_y_telefono_invalido(client, tenant_factory, usuario_factory, auth_headers_factory):
     headers = _headers(tenant_factory, usuario_factory, auth_headers_factory)
-    producto = client.post(
-        "/api/v1/compras/productos", headers=headers, json={"nombre": "Clavo", "sku": "CLA-1", "precio": "100"}
-    ).json()
+    producto = client.post("/api/v1/catalogo/productos", headers=headers, json={"nombre": "Almuerzo", "precio": "100"}).json()
     ayer = (datetime.now(timezone.utc) - timedelta(days=1)).isoformat()
     resp = client.post(
         "/api/v1/ventas/pedidos",

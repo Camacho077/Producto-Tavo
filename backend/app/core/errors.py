@@ -9,8 +9,13 @@ class AppError(Exception):
     status_code = 500
     detail = "Error interno del servidor"
 
-    def __init__(self, detail: str | None = None):
+    def __init__(self, detail: str | None = None, datos: dict | None = None):
         self.detail = detail or self.detail
+        # Datos estructurados opcionales para que el frontend OFREZCA una
+        # salida (p. ej. los platos que no alcanzan por falta de un insumo,
+        # para marcarlos agotados). El texto de `detail` sigue siendo la
+        # causa completa en español.
+        self.datos = datos
         super().__init__(self.detail)
 
 

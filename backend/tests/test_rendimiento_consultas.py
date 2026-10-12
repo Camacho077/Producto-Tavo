@@ -49,12 +49,27 @@ def sesion(client, tenant_factory, usuario_factory, auth_headers_factory):
     return client, auth_headers_factory(admin)
 
 
+def _insumo(client, headers, i):
+    resp = client.post("/api/v1/inventario/insumos", headers=headers, json={"nombre": f"Insumo {letras(i)}", "unidad": "unidad"})
+    assert resp.status_code == 201, resp.json()
+    return resp.json()
+
+
 def _producto(client, headers, i):
-    return client.post(
-        "/api/v1/compras/productos",
+    """Plato con receta y un modificador: el listado tiene que costearlo y
+    pintar sus modificadores sin una consulta por fila."""
+    insumo = _insumo(client, headers, i)
+    resp = client.post(
+        "/api/v1/catalogo/productos",
         headers=headers,
-        json={"nombre": f"Producto {letras(i)}", "sku": f"SKU-{i}", "precio": "1000", "categoria_id": None},
-    ).json()
+        json={
+            "nombre": f"Plato {letras(i)}", "sku": f"SKU-{i}", "precio": "1000",
+            "receta": [{"insumo_id": insumo["id"], "cantidad": "1", "unidad": "unidad"}],
+            "modificadores": [{"tipo": "extra", "nombre": "Extra", "precio": "500", "insumo_id": insumo["id"], "cantidad": "1", "unidad": "unidad"}],
+        },
+    )
+    assert resp.status_code == 201, resp.json()
+    return {**resp.json(), "insumo_id": insumo["id"]}
 
 
 def _nit(i):
@@ -70,7 +85,7 @@ def _proveedor(client, headers, i):
     return resp.json()
 
 
-def _compra(client, headers, proveedor_id, producto_id):
+def _compra(client, headers, proveedor_id, producto):
     return client.post(
         "/api/v1/compras/compras",
         headers=headers,
@@ -78,7 +93,7 @@ def _compra(client, headers, proveedor_id, producto_id):
             "proveedor_id": proveedor_id,
             "fecha": "2026-01-01T09:00:00",
             "confirmar": True,
-            "items": [{"producto_id": producto_id, "cantidad": 5, "precio_unitario": "500"}],
+            "items": [{"insumo_id": producto["insumo_id"], "cantidad": "5", "unidad": "unidad", "precio_unitario": "500"}],
         },
     ).json()
 
@@ -142,7 +157,7 @@ def test_listado_de_compras_cuesta_lo_mismo_con_1_que_con_10(sesion, db_session)
     client, headers = sesion
     productos = [_producto(client, headers, i) for i in range(10)]
     proveedor = _proveedor(client, headers, 0)
-    _comparar(client, db_session, headers, "/api/v1/compras/compras", lambda i: _compra(client, headers, proveedor["id"], productos[i]["id"]))
+    _comparar(client, db_session, headers, "/api/v1/compras/compras", lambda i: _compra(client, headers, proveedor["id"], productos[i]))
 
 
 def test_listado_de_ventas_cuesta_lo_mismo_con_1_que_con_10(sesion, db_session):
@@ -150,7 +165,7 @@ def test_listado_de_ventas_cuesta_lo_mismo_con_1_que_con_10(sesion, db_session):
     productos = [_producto(client, headers, i) for i in range(10)]
     proveedor = _proveedor(client, headers, 0)
     for p in productos:
-        _compra(client, headers, proveedor["id"], p["id"])
+        _compra(client, headers, proveedor["id"], p)
     _comparar(client, db_session, headers, "/api/v1/ventas/ventas", lambda i: _venta(client, headers, productos[i]["id"]))
 
 
@@ -160,9 +175,28 @@ def test_listado_de_pedidos_cuesta_lo_mismo_con_1_que_con_10(sesion, db_session)
     _comparar(client, db_session, headers, "/api/v1/ventas/pedidos", lambda i: _pedido(client, headers, productos[i]["id"]))
 
 
-def test_listado_de_productos_cuesta_lo_mismo_con_1_que_con_10(sesion, db_session):
+def test_listado_de_la_carta_cuesta_lo_mismo_con_1_que_con_10(sesion, db_session):
     client, headers = sesion
-    _comparar(client, db_session, headers, "/api/v1/compras/productos", lambda i: _producto(client, headers, i))
+    _comparar(client, db_session, headers, "/api/v1/catalogo/productos", lambda i: _producto(client, headers, i))
+
+
+def test_listado_de_combos_cuesta_lo_mismo_con_1_que_con_10(sesion, db_session):
+    client, headers = sesion
+    platos = [_producto(client, headers, i) for i in range(2)]
+
+    def combo(i):
+        resp = client.post("/api/v1/catalogo/productos", headers=headers, json={
+            "tipo": "combo", "nombre": f"Combo {letras(i)}", "precio": "2000",
+            "componentes": [{"producto_id": platos[0]["id"]}, {"producto_id": platos[1]["id"], "cantidad": 2}],
+        })
+        assert resp.status_code == 201, resp.json()
+
+    _comparar(client, db_session, headers, "/api/v1/catalogo/productos?tipo=combo", combo)
+
+
+def test_listado_de_insumos_cuesta_lo_mismo_con_1_que_con_10(sesion, db_session):
+    client, headers = sesion
+    _comparar(client, db_session, headers, "/api/v1/inventario/insumos", lambda i: _insumo(client, headers, i))
 
 
 def test_listado_de_proveedores_cuesta_lo_mismo_con_1_que_con_10(sesion, db_session):
@@ -173,8 +207,8 @@ def test_listado_de_proveedores_cuesta_lo_mismo_con_1_que_con_10(sesion, db_sess
 def test_listado_de_categorias_cuesta_lo_mismo_con_1_que_con_10(sesion, db_session):
     client, headers = sesion
     _comparar(
-        client, db_session, headers, "/api/v1/compras/categorias",
-        lambda i: client.post("/api/v1/compras/categorias", headers=headers, json={"nombre": f"Categoria {letras(i)}"}),
+        client, db_session, headers, "/api/v1/catalogo/categorias",
+        lambda i: client.post("/api/v1/catalogo/categorias", headers=headers, json={"nombre": f"Categoria {letras(i)}"}),
     )
 
 

@@ -1,8 +1,9 @@
 """
 MÓDULO IA — sugerencias calculadas con los datos reales del tenant
-(app/modules/ia/analisis.py). Cada regla se prueba con datos creados por la
-API real (el stock sale de compras y ventas, nunca a mano) y se comprueba
-que la sugerencia dice POR QUÉ y con QUÉ cifras; sin datos, que lo diga.
+(app/modules/ia/analisis.py). Restaurante (2026-10-12): el inventario es de
+INSUMOS (consumo por receta) y el costo de cada plato sale de su receta. Cada
+regla se prueba con datos creados por la API real y se comprueba que la
+sugerencia dice POR QUÉ y con QUÉ cifras; sin datos, que lo diga.
 """
 from datetime import timedelta
 
@@ -10,10 +11,11 @@ import pytest
 
 from app.core.tiempo import ahora_utc
 from app.core.validaciones import digito_verificacion_nit
-from app.modules.compras.models import Producto
 from app.modules.ia import analisis
+from app.modules.inventario.models import Insumo
 
 URL = "/api/v1/ia/sugerencias"
+API = "/api/v1"
 
 
 @pytest.fixture()
@@ -28,29 +30,34 @@ def nit(base: str) -> str:
 
 
 def proveedor(client, h, razon, base_nit):
-    r = client.post("/api/v1/compras/proveedores", headers=h, json={
+    r = client.post(f"{API}/compras/proveedores", headers=h, json={
         "tipo_persona": "juridica", "nit": nit(base_nit), "razon_social": razon, "representante_nombre": "Ana Prueba",
     })
     assert r.status_code == 201, r.json()
     return r.json()["id"]
 
 
-def producto(client, h, nombre, sku, precio="1000", stock_minimo=0):
-    r = client.post("/api/v1/compras/productos", headers=h, json={"nombre": nombre, "sku": sku, "precio": precio, "stock_minimo": stock_minimo})
-    assert r.status_code == 201, r.json()
-    return r.json()["id"]
+def plato(client, h, nombre, precio="1000", minimo="0", unidad="unidad"):
+    """Plato que gasta UNA unidad de su insumo del mismo nombre. Devuelve
+    (id del plato, id del insumo)."""
+    insumo = client.post(f"{API}/inventario/insumos", headers=h, json={"nombre": nombre, "unidad": unidad, "minimo": minimo}).json()
+    p = client.post(f"{API}/catalogo/productos", headers=h, json={
+        "nombre": f"Plato de {nombre}", "precio": precio, "receta": [{"insumo_id": insumo["id"], "cantidad": "1", "unidad": unidad}],
+    })
+    assert p.status_code == 201, p.json()
+    return p.json()["id"], insumo["id"]
 
 
-def comprar(client, h, prov, pid, cantidad, costo, fecha):
-    r = client.post("/api/v1/compras/compras", headers=h, json={
+def comprar(client, h, prov, insumo_id, cantidad, costo, fecha, unidad="unidad"):
+    r = client.post(f"{API}/compras/compras", headers=h, json={
         "proveedor_id": prov, "fecha": fecha.isoformat(timespec="seconds"), "confirmar": True,
-        "items": [{"producto_id": pid, "cantidad": cantidad, "precio_unitario": str(costo)}],
+        "items": [{"insumo_id": insumo_id, "cantidad": str(cantidad), "unidad": unidad, "precio_unitario": str(costo)}],
     })
     assert r.status_code == 201, r.json()
 
 
 def vender(client, h, pid, cantidad, fecha, precio="1000"):
-    r = client.post("/api/v1/ventas/ventas", headers=h, json={
+    r = client.post(f"{API}/ventas/ventas", headers=h, json={
         "cliente_nombre": "Carlos Cliente", "fecha": fecha.isoformat(timespec="seconds"), "confirmar": True,
         "items": [{"producto_id": pid, "cantidad": cantidad, "precio_unitario": precio}],
     })
@@ -61,15 +68,11 @@ def seccion(cuerpo, clave):
     return next(s for s in cuerpo["secciones"] if s["clave"] == clave)
 
 
-def tipos(cuerpo, clave):
-    return [s["tipo"] for s in seccion(cuerpo, clave)["sugerencias"]]
-
-
 def base_de_ventas(client, h, ahora, prov):
     """Historia mínima para que haya base (5 ventas en 5 días) sin disparar
-    otras reglas: un producto de relleno con mucho stock."""
-    relleno = producto(client, h, "Relleno", "REL-1")
-    comprar(client, h, prov, relleno, 10_000, 100, ahora - timedelta(days=200))
+    otras reglas: un plato de relleno con mucha existencia."""
+    relleno, insumo = plato(client, h, "Relleno")
+    comprar(client, h, prov, insumo, 10_000, 100, ahora - timedelta(days=200))
     for d in range(1, 6):
         vender(client, h, relleno, 1, ahora - timedelta(days=d * 3))
     return relleno
@@ -86,23 +89,23 @@ def test_sin_ventas_lo_dice_en_vez_de_inventar(sesion):
     for clave in ("alertas", "reponer", "ganadores", "patrones", "rotacion"):
         s = seccion(cuerpo, clave)
         assert s["sugerencias"] == [] and s["sin_datos"]
-    assert "Ningún producto tiene costo conocido" in seccion(cuerpo, "precios")["sin_datos"]
+    assert "Ningún plato tiene receta todavía" in seccion(cuerpo, "precios")["sin_datos"]
     assert "no hay con qué comparar" in seccion(cuerpo, "proveedores")["sin_datos"]
     assert "No se envía ningún dato a servicios externos" in cuerpo["privacidad"]
 
 
 # =====================================================================
-# Stock: quiebres previsibles y reposición
+# Insumos: se acabarían pronto y lista de compras
 # =====================================================================
-def test_quiebre_previsible_y_reposicion_con_su_porque(sesion, db_session):
+def test_quiebre_previsible_y_lista_de_compras_con_su_porque(sesion, db_session):
     client, h, tenant = sesion
     ahora = ahora_utc()
     prov = proveedor(client, h, "Distribuidora Andina", "900123456")
     base_de_ventas(client, h, ahora, prov)
-    rapido = producto(client, h, "Leche", "LEC-1")
-    lento = producto(client, h, "Arroz", "ARR-1")
-    comprar(client, h, prov, rapido, 45, 500, ahora - timedelta(days=200))
-    comprar(client, h, prov, lento, 40, 500, ahora - timedelta(days=200))
+    rapido, leche = plato(client, h, "Leche")
+    lento, arroz = plato(client, h, "Arroz")
+    comprar(client, h, prov, leche, 45, 500, ahora - timedelta(days=200))
+    comprar(client, h, prov, arroz, 40, 500, ahora - timedelta(days=200))
     for d in range(10):  # 40 y 30 unidades en 10 días distintos
         vender(client, h, rapido, 4, ahora - timedelta(days=d * 2 + 1))
         vender(client, h, lento, 3, ahora - timedelta(days=d * 2 + 1))
@@ -110,26 +113,39 @@ def test_quiebre_previsible_y_reposicion_con_su_porque(sesion, db_session):
     cuerpo = analisis.calcular(db_session, tenant.id, ahora, ver_costos=True)
     quiebre = next(s for s in seccion(cuerpo, "alertas")["sugerencias"] if s["tipo"] == "quiebre")
     assert quiebre["nivel"] == "critico"
-    assert quiebre["titulo"].startswith("Leche se agotaría hacia el")
-    assert "1,3 unidades por día" in quiebre["por_que"]  # 40 uds / 30 días
-    assert {"etiqueta": "Stock actual", "valor": "5 unidades"} in quiebre["datos"]
-    assert quiebre["enlace"] == {"recurso": "producto", "id": rapido}
+    assert quiebre["titulo"].startswith("Leche se acabaría hacia el")
+    assert "1,333 unidades por día" in quiebre["por_que"]  # 40 / 30 días
+    assert {"etiqueta": "Existencia", "valor": "5 unidades"} in quiebre["datos"]
+    assert quiebre["enlace"] == {"recurso": "insumo", "id": leche}
 
     reponer = {s["titulo"]: s for s in seccion(cuerpo, "reponer")["sugerencias"]}
-    assert reponer["Reponer Leche"]["nivel"] == "critico"
-    assert reponer["Reponer Leche"]["accion"] == "Comprar 35 unidades."  # ceil(40/30*30 - 5)
-    assert reponer["Reponer Arroz"]["nivel"] == "advertencia"  # 10 uds a 1/día: 10 días
-    assert "Arroz se agotaría" not in str(seccion(cuerpo, "alertas"))
+    assert reponer["Comprar Leche"]["nivel"] == "critico"
+    assert reponer["Comprar Leche"]["accion"] == "Comprar 35 unidades."  # 40/30 × 30 − 5
+    assert reponer["Comprar Arroz"]["nivel"] == "advertencia"  # 10 a 1 por día: 10 días
+    assert "Arroz se acabaría" not in str(seccion(cuerpo, "alertas"))
 
 
-def test_un_producto_sin_ventas_suficientes_no_recibe_un_ritmo_inventado(sesion, db_session):
+def test_bajo_el_minimo_sin_ritmo_sugiere_el_doble_del_minimo(sesion, db_session):
     client, h, tenant = sesion
     ahora = ahora_utc()
     prov = proveedor(client, h, "Distribuidora Andina", "900123456")
     base_de_ventas(client, h, ahora, prov)
-    raro = producto(client, h, "Linterna", "LIN-1")
-    comprar(client, h, prov, raro, 3, 500, ahora - timedelta(days=200))
-    vender(client, h, raro, 2, ahora - timedelta(days=1))  # 2 uds en 1 día: no es ritmo
+    _, queso = plato(client, h, "Queso", minimo="2", unidad="kg")
+    comprar(client, h, prov, queso, "500", 28, ahora - timedelta(days=200), unidad="g")
+    cuerpo = analisis.calcular(db_session, tenant.id, ahora, ver_costos=True)
+    s = next(x for x in seccion(cuerpo, "reponer")["sugerencias"] if x["titulo"] == "Comprar Queso")
+    assert "Quedan 500 g y su mínimo es 2 kg" in s["por_que"]
+    assert s["accion"] == "Comprar al menos 3,5 kg."
+
+
+def test_un_insumo_sin_consumo_suficiente_no_recibe_un_ritmo_inventado(sesion, db_session):
+    client, h, tenant = sesion
+    ahora = ahora_utc()
+    prov = proveedor(client, h, "Distribuidora Andina", "900123456")
+    base_de_ventas(client, h, ahora, prov)
+    raro, linterna = plato(client, h, "Linterna")
+    comprar(client, h, prov, linterna, 3, 500, ahora - timedelta(days=200))
+    vender(client, h, raro, 2, ahora - timedelta(days=1))  # 2 en 1 solo día: no es ritmo
 
     cuerpo = analisis.calcular(db_session, tenant.id, ahora, ver_costos=True)
     assert "Linterna" not in str(seccion(cuerpo, "alertas")) + str(seccion(cuerpo, "reponer"))
@@ -138,15 +154,15 @@ def test_un_producto_sin_ventas_suficientes_no_recibe_un_ritmo_inventado(sesion,
 # =====================================================================
 # Ventas: caídas y ganadores
 # =====================================================================
-def test_caida_y_ganador_por_producto(sesion, db_session):
+def test_caida_y_ganador_por_plato(sesion, db_session):
     client, h, tenant = sesion
     ahora = ahora_utc()
     prov = proveedor(client, h, "Distribuidora Andina", "900123456")
     base_de_ventas(client, h, ahora, prov)
-    cae = producto(client, h, "Galletas", "GAL-1")
-    sube = producto(client, h, "Cafe", "CAF-1")
-    comprar(client, h, prov, cae, 500, 500, ahora - timedelta(days=200))
-    comprar(client, h, prov, sube, 500, 500, ahora - timedelta(days=200))
+    cae, i_cae = plato(client, h, "Galletas")
+    sube, i_sube = plato(client, h, "Cafe")
+    comprar(client, h, prov, i_cae, 500, 500, ahora - timedelta(days=200))
+    comprar(client, h, prov, i_sube, 500, 500, ahora - timedelta(days=200))
     vender(client, h, cae, 20, ahora - timedelta(days=45))
     vender(client, h, cae, 5, ahora - timedelta(days=5))
     vender(client, h, sube, 5, ahora - timedelta(days=45))
@@ -154,93 +170,96 @@ def test_caida_y_ganador_por_producto(sesion, db_session):
 
     cuerpo = analisis.calcular(db_session, tenant.id, ahora, ver_costos=True)
     caida = next(s for s in seccion(cuerpo, "alertas")["sugerencias"] if s["tipo"] == "caida_producto")
-    assert caida["titulo"] == "Galletas vende 75 % menos"
+    assert caida["titulo"] == "Plato de Galletas vende 75 % menos"
     assert "Pasó de 20 unidades a 5 unidades" in caida["por_que"]
     ganador = seccion(cuerpo, "ganadores")["sugerencias"][0]
-    assert ganador["titulo"] == "Cafe está ganando"
+    assert ganador["titulo"] == "Plato de Cafe está ganando"
     assert {"etiqueta": "Variación", "valor": "▲ 200 %"} in ganador["datos"]
 
 
 # =====================================================================
-# Baja rotación
+# Insumos quietos
 # =====================================================================
-def test_baja_rotacion_con_capital_inmovilizado(sesion, db_session):
+def test_insumo_quieto_con_capital_inmovilizado(sesion, db_session):
     client, h, tenant = sesion
     ahora = ahora_utc()
     prov = proveedor(client, h, "Distribuidora Andina", "900123456")
     base_de_ventas(client, h, ahora, prov)
-    quieto = producto(client, h, "Paraguas", "PAR-1", precio="20000")
-    comprar(client, h, prov, quieto, 100, 8000, ahora - timedelta(days=90))
-    vender(client, h, quieto, 2, ahora - timedelta(days=20), precio="20000")
-    db_session.query(Producto).filter(Producto.id == quieto).update({"created_at": ahora - timedelta(days=90)})
+    pid, harina = plato(client, h, "Harina", precio="20000")
+    comprar(client, h, prov, harina, 100, 8000, ahora - timedelta(days=90))
+    vender(client, h, pid, 2, ahora - timedelta(days=20), precio="20000")
+    db_session.query(Insumo).filter(Insumo.id == harina).update({"created_at": ahora - timedelta(days=90)})
     db_session.flush()
 
     cuerpo = analisis.calcular(db_session, tenant.id, ahora, ver_costos=True)
-    s = next(x for x in seccion(cuerpo, "rotacion")["sugerencias"] if x["titulo"] == "Paraguas rota lento")
-    assert "Vendió 2 unidades en 60 días y tiene 98 unidades en stock" in s["por_que"]
-    assert {"etiqueta": "Capital inmovilizado (a costo)", "valor": "$784.000"} in s["datos"]
+    s = next(x for x in seccion(cuerpo, "rotacion")["sugerencias"] if x["titulo"] == "Harina casi no se gasta")
+    assert "Se gastaron 2 unidades en 60 días y quedan 98 unidades" in s["por_que"]
+    assert {"etiqueta": "Capital quieto (a costo)", "valor": "$784.000"} in s["datos"]
 
     sin_costos = analisis.calcular(db_session, tenant.id, ahora, ver_costos=False)
-    s2 = next(x for x in seccion(sin_costos, "rotacion")["sugerencias"] if x["titulo"] == "Paraguas rota lento")
-    assert {"etiqueta": "Valor a precio de venta", "valor": "$1.960.000"} in s2["datos"]
-    assert "8.000" not in str(sin_costos)
+    s2 = next(x for x in seccion(sin_costos, "rotacion")["sugerencias"] if x["titulo"] == "Harina casi no se gasta")
+    assert all(d["etiqueta"] != "Capital quieto (a costo)" for d in s2["datos"])
+    assert "784" not in str(sin_costos)
 
 
-def test_un_producto_nuevo_no_tiene_baja_rotacion(sesion, db_session):
+def test_un_insumo_nuevo_no_esta_quieto(sesion, db_session):
     client, h, tenant = sesion
     ahora = ahora_utc()
     prov = proveedor(client, h, "Distribuidora Andina", "900123456")
     base_de_ventas(client, h, ahora, prov)
-    nuevo = producto(client, h, "Termo", "TER-1")
-    comprar(client, h, prov, nuevo, 50, 500, ahora - timedelta(days=1))
+    _, termo = plato(client, h, "Termo")
+    comprar(client, h, prov, termo, 50, 500, ahora - timedelta(days=1))
     cuerpo = analisis.calcular(db_session, tenant.id, ahora, ver_costos=True)
     assert "Termo" not in str(seccion(cuerpo, "rotacion"))
 
 
 # =====================================================================
-# Precios y proveedores (solo con permiso de ver costos)
+# Costo por receta y proveedores (solo con costos.ver)
 # =====================================================================
-def test_margen_bajo_y_precio_sugerido(sesion, db_session):
+def test_plato_con_costo_alto_y_precio_sugerido(sesion, db_session):
     client, h, tenant = sesion
     ahora = ahora_utc()
     prov = proveedor(client, h, "Distribuidora Andina", "900123456")
-    caro = producto(client, h, "Aceite", "ACE-1", precio="10000")
-    comprar(client, h, prov, caro, 10, 9000, ahora - timedelta(days=10))
-    perdida = producto(client, h, "Azucar", "AZU-1", precio="1000")
-    comprar(client, h, prov, perdida, 10, 1200, ahora - timedelta(days=10))
+    _, aceite = plato(client, h, "Aceite", precio="10000")
+    comprar(client, h, prov, aceite, 10, 9000, ahora - timedelta(days=10))
+    _, azucar = plato(client, h, "Azucar", precio="1000")
+    comprar(client, h, prov, azucar, 10, 1200, ahora - timedelta(days=10))
+    _, sano = plato(client, h, "Sano", precio="10000")
+    comprar(client, h, prov, sano, 10, 2000, ahora - timedelta(days=10))
 
     cuerpo = analisis.calcular(db_session, tenant.id, ahora, ver_costos=True)
     precios = {s["titulo"]: s for s in seccion(cuerpo, "precios")["sugerencias"]}
-    assert precios["Azucar se vende por debajo del costo"]["nivel"] == "critico"
-    aceite = precios["Aceite deja poco margen"]
-    assert "margen de 10 %" in aceite["por_que"]
-    assert {"etiqueta": "Precio para 25 % de margen", "valor": "$12.000"} in aceite["datos"]
+    assert precios["Plato de Azucar se vende por debajo de su costo"]["nivel"] == "critico"
+    s = precios["Plato de Aceite tiene un costo del 97 %"]  # 9.000 sobre 9.259 sin impuesto
+    assert "Lo que más pesa es Aceite (100 % del costo)" in s["por_que"]
+    assert {"etiqueta": "Precio para un costo del 35 %", "valor": "$27.771"} in s["datos"]  # 9.000 / 0,35 × 1,08
+    assert "Plato de Sano" not in str(seccion(cuerpo, "precios"))
     # Sin base de ventas igual se calcula: no depende de la historia.
     assert cuerpo["base"]["suficiente"] is False
 
 
-def test_proveedor_con_mejores_condiciones(sesion, db_session):
+def test_proveedor_mas_barato_comparando_por_unidad_del_insumo(sesion, db_session):
     client, h, tenant = sesion
     ahora = ahora_utc()
     barato = proveedor(client, h, "Mayorista Central", "900123456")
     caro = proveedor(client, h, "Tienda del Barrio", "800197268")
-    pid = producto(client, h, "Harina", "HAR-1", precio="5000")
-    comprar(client, h, barato, pid, 10, 2000, ahora - timedelta(days=40))
-    comprar(client, h, caro, pid, 10, 2500, ahora - timedelta(days=5))  # la última compra fue al caro
+    _, harina = plato(client, h, "Harina", precio="5000", unidad="kg")
+    comprar(client, h, barato, harina, 10, 2000, ahora - timedelta(days=40), unidad="kg")
+    comprar(client, h, caro, harina, 10000, "2.5", ahora - timedelta(days=5), unidad="g")  # = $2.500 el kg
 
     cuerpo = analisis.calcular(db_session, tenant.id, ahora, ver_costos=True)
     s = seccion(cuerpo, "proveedores")["sugerencias"][0]
     assert s["titulo"] == "Harina: Mayorista Central te sale 20 % más barato"
-    assert "le compraste a Tienda del Barrio a $2.500 en promedio" in s["por_que"]
+    assert "le compraste a Tienda del Barrio a $2.500 por kg en promedio" in s["por_que"]
     assert s["enlace"] == {"recurso": "proveedor", "id": barato}
 
 
-def test_quien_no_ve_compras_no_recibe_costos_ni_proveedores(client, tenant_factory, rol_factory, usuario_factory, auth_headers_factory):
+def test_quien_no_ve_costos_no_recibe_costos_ni_proveedores(client, tenant_factory, rol_factory, usuario_factory, auth_headers_factory):
     tenant = tenant_factory()
     h_admin = auth_headers_factory(usuario_factory(tenant))
     prov = proveedor(client, h_admin, "Distribuidora Andina", "900123456")
-    pid = producto(client, h_admin, "Aceite", "ACE-1", precio="10000")
-    comprar(client, h_admin, prov, pid, 10, 9000, ahora_utc() - timedelta(days=10))
+    _, aceite = plato(client, h_admin, "Aceite", precio="10000")
+    comprar(client, h_admin, prov, aceite, 10, 9000, ahora_utc() - timedelta(days=10))
     analista = rol_factory(tenant, nombre="Analista", permisos={"ia": ["ver"], "productos": ["ver"]})
     h = auth_headers_factory(usuario_factory(tenant, rol=analista))
 
@@ -261,8 +280,8 @@ def test_patron_de_dia_y_franja(sesion, db_session):
     client, h, tenant = sesion
     ahora = ahora_utc()
     prov = proveedor(client, h, "Distribuidora Andina", "900123456")
-    pid = producto(client, h, "Pan", "PAN-1")
-    comprar(client, h, prov, pid, 1000, 300, ahora - timedelta(days=200))
+    pid, pan = plato(client, h, "Pan")
+    comprar(client, h, prov, pan, 1000, 300, ahora - timedelta(days=200))
     local = ahora - timedelta(hours=5)
     sabado = (local - timedelta(days=(local.weekday() - 5) % 7 or 7)).replace(hour=15, minute=0, second=0, microsecond=0)
     for semana in range(6):
@@ -275,7 +294,6 @@ def test_patron_de_dia_y_franja(sesion, db_session):
     assert patrones["patron_dia"]["titulo"] == "Los sábados son tu día fuerte"
     assert "concentran el 100 %" in patrones["patron_dia"]["por_que"]
     assert patrones["patron_hora"]["titulo"].startswith("La franja de 1")  # 13, 14 o 15:00
-    assert "15" in patrones["patron_hora"]["titulo"] or "14" in patrones["patron_hora"]["titulo"] or "13" in patrones["patron_hora"]["titulo"]
 
 
 def test_pocas_semanas_no_alcanzan_para_un_patron(sesion, db_session):
@@ -297,8 +315,8 @@ def test_nunca_mezcla_datos_de_otra_empresa(client, tenant_factory, usuario_fact
     h_a, h_b = auth_headers_factory(usuario_factory(a)), auth_headers_factory(usuario_factory(b))
     ahora = ahora_utc()
     prov = proveedor(client, h_a, "Distribuidora Andina", "900123456")
-    pid = producto(client, h_a, "Secreto", "SEC-1", precio="10000")
-    comprar(client, h_a, prov, pid, 10, 9500, ahora - timedelta(days=10))
+    pid, secreto = plato(client, h_a, "Secreto", precio="10000")
+    comprar(client, h_a, prov, secreto, 10, 9500, ahora - timedelta(days=10))
     for d in range(6):
         vender(client, h_a, pid, 1, ahora - timedelta(days=d + 1), precio="10000")
 

@@ -47,6 +47,13 @@
     background-color: var(--realce-medio);
     overflow: hidden;
   }
+  /* Foto real del plato (components/FotoPlato.jsx): llena el marco. */
+  .foto-plato {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
   /* En el listado la misma imagen va como miniatura (44 px, radio 10 px). */
   .imagen-3d__marco.miniatura {
     display: inline-grid;

@@ -6,40 +6,7 @@ from typing import Literal
 from pydantic import BaseModel, EmailStr, Field, ConfigDict, field_validator, model_validator
 
 from app.core import validaciones as v
-
-
-# ---------- Catálogo simple (Categoría) ----------
-class CatalogoBase(BaseModel):
-    nombre: str = Field(min_length=2, max_length=100)
-    descripcion: str | None = Field(default=None, max_length=255)
-
-    @field_validator("nombre")
-    @classmethod
-    def _nombre(cls, valor):
-        return v.nombre_item(valor, 100)
-
-
-class CategoriaCreate(CatalogoBase):
-    pass
-
-
-class CategoriaUpdate(BaseModel):
-    nombre: str | None = Field(default=None, min_length=2, max_length=100)
-    descripcion: str | None = Field(default=None, max_length=255)
-    activo: bool | None = None
-
-    @field_validator("nombre")
-    @classmethod
-    def _nombre(cls, valor):
-        return None if valor is None else v.nombre_item(valor, 100)
-
-
-class CategoriaOut(CatalogoBase):
-    model_config = ConfigDict(from_attributes=True)
-    id: uuid.UUID
-    activo: bool
-    productos_count: int = 0
-    created_at: datetime | None = None
+from app.modules.inventario.schemas import Unidad
 
 
 # ---------- Proveedor ----------
@@ -63,8 +30,8 @@ class ProveedorBase(BaseModel):
     telefono: str | None = Field(default=None, max_length=30)
     email: EmailStr | None = None
     direccion: str | None = Field(default=None, max_length=255)
-    # Productos que surte (relación muchos a muchos).
-    producto_ids: list[uuid.UUID] = Field(default_factory=list)
+    # Insumos que surte (relación muchos a muchos).
+    insumo_ids: list[uuid.UUID] = Field(default_factory=list)
 
     @field_validator("telefono")
     @classmethod
@@ -186,143 +153,34 @@ class ProveedorOut(BaseModel):
     direccion: str | None = None
     activo: bool
     compras_count: int = 0
-    productos: list["ProductoResumen"] = []
+    insumos: list["InsumoResumen"] = []
     created_at: datetime | None = None
 
 
-class ProductoResumen(BaseModel):
+class InsumoResumen(BaseModel):
     id: uuid.UUID
     nombre: str
-    sku: str
-    stock: int = 0
-
-
-class ProveedorResumen(BaseModel):
-    id: uuid.UUID
-    nombre: str
-
-
-# ---------- Producto ----------
-class ProductoBase(BaseModel):
-    nombre: str = Field(min_length=2, max_length=150)
-    sku: str = Field(min_length=2, max_length=50)
-    descripcion: str | None = Field(default=None, max_length=500)
-    precio: Decimal
-    precio_compra: Decimal | None = None
-    stock_minimo: int = 0
-    categoria_id: uuid.UUID | None = None
-
-    @field_validator("nombre")
-    @classmethod
-    def _nombre(cls, valor):
-        return v.nombre_item(valor, 150)
-
-    @field_validator("sku")
-    @classmethod
-    def _sku(cls, valor):
-        return v.sku(valor)
-
-    @field_validator("precio")
-    @classmethod
-    def _precio(cls, valor):
-        return v.precio(valor)
-
-    @field_validator("precio_compra")
-    @classmethod
-    def _precio_compra(cls, valor):
-        return None if valor is None else v.precio(valor, permitir_cero=True)
-
-    @field_validator("stock_minimo")
-    @classmethod
-    def _stock_minimo(cls, valor):
-        return v.entero(valor, 0, v.STOCK_MAX)
-
-
-class ProductoCreate(ProductoBase):
-    """El stock no se escribe: nace en 0 y solo lo mueven compras y ventas."""
-
-
-class ProductoUpdate(BaseModel):
-    nombre: str | None = Field(default=None, min_length=2, max_length=150)
-    sku: str | None = Field(default=None, min_length=2, max_length=50)
-    descripcion: str | None = Field(default=None, max_length=500)
-    precio: Decimal | None = None
-    precio_compra: Decimal | None = None
-    stock_minimo: int | None = None
-    categoria_id: uuid.UUID | None = None
-    activo: bool | None = None
-
-    @field_validator("nombre")
-    @classmethod
-    def _nombre(cls, valor):
-        return None if valor is None else v.nombre_item(valor, 150)
-
-    @field_validator("sku")
-    @classmethod
-    def _sku(cls, valor):
-        return None if valor is None else v.sku(valor)
-
-    @field_validator("precio")
-    @classmethod
-    def _precio(cls, valor):
-        return None if valor is None else v.precio(valor)
-
-    @field_validator("precio_compra")
-    @classmethod
-    def _precio_compra(cls, valor):
-        return None if valor is None else v.precio(valor, permitir_cero=True)
-
-    @field_validator("stock_minimo")
-    @classmethod
-    def _stock_minimo(cls, valor):
-        return None if valor is None else v.entero(valor, 0, v.STOCK_MAX)
+    unidad: str
+    existencia: Decimal = Decimal("0")
 
 
 class CambioEstado(BaseModel):
     activo: bool
 
 
-class ProductoOut(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-    id: uuid.UUID
-    nombre: str
-    sku: str
-    descripcion: str | None = None
-    precio: Decimal
-    precio_compra: Decimal | None = None
-    stock_minimo: int = 0
-    categoria_id: uuid.UUID | None = None
-    stock: int
-    activo: bool
-    categoria_nombre: str | None = None
-    proveedores: list[ProveedorResumen] = []
-    created_at: datetime | None = None
-    updated_at: datetime | None = None
-
-
-class MovimientoOut(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-    id: uuid.UUID
-    tipo: str
-    cantidad: int
-    stock_resultante: int
-    documento_tipo: str
-    documento_id: uuid.UUID
-    documento_codigo: str
-    usuario_nombre: str | None = None
-    created_at: datetime
-
-
-# ---------- Compra ----------
+# ---------- Compra de insumos ----------
 class CompraItemCreate(BaseModel):
-    producto_id: uuid.UUID
-    cantidad: int
+    """Cantidad y precio en la unidad en que se COMPRÓ (kg aunque el insumo
+    se lleve en g); el backend convierte al confirmar."""
+    insumo_id: uuid.UUID
+    cantidad: Decimal
+    unidad: Unidad
     precio_unitario: Decimal
 
     @field_validator("cantidad")
     @classmethod
     def _cantidad(cls, valor):
-        return v.entero(valor, 1, v.CANTIDAD_MAX)
+        return v.cantidad_decimal(valor)
 
     @field_validator("precio_unitario")
     @classmethod
@@ -333,10 +191,11 @@ class CompraItemCreate(BaseModel):
 class CompraItemOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: uuid.UUID
-    producto_id: uuid.UUID
-    producto_nombre: str | None = None
-    producto_sku: str | None = None
-    cantidad: int
+    insumo_id: uuid.UUID
+    insumo_nombre: str | None = None
+    insumo_unidad: str | None = None
+    cantidad: Decimal
+    unidad: str
     precio_unitario: Decimal
     subtotal: Decimal = Decimal("0")
 
@@ -345,10 +204,10 @@ class CompraCreate(BaseModel):
     proveedor_id: uuid.UUID
     fecha: datetime
     notas: str | None = Field(default=None, max_length=500)
-    # True: la compra queda confirmada de una vez y el stock sube. False:
-    # queda pendiente hasta que se confirme (comportamiento original).
+    # True: la compra queda confirmada de una vez y las existencias suben.
+    # False: queda pendiente hasta que se confirme.
     confirmar: bool = False
-    items: list[CompraItemCreate] = Field(min_length=1)
+    items: list[CompraItemCreate] = Field(min_length=1, max_length=60)
 
     @field_validator("fecha")
     @classmethod

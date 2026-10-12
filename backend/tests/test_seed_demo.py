@@ -12,7 +12,8 @@ from pathlib import Path
 
 import pytest
 
-from app.modules.compras.models import Compra, MovimientoInventario
+from app.modules.compras.models import Compra
+from app.modules.inventario.models import MovimientoInsumo
 from app.modules.ventas.models import Pedido, Venta
 
 RUTA_SEED = Path(__file__).resolve().parents[2] / "automatizaciones" / "deploy" / "seed_demo.py"
@@ -76,7 +77,7 @@ def test_una_demo_vieja_vuelve_a_hoy_al_correr_el_seed(client, db_session, empre
     for modelo in (Compra, Venta, Pedido):
         for doc in db_session.query(modelo).filter_by(tenant_id=tenant.id):
             doc.fecha -= hace_10
-    for mov in db_session.query(MovimientoInventario).filter_by(tenant_id=tenant.id):
+    for mov in db_session.query(MovimientoInsumo).filter_by(tenant_id=tenant.id):
         mov.created_at -= hace_10
     db_session.commit()
     assert sum(_serie(client, headers, "1d")) == 0, "precondición: la demo envejecida deja Hoy en cero"
@@ -89,16 +90,29 @@ def test_una_demo_vieja_vuelve_a_hoy_al_correr_el_seed(client, db_session, empre
 
 def test_el_historial_de_inventario_queda_en_orden_de_fechas(db_session, empresa_demo):
     """Las compras y ventas se crean en orden cronológico: recorriendo los
-    movimientos por fecha, el stock resultante cuadra paso a paso."""
+    movimientos por fecha, la existencia de cada insumo cuadra paso a paso
+    y nunca queda en negativo."""
     tenant, _ = empresa_demo
     movimientos = (
-        db_session.query(MovimientoInventario)
+        db_session.query(MovimientoInsumo)
         .filter_by(tenant_id=tenant.id)
-        .order_by(MovimientoInventario.created_at, MovimientoInventario.id)
+        .order_by(MovimientoInsumo.created_at, MovimientoInsumo.id)
         .all()
     )
-    stock = {}
+    assert movimientos
+    existencia = {}
     for m in movimientos:
-        stock[m.producto_id] = stock.get(m.producto_id, 0) + m.cantidad
-        assert stock[m.producto_id] >= 0
-        assert stock[m.producto_id] == m.stock_resultante, f"{m.documento_codigo}: orden de fechas roto"
+        existencia[m.insumo_id] = existencia.get(m.insumo_id, 0) + m.cantidad
+        assert existencia[m.insumo_id] >= 0
+        assert existencia[m.insumo_id] == m.existencia_resultante, f"{m.documento_codigo}: orden de fechas roto"
+
+
+def test_la_demo_deja_recetas_costeadas_y_avisos_de_insumos(client, empresa_demo):
+    _, headers = empresa_demo
+    platos = client.get("/api/v1/catalogo/productos?por_pagina=100", headers=headers).json()["items"]
+    assert len(platos) == 10
+    assert all(p["costo"] is not None and p["margen"] is not None for p in platos), "todo plato de la demo lleva receta"
+    combo = next(p for p in platos if p["tipo"] == "combo")
+    assert float(combo["costo"]) == pytest.approx(sum(float(c["costo"]) * c["cantidad"] for c in combo["componentes"]))
+    claves = {a["clave"] for a in client.get("/api/v1/dashboard/avisos", headers=headers).json()["avisos"]}
+    assert "stock_bajo" in claves

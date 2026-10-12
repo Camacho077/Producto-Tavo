@@ -50,6 +50,10 @@ class VentaItem(Base, TenantMixin):
     producto_id = Column(UUID(as_uuid=True), ForeignKey("productos.id"), nullable=False)
     cantidad = Column(Integer, nullable=False)
     precio_unitario = Column(Numeric(12, 2), nullable=False)
+    # Costo de UNA unidad por su receta en el momento de la venta (2026-10-12):
+    # el margen de ese día no cambia aunque después suba un insumo. None si
+    # el plato no tenía receta.
+    costo_unitario = Column(Numeric(12, 2), nullable=True)
 
     venta = relationship("Venta", back_populates="items")
     producto = relationship("Producto")

@@ -45,8 +45,8 @@ describe("Panel de avisos del dashboard", () => {
 
     expect(await screen.findByText("2 productos agotados")).toBeInTheDocument();
     expect(screen.getByText(/Teclado y Mouse en 0 unidades/)).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Ver productos" })).toHaveAttribute("href", "/compras/productos");
-    expect(screen.getByRole("link", { name: "Ver producto" })).toHaveAttribute("href", "/compras/productos/abc-123");
+    expect(screen.getByRole("link", { name: "Ver la carta" })).toHaveAttribute("href", "/carta");
+    expect(screen.getByRole("link", { name: "Ver plato" })).toHaveAttribute("href", "/carta/abc-123");
     expect(api.get).toHaveBeenCalledWith("/dashboard/avisos");
   });
 

@@ -1,12 +1,12 @@
-import { CatalogoDetalle, CatalogoEditar, CatalogoLista, CatalogoNuevo } from "@/modules/compras/catalogo";
+import { CatalogoDetalle, CatalogoEditar, CatalogoLista, CatalogoNuevo } from "@/modules/carta/catalogo";
 
 const CONFIG = {
   titulo: "Categorías",
-  descripcion: "Agrupan los productos del catálogo.",
+  descripcion: "Secciones de la carta: son las pestañas al tomar un pedido.",
   singular: "categoría",
   articulo: "la",
-  url: "/compras/categorias",
-  ruta: "/compras/categorias",
+  url: "/catalogo/categorias",
+  ruta: "/carta/categorias",
   placeholder: "Buscar por nombre o descripción...",
 };
 

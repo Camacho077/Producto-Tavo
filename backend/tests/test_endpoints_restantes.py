@@ -26,20 +26,28 @@ def crear(client, h, ruta, cuerpo):
 
 
 def producto(client, h, nombre="Cafe", sku="CAF-1"):
-    return crear(client, h, "/compras/productos", {"nombre": nombre, "sku": sku, "precio": "1000"})
+    """Plato con receta de una unidad de su insumo "Grano de <nombre>"."""
+    insumo = crear(client, h, "/inventario/insumos", {"nombre": f"Grano de {nombre}", "unidad": "unidad"})
+    plato = crear(client, h, "/catalogo/productos", {
+        "nombre": nombre, "sku": sku, "precio": "1000", "receta": [{"insumo_id": insumo["id"], "cantidad": "1", "unidad": "unidad"}],
+    })
+    return {**plato, "insumo_id": insumo["id"]}
 
 
 def compra(client, h, pid, confirmar=True):
+    """`pid`: el id del plato; se compra su insumo."""
+    plato = client.get(f"{API}/catalogo/productos/{pid}", headers=h).json()
     prov = crear(client, h, "/compras/proveedores", PROVEEDOR_PRUEBA)
     return prov, crear(client, h, "/compras/compras", {
         "proveedor_id": prov["id"], "fecha": "2026-03-10T09:00:00", "confirmar": confirmar,
-        "items": [{"producto_id": pid, "cantidad": 4, "precio_unitario": "500"}],
+        "items": [{"insumo_id": plato["receta"][0]["insumo_id"], "cantidad": "4", "unidad": "unidad", "precio_unitario": "500"}],
     })
 
 
 # ---------------------------------------------------------------- detalle por id
 @pytest.mark.parametrize("ruta,cuerpo,campo", [
-    ("/compras/categorias", {"nombre": "Bebidas"}, "nombre"),
+    ("/catalogo/categorias", {"nombre": "Bebidas"}, "nombre"),
+    ("/inventario/insumos", {"nombre": "Arroz", "unidad": "kg"}, "nombre"),
     ("/ajustes/zonas", {"nombre": "Terraza"}, "nombre"),
     ("/compras/proveedores", PROVEEDOR_PRUEBA, "razon_social"),
 ])
@@ -54,10 +62,10 @@ def test_el_detalle_devuelve_el_registro_y_404_si_no_existe(s, ruta, cuerpo, cam
 
 def test_detalle_de_compra_usuario_y_rol(s):
     client, h = s
-    pid = producto(client, h)["id"]
-    _, c = compra(client, h, pid)
+    plato = producto(client, h)
+    _, c = compra(client, h, plato["id"])
     r = client.get(f"{API}/compras/compras/{c['id']}", headers=h).json()
-    assert r["codigo"].startswith("COM-") and r["items"][0]["producto_id"] == pid and r["total"] == "2000.00"
+    assert r["codigo"].startswith("COM-") and r["items"][0]["insumo_id"] == plato["insumo_id"] and r["total"] == "2000.00"
     usuarios = client.get(f"{API}/seguridad/usuarios", headers=h).json()["items"]
     assert client.get(f"{API}/seguridad/usuarios/{usuarios[0]['id']}", headers=h).json()["nombre_completo"] == "Ana Admin"
     roles = client.get(f"{API}/seguridad/roles", headers=h).json()["items"]
@@ -69,9 +77,10 @@ def test_detalle_de_compra_usuario_y_rol(s):
 
 # ---------------------------------------------------------------- cambio de estado
 @pytest.mark.parametrize("ruta,cuerpo", [
-    ("/compras/categorias", {"nombre": "Bebidas"}),
+    ("/catalogo/categorias", {"nombre": "Bebidas"}),
+    ("/inventario/insumos", {"nombre": "Arroz", "unidad": "kg"}),
     ("/compras/proveedores", PROVEEDOR_PRUEBA),
-    ("/compras/productos", {"nombre": "Cafe", "sku": "CAF-1", "precio": "1000"}),
+    ("/catalogo/productos", {"nombre": "Cafe", "sku": "CAF-1", "precio": "1000"}),
 ])
 def test_cambiar_estado_desactiva_y_reactiva_y_el_filtro_lo_refleja(s, ruta, cuerpo):
     client, h = s
@@ -109,18 +118,22 @@ def test_proveedor_sin_compras_se_elimina_y_con_compras_no(s):
     assert "Puedes desactivarlo en su lugar" in r.json()["detail"]
 
 
-def test_producto_sin_historial_se_elimina_y_con_historial_no(s):
+def test_plato_sin_ventas_se_elimina_y_con_ventas_no(s):
     client, h = s
     libre = producto(client, h, "Termo", "TER-1")
-    assert client.delete(f"{API}/compras/productos/{libre['id']}", headers=h).status_code == 204
-    assert client.get(f"{API}/compras/productos/{libre['id']}", headers=h).status_code == 404
+    assert client.delete(f"{API}/catalogo/productos/{libre['id']}", headers=h).status_code == 204
+    assert client.get(f"{API}/catalogo/productos/{libre['id']}", headers=h).status_code == 404
 
     usado = producto(client, h)
     compra(client, h, usado["id"])
-    r = client.delete(f"{API}/compras/productos/{usado['id']}", headers=h)
+    crear(client, h, "/ventas/ventas", {
+        "cliente_nombre": "Carlos Cliente", "fecha": "2026-03-11T09:00:00", "confirmar": True,
+        "items": [{"producto_id": usado["id"], "cantidad": 1, "precio_unitario": "1000"}],
+    })
+    r = client.delete(f"{API}/catalogo/productos/{usado['id']}", headers=h)
     assert r.status_code == 409
     assert "Desactívalo en su lugar" in r.json()["detail"]
-    assert client.get(f"{API}/compras/productos/{usado['id']}", headers=h).json()["stock"] == 4
+    assert client.get(f"{API}/catalogo/productos/{usado['id']}", headers=h).status_code == 200
 
 
 # ---------------------------------------------------------------- PDF

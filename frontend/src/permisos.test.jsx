@@ -10,8 +10,8 @@ import ConPermiso, { InicioSegunPermiso } from "@/components/ConPermiso";
 import { modulosVisibles, primeraRutaPermitida } from "@/config/modules";
 import { AvisoProvider } from "@/context/AvisoContext";
 import { api } from "@/lib/api";
-import { CategoriasLista } from "@/modules/compras/CategoriasPage";
-import { ProductoNuevo } from "@/modules/compras/ProductosPage";
+import { CategoriasLista } from "@/modules/carta/CategoriasPage";
+import { PlatoNuevo } from "@/modules/carta/PlatosPage";
 import { RolNuevo } from "@/modules/seguridad/RolesPage";
 import { ConSesion } from "@/test/sesion";
 
@@ -42,42 +42,41 @@ describe("sidebar según el rol", () => {
   it("el Cajero ve Caja y Órdenes, el catálogo y las mesas en solo lectura, y nada de dashboard, compras ni seguridad", () => {
     const modulos = modulosVisibles("pro_ia", [], puedeCon(CAJERO));
     const claves = modulos.map((m) => m.key);
-    expect(claves).toEqual(["compras", "ventas", "ajustes"]);
-    const compras = modulos.find((m) => m.key === "compras");
-    expect(compras.hijos.map((h) => h.key)).toEqual(["productos", "categorias"]);
+    expect(claves).toEqual(["carta", "ventas", "ajustes"]);
+    const carta = modulos.find((m) => m.key === "carta");
+    expect(carta.hijos.map((h) => h.key)).toEqual(["productos", "combos", "categorias"]);
     expect(modulos.find((m) => m.key === "ajustes").hijos.map((h) => h.key)).toEqual(["mesas"]);
-    // El grupo lleva a su primer submódulo visible, no a /compras (que no puede ver).
-    expect(compras.path).toBe("/compras/productos");
-    expect(primeraRutaPermitida(modulos)).toBe("/compras/productos");
+    expect(carta.path).toBe("/carta");
+    expect(primeraRutaPermitida(modulos)).toBe("/carta");
   });
 
   it("sin `puede` (plan solamente) se ve todo lo del plan", () => {
-    expect(modulosVisibles("pro_ia", []).length).toBe(6);
+    expect(modulosVisibles("pro_ia", []).length).toBe(7);
   });
 });
 
 describe("rutas bloqueadas", () => {
   it("una ruta sin permiso muestra la causa concreta en vez de la pantalla", () => {
     render(
-      <MemoryRouter initialEntries={["/compras/categorias/nuevo"]}>
+      <MemoryRouter initialEntries={["/carta/categorias/nuevo"]}>
         <ConSesion permisos={CAJERO}>
           <Routes>
-            <Route path="/compras/categorias/nuevo" element={<ConPermiso modulo="categorias" accion="crear"><p>formulario</p></ConPermiso>} />
+            <Route path="/carta/categorias/nuevo" element={<ConPermiso modulo="categorias" accion="crear"><p>formulario</p></ConPermiso>} />
           </Routes>
         </ConSesion>
       </MemoryRouter>
     );
     expect(screen.queryByText("formulario")).toBeNull();
     expect(screen.getByRole("alert")).toHaveTextContent("no tiene permiso para crear categorías");
-    expect(screen.getByRole("link", { name: "Ir a una pantalla disponible" })).toHaveAttribute("href", "/compras/productos");
+    expect(screen.getByRole("link", { name: "Ir a una pantalla disponible" })).toHaveAttribute("href", "/carta");
   });
 
   it("una ruta de un módulo NO contratado muestra el plan, aunque el rol sea administrador", () => {
     render(
-      <MemoryRouter initialEntries={["/compras/productos"]}>
+      <MemoryRouter initialEntries={["/inventario/insumos"]}>
         <ConSesion tenant={{ plan: "basico", modulos_activos: [], nombre_empresa: "Tienda Básica" }}>
           <Routes>
-            <Route path="/compras/productos" element={<ConPermiso modulo="productos"><p>listado</p></ConPermiso>} />
+            <Route path="/inventario/insumos" element={<ConPermiso modulo="insumos"><p>listado</p></ConPermiso>} />
           </Routes>
         </ConSesion>
       </MemoryRouter>
@@ -120,7 +119,7 @@ describe("rutas bloqueadas", () => {
         <ConSesion permisos={CAJERO}>
           <Routes>
             <Route path="/" element={<InicioSegunPermiso><p>dashboard</p></InicioSegunPermiso>} />
-            <Route path="/compras/productos" element={<p>productos</p>} />
+            <Route path="/carta" element={<p>productos</p>} />
           </Routes>
         </ConSesion>
       </MemoryRouter>
@@ -136,11 +135,11 @@ describe("acciones según el rol", () => {
   function montarCategorias(permisos) {
     api.get.mockResolvedValue(PAGINA([categoria]));
     return render(
-      <MemoryRouter initialEntries={["/compras/categorias"]}>
+      <MemoryRouter initialEntries={["/carta/categorias"]}>
         <ConSesion permisos={permisos}>
           <AvisoProvider>
             <Routes>
-              <Route path="/compras/categorias" element={<CategoriasLista />} />
+              <Route path="/carta/categorias" element={<CategoriasLista />} />
             </Routes>
           </AvisoProvider>
         </ConSesion>
@@ -165,31 +164,31 @@ describe("acciones según el rol", () => {
     }
   });
 
-  it("el costo de compra no se ofrece a quien no puede ver compras", async () => {
-    const sinCompras = { ...CAJERO, productos: ["ver", "crear"] };
+  it("el costo del plato no se muestra a quien no ve costos", async () => {
+    const sinCompras = { ...CAJERO, productos: ["ver", "crear"], insumos: ["ver"] };
     const { unmount } = render(
       <MemoryRouter>
         <ConSesion permisos={sinCompras}>
           <AvisoProvider>
-            <ProductoNuevo />
+            <PlatoNuevo />
           </AvisoProvider>
         </ConSesion>
       </MemoryRouter>
     );
     await screen.findByLabelText(/precio de venta/i);
-    expect(screen.queryByLabelText(/costo de compra/i)).toBeNull();
+    expect(screen.queryByText(/costo de la porción/i)).toBeNull();
     unmount();
 
     render(
       <MemoryRouter>
         <ConSesion>
           <AvisoProvider>
-            <ProductoNuevo />
+            <PlatoNuevo />
           </AvisoProvider>
         </ConSesion>
       </MemoryRouter>
     );
-    expect(await screen.findByLabelText(/costo de compra/i)).toBeInTheDocument();
+    expect(await screen.findByText(/costo de la porción/i)).toBeInTheDocument();
   });
 });
 

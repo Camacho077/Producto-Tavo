@@ -23,7 +23,9 @@ from sqlalchemy.orm import Session
 
 from app.core.mensajes import plural, unidades
 from app.core.tiempo import ahora_utc
-from app.modules.compras.models import Producto
+from app.modules.catalogo.models import Producto, RecetaItem
+from app.modules.inventario.models import Insumo
+from app.modules.inventario.unidades import legible
 from app.modules.ventas.models import Pedido, PedidoEvento, Venta, VentaItem
 
 # Umbrales de las reglas. Viven aquí, con nombre, para que cambiarlos sea
@@ -56,61 +58,70 @@ def _enumerar(nombres: list[str]) -> str:
     return f"{', '.join(visibles[:-1])} y {visibles[-1]}"
 
 
-def _enlace_a_productos(productos: list[Producto]) -> tuple[str, uuid.UUID | None]:
+def _enlace_a_insumos(insumos: list[Insumo]) -> tuple[str, uuid.UUID | None]:
     """Si es uno solo, el aviso lleva a su ficha; si son varios, al listado."""
-    return ("producto", productos[0].id) if len(productos) == 1 else ("productos", None)
+    return ("insumo", insumos[0].id) if len(insumos) == 1 else ("insumos", None)
 
 
 # =====================================================================
 # Reglas
 # =====================================================================
-def productos_agotados(db: Session, tenant_id: uuid.UUID) -> dict | None:
-    """Productos activos que se quedaron en cero: no se pueden vender."""
-    productos = (
-        db.query(Producto)
-        .filter(Producto.tenant_id == tenant_id, Producto.activo.is_(True), Producto.stock <= 0)
-        .order_by(Producto.nombre)
+def insumos_agotados(db: Session, tenant_id: uuid.UUID) -> dict | None:
+    """Insumos activos USADOS EN ALGUNA RECETA que se quedaron en cero (o en
+    negativo, si el restaurante vende sin existencias): los platos que los
+    llevan no se pueden preparar."""
+    insumos = (
+        db.query(Insumo)
+        .filter(
+            Insumo.tenant_id == tenant_id,
+            Insumo.activo.is_(True),
+            Insumo.existencia <= 0,
+            Insumo.id.in_(db.query(RecetaItem.insumo_id).filter(RecetaItem.tenant_id == tenant_id)),
+        )
+        .order_by(Insumo.nombre)
         .all()
     )
-    if not productos:
+    if not insumos:
         return None
-    recurso, id_ = _enlace_a_productos(productos)
+    recurso, id_ = _enlace_a_insumos(insumos)
     return _aviso(
         "stock_agotado",
         "critico",
-        f"{plural(len(productos), 'producto agotado', 'productos agotados')}",
-        f"{_enumerar([p.nombre for p in productos])} en 0 unidades: no se pueden vender hasta que entre una compra.",
+        f"{plural(len(insumos), 'insumo agotado', 'insumos agotados')}",
+        f"{_enumerar([i.nombre for i in insumos])} sin existencias: los platos que los llevan no se pueden preparar hasta que entre una compra.",
         recurso,
         id_,
     )
 
 
-def productos_bajo_minimo(db: Session, tenant_id: uuid.UUID) -> dict | None:
-    """Con existencias, pero por debajo del mínimo configurado."""
-    productos = (
-        db.query(Producto)
+def insumos_bajo_minimo(db: Session, tenant_id: uuid.UUID) -> dict | None:
+    """Con existencias, pero en o por debajo del mínimo configurado."""
+    insumos = (
+        db.query(Insumo)
         .filter(
-            Producto.tenant_id == tenant_id,
-            Producto.activo.is_(True),
-            Producto.stock > 0,
-            Producto.stock_minimo > 0,
-            Producto.stock <= Producto.stock_minimo,
+            Insumo.tenant_id == tenant_id,
+            Insumo.activo.is_(True),
+            Insumo.existencia > 0,
+            Insumo.minimo > 0,
+            Insumo.existencia <= Insumo.minimo,
         )
-        .order_by(Producto.stock)
+        .order_by(Insumo.nombre)
         .all()
     )
-    if not productos:
+    if not insumos:
         return None
-    recurso, id_ = _enlace_a_productos(productos)
-    detalle = ", ".join(f"{p.nombre} ({unidades(p.stock)}, mínimo {p.stock_minimo})" for p in productos[:MAX_NOMBRES_EN_TEXTO])
-    restantes = len(productos) - min(len(productos), MAX_NOMBRES_EN_TEXTO)
+    recurso, id_ = _enlace_a_insumos(insumos)
+    detalle = ", ".join(
+        f"{i.nombre} ({legible(i.existencia, i.unidad)}, mínimo {legible(i.minimo, i.unidad)})" for i in insumos[:MAX_NOMBRES_EN_TEXTO]
+    )
+    restantes = len(insumos) - min(len(insumos), MAX_NOMBRES_EN_TEXTO)
     if restantes:
         detalle += f" y {restantes} más"
     return _aviso(
         "stock_bajo",
         "advertencia",
-        f"{plural(len(productos), 'producto bajo el mínimo', 'productos bajo el mínimo')}",
-        f"{detalle}. Conviene reponer antes de que se agoten.",
+        f"{plural(len(insumos), 'insumo bajo el mínimo', 'insumos bajo el mínimo')}",
+        f"{detalle}. Conviene comprar antes de que se agoten.",
         recurso,
         id_,
     )
@@ -213,7 +224,7 @@ def mas_vendido_de_la_semana(db: Session, tenant_id: uuid.UUID, ahora: datetime)
         "mas_vendido",
         "informativo",
         f"Lo más vendido de la semana: {nombre}",
-        f"{unidades(int(vendidas))} en los últimos {DIAS_SEMANA} días. Revisa que no se quede corto de stock.",
+        f"{unidades(int(vendidas))} en los últimos {DIAS_SEMANA} días. Revisa que no te quedes corto de sus insumos.",
         "producto",
         producto_id,
     )
@@ -226,8 +237,8 @@ def calcular(db: Session, tenant_id: uuid.UUID, ahora: datetime | None = None) -
     """Corre todas las reglas en orden de urgencia y arma el panel."""
     ahora = ahora or ahora_utc()
     candidatos = [
-        productos_agotados(db, tenant_id),
-        productos_bajo_minimo(db, tenant_id),
+        insumos_agotados(db, tenant_id),
+        insumos_bajo_minimo(db, tenant_id),
         variacion_de_ventas(db, tenant_id, ahora),
         pedidos_estancados(db, tenant_id, ahora),
         mas_vendido_de_la_semana(db, tenant_id, ahora),

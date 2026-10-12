@@ -72,9 +72,9 @@ function DialogosVenta({ venta, dialogo, onCerrar, alTerminar }) {
         onCerrar={onCerrar}
         titulo={`Completar venta ${venta?.codigo ?? ""}`}
         textoConfirmar="Completar"
-        mensaje="Se descontará el stock de cada producto. Si algún producto no tiene existencias suficientes, la operación se rechaza."
+        mensaje="Salen de la bodega los insumos de la receta de cada plato. Si algún insumo no alcanza, la operación se rechaza con la causa."
         accion={`completar la venta ${venta?.codigo ?? ""}`.trim()}
-        mensajeExito={`Venta ${venta?.codigo} completada: el stock ya bajó`}
+        mensajeExito={`Venta ${venta?.codigo} completada: los insumos ya salieron de la bodega`}
         onConfirmar={async () => {
           await api.post(`${URL}/${venta.id}/confirmar`);
           alTerminar();
@@ -88,7 +88,7 @@ function DialogosVenta({ venta, dialogo, onCerrar, alTerminar }) {
         textoConfirmar="Anular venta"
         mensaje={
           venta?.estado === "completada"
-            ? "La venta estaba completada: el stock descontado volverá al inventario. Esta acción no se puede deshacer."
+            ? "La venta estaba completada: los insumos que salieron vuelven a la bodega. Esta acción no se puede deshacer."
             : "La venta pendiente quedará anulada. Esta acción no se puede deshacer."
         }
         accion={`anular la venta ${venta?.codigo ?? ""}`.trim()}
@@ -137,7 +137,7 @@ export function VentasLista() {
             <BotonAccion
               icono={Check}
               etiqueta="Completar"
-              titulo="Completar (descuenta stock)"
+              titulo="Completar (descuenta insumos)"
               onClick={() => setDialogo({ tipo: "confirmar", registro: r })}
             />
           )}
@@ -153,7 +153,7 @@ export function VentasLista() {
     <div>
       <PageHeader
         titulo="Ventas"
-        descripcion="Registro de ventas. Al completar una venta se descuenta el stock."
+        descripcion="Registro de ventas. Al completar una venta salen los insumos de cada receta."
         migas={migas()}
         acciones={
           puede("ventas", "crear") && (
@@ -193,7 +193,7 @@ export function VentasLista() {
 }
 
 export function VentaNueva() {
-  const { items: productos } = useCatalogo("/compras/productos");
+  const { items: productos } = useCatalogo("/catalogo/productos");
   const esquema = useMemo(() => ESQUEMA, []);
   const formVacio = useMemo(
     () => ({ cliente_nombre: "", cliente_documento: "", fecha: fechaLocalAhora(), notas: "", confirmar: true, items: [ITEM_VACIO] }),
@@ -201,26 +201,10 @@ export function VentaNueva() {
   );
   const f = useFormulario(esquema, formVacio);
   const { guardando, errorGeneral, guardar } = useGuardarPantalla(f, { volver: RUTA, mensaje: "Venta registrada", accion: "registrar la venta" });
-  const [errorStock, setErrorStock] = useState(null);
-
-  // Aviso de stock antes de enviar (el backend vuelve a validarlo y nunca
-  // deja el stock en negativo).
-  function faltaStock() {
-    if (!f.form.confirmar) return null;
-    const porProducto = {};
-    for (const it of f.form.items) porProducto[it.producto_id] = (porProducto[it.producto_id] ?? 0) + Number(it.cantidad);
-    for (const [id, cant] of Object.entries(porProducto)) {
-      const p = productos.find((x) => x.id === id);
-      if (p && p.stock < cant) return `Stock insuficiente para "${p.nombre}": disponible ${p.stock}, solicitado ${cant}.`;
-    }
-    return null;
-  }
-
+  // Las existencias son de los INSUMOS de cada receta: las valida el backend
+  // y, si algo no alcanza, responde con la causa exacta ("quedan 200 g…").
   function enviar(e) {
     e.preventDefault();
-    const falta = faltaStock();
-    setErrorStock(falta);
-    if (falta) return;
     guardar(e, (d) =>
       api.post(URL, {
         cliente_nombre: d.cliente_nombre,
@@ -235,7 +219,7 @@ export function VentaNueva() {
 
   return (
     <div className="pantalla-estrecha">
-      <PageHeader volver={RUTA} titulo="Registrar venta" descripcion="Al completar la venta se descuenta el stock; nunca queda en negativo." migas={migas({ etiqueta: "Registrar venta" })} />
+      <PageHeader volver={RUTA} titulo="Registrar venta" descripcion="Al completar la venta salen de la bodega los insumos de la receta de cada plato." migas={migas({ etiqueta: "Registrar venta" })} />
       <FormularioPantalla
         id="form-venta"
         onSubmit={enviar}
@@ -244,7 +228,7 @@ export function VentaNueva() {
         hayErrores={f.hayErrores}
         guardando={guardando}
         textoGuardar={`Registrar venta · ${formatearMoneda(totalDeItems(f.form.items))}`}
-        errorGeneral={errorStock ?? errorGeneral}
+        errorGeneral={errorGeneral}
       >
         <Seccion titulo="1. Cliente" descripcion="Los campos marcados con * son obligatorios.">
           <Input etiqueta="Nombre del cliente" {...f.props("cliente_nombre")} permitir="nombre" maxLength={80} autoComplete="off" />
@@ -254,12 +238,11 @@ export function VentaNueva() {
           </div>
         </Seccion>
 
-        <Seccion titulo="2. Productos" descripcion="Se muestra el stock disponible de cada producto.">
+        <Seccion titulo="2. Productos" descripcion="Los platos de la carta, con su precio.">
           <ItemsEditor
             items={f.form.items}
             onCambiar={(items) => f.setForm((prev) => ({ ...prev, items }))}
             productos={productos}
-            mostrarStock
             errorDe={(i, campo) => f.errorVisible(`items.${i}.${campo}`)}
             alSalir={(i, campo) => f.tocar(`items.${i}.${campo}`)}
           />
@@ -267,7 +250,7 @@ export function VentaNueva() {
 
         <Seccion titulo="3. Cierre">
           <Textarea etiqueta="Notas" {...f.props("notas", { requerido: false })} maxLength={500} ayuda="Opcional" />
-          <Checkbox checked={f.form.confirmar} onChange={(e) => f.setCampo("confirmar", e.target.checked)} etiqueta="Completar de inmediato (descuenta el stock ahora mismo)" />
+          <Checkbox checked={f.form.confirmar} onChange={(e) => f.setCampo("confirmar", e.target.checked)} etiqueta="Completar de inmediato (descuenta los insumos ahora mismo)" />
         </Seccion>
       </FormularioPantalla>
     </div>
@@ -337,7 +320,7 @@ export function VentaDetalle() {
                   titulo: "Producto",
                   render: (i) =>
                     i.producto_id ? (
-                      <Link to={`/compras/productos/${i.producto_id}`} className="enlace">
+                      <Link to={`/carta/${i.producto_id}`} className="enlace">
                         {i.producto_nombre ?? "—"}
                       </Link>
                     ) : (

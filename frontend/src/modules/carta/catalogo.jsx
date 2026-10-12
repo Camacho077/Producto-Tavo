@@ -30,24 +30,26 @@ import {
 } from "@/components/ui";
 
 const ESQUEMA = z.object({
-  nombre: esquemas.nombreItem(100),
+  nombre: esquemas.nombreCarta(100),
   descripcion: esquemas.descripcion(255),
+  orden: esquemas.entero(0, 999),
 });
-const FORM_VACIO = { nombre: "", descripcion: "" };
+const FORM_VACIO = { nombre: "", descripcion: "", orden: "0" };
+const cuerpo = (d) => ({ nombre: d.nombre, descripcion: d.descripcion || null, orden: Number(d.orden || 0) });
 
 /**
- * Pantallas de un catálogo simple (Categorías): listado, crear,
+ * Pantallas de un catálogo simple (Categorías de la carta): listado, crear,
  * detalle y editar, cada una con su ruta. Solo cambiar estado y eliminar
  * siguen siendo diálogos de confirmación.
  *
  * `config`: { titulo, descripcion, singular, articulo ("la"|"el"), url, ruta, placeholder }
  */
 function migasDeCatalogo(config, ...resto) {
-  return migasDe([...MIGAS.compras, { etiqueta: config.titulo, a: config.ruta }], ...resto);
+  return migasDe([...MIGAS.carta, { etiqueta: config.titulo, a: config.ruta }], ...resto);
 }
 
 const nuevoDe = (config) => (config.articulo === "la" ? "Nueva" : "Nuevo");
-// El módulo de permisos es el último tramo de la URL: /compras/categorias -> "categorias".
+// El módulo de permisos es el último tramo de la URL: /catalogo/categorias -> "categorias".
 const moduloDe = (config) => config.modulo ?? config.url.split("/").pop();
 const genero = (config) => (config.articulo === "la" ? "a" : "o");
 
@@ -73,7 +75,8 @@ export function CatalogoLista({ config }) {
       ),
     },
     { clave: "descripcion", titulo: "Descripción", render: (r) => r.descripcion || "—" },
-    { clave: "productos_count", titulo: "Productos", cifra: true, render: (r) => formatearNumero(r.productos_count ?? 0) },
+    { clave: "orden", titulo: "Orden", cifra: true, render: (r) => formatearNumero(r.orden ?? 0) },
+    { clave: "productos_count", titulo: "Platos", cifra: true, render: (r) => formatearNumero(r.productos_count ?? 0) },
     {
       clave: "activo", ajustar: true,
       titulo: "Estado",
@@ -167,7 +170,7 @@ export function CatalogoLista({ config }) {
       >
         {registro?.productos_count > 0 && (
           <p className="text-[var(--advertencia-texto)]">
-            Tiene {registro.productos_count} producto(s) asociado(s): el sistema bloqueará la eliminación. Puedes desactivar
+            Tiene {registro.productos_count} plato(s) asociado(s): el sistema bloqueará la eliminación. Puedes desactivar
             {articulo === "la" ? "la" : "lo"} en su lugar.
           </p>
         )}
@@ -179,7 +182,10 @@ export function CatalogoLista({ config }) {
 function CamposCatalogo({ f }) {
   return (
     <Seccion titulo="Datos generales" descripcion="Los campos marcados con * son obligatorios.">
-      <Input etiqueta="Nombre" {...f.props("nombre")} permitir="nombre" maxLength={100} autoComplete="off" />
+      <div className="fila-campos">
+        <Input etiqueta="Nombre" {...f.props("nombre")} permitir="carta" maxLength={100} autoComplete="off" />
+        <Input etiqueta="Orden" {...f.props("orden")} permitir="entero" maxLength={3} cifra ayuda="Orden de la pestaña al tomar pedidos" />
+      </div>
       <Textarea etiqueta="Descripción" {...f.props("descripcion", { requerido: false })} maxLength={255} ayuda="Opcional" />
     </Seccion>
   );
@@ -201,7 +207,7 @@ export function CatalogoNuevo({ config }) {
       <PageHeader volver={ruta} titulo={titulo} descripcion={descripcion} migas={migasDeCatalogo(config, { etiqueta: titulo })} />
       <FormularioPantalla
         id={`form-${singular}`}
-        onSubmit={(e) => guardar(e, (d) => api.post(url, { nombre: d.nombre, descripcion: d.descripcion || null }))}
+        onSubmit={(e) => guardar(e, (d) => api.post(url, cuerpo(d)))}
         volver={ruta}
         refRaiz={f.raiz}
         hayErrores={f.hayErrores}
@@ -227,7 +233,7 @@ export function CatalogoEditar({ config }) {
   });
 
   useEffect(() => {
-    if (data) f.reiniciar({ nombre: data.nombre, descripcion: data.descripcion ?? "" });
+    if (data) f.reiniciar({ nombre: data.nombre, descripcion: data.descripcion ?? "", orden: String(data.orden ?? 0) });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data]);
 
@@ -242,7 +248,7 @@ export function CatalogoEditar({ config }) {
     >
       <FormularioPantalla
         id={`form-${singular}`}
-        onSubmit={(e) => guardar(e, (d) => api.put(`${url}/${id}`, { nombre: d.nombre, descripcion: d.descripcion || null }))}
+        onSubmit={(e) => guardar(e, (d) => api.put(`${url}/${id}`, cuerpo(d)))}
         volver={`${ruta}/${id}`}
         refRaiz={f.raiz}
         hayErrores={f.hayErrores}
@@ -297,7 +303,8 @@ export function CatalogoDetalle({ config }) {
           <Detalle
             campos={[
               { etiqueta: "Nombre", valor: data.nombre },
-              { etiqueta: "Productos", valor: formatearNumero(data.productos_count ?? 0), cifra: true },
+              { etiqueta: "Platos", valor: formatearNumero(data.productos_count ?? 0), cifra: true },
+              { etiqueta: "Orden", valor: formatearNumero(data.orden ?? 0), cifra: true },
               { etiqueta: "Descripción", valor: data.descripcion },
               { etiqueta: "Estado", valor: <EstadoBadge activo={data.activo} /> },
               { etiqueta: "Creado", valor: formatearFecha(data.created_at) },

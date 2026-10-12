@@ -14,7 +14,7 @@ const RETARDO_BUSQUEDA_MS = 300;
  */
 export function useListadoPaginado(url, { porPagina = 10, filtros = {}, busquedaInicial = "" } = {}) {
   // `busquedaInicial` permite llegar al listado con la búsqueda ya puesta
-  // (el buscador del dashboard navega a /compras/productos?q=...). Se aplica
+  // (el buscador del dashboard navega a /carta?q=...). Se aplica
   // de una vez, sin pasar por el retardo: el texto no lo está escribiendo nadie.
   const [busqueda, setBusqueda] = useState(busquedaInicial);
   const [busquedaAplicada, setBusquedaAplicada] = useState(busquedaInicial);

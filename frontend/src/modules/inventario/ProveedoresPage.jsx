@@ -16,8 +16,9 @@ import { formatearFecha, formatearNumero } from "@/lib/formato";
 import { MIGAS, migasDe } from "@/lib/migas";
 import { TIPOS_DOCUMENTO, errorDocumento, esquemas } from "@/lib/validaciones";
 import { AccionesFila, Badge, BotonAccion, Button, Card, Detalle, EstadoBadge, Input, ModalConfirmar, PageHeader, Select, Table, TablaRecurso } from "@/components/ui";
+import { legible } from "@/lib/unidades";
 
-const RUTA = "/compras/proveedores";
+const RUTA = "/inventario/proveedores";
 const URL = "/compras/proveedores";
 
 const FORM_VACIO = {
@@ -33,7 +34,7 @@ const FORM_VACIO = {
   telefono: "",
   email: "",
   direccion: "",
-  productos: [],
+  insumos: [],
 };
 
 // Reglas por tipo de persona. Los campos que no aplican al tipo elegido no
@@ -52,7 +53,7 @@ const ESQUEMA = z
     telefono: esquemas.telefono(),
     email: esquemas.emailOpcional(),
     direccion: esquemas.descripcion(255),
-    productos: z.array(z.object({ id: z.string(), nombre: z.string() }).loose()),
+    insumos: z.array(z.object({ id: z.string(), nombre: z.string() }).loose()),
   })
   .superRefine((d, ctx) => {
     const agregar = (path, message) => ctx.addIssue({ code: "custom", path: [path], message });
@@ -86,7 +87,7 @@ function limpiarPorTipo(d) {
     telefono: d.telefono || null,
     email: d.email || null,
     direccion: d.direccion || null,
-    producto_ids: d.productos.map((p) => p.id),
+    insumo_ids: d.insumos.map((p) => p.id),
   };
   if (d.tipo_persona === "natural") {
     return { ...base, tipo_documento: d.tipo_documento, numero_documento: d.numero_documento.trim().toUpperCase(), nombres: d.nombres, apellidos: d.apellidos };
@@ -114,7 +115,7 @@ function formDe(r) {
     telefono: r.telefono ?? "",
     email: r.email ?? "",
     direccion: r.direccion ?? "",
-    productos: r.productos ?? [],
+    insumos: r.insumos ?? [],
   };
 }
 
@@ -183,7 +184,7 @@ export function ProveedoresLista() {
     },
     { clave: "documento", ajustar: true, titulo: "NIT / Documento", render: (r) => <span className="cifra">{r.nit ?? r.numero_documento ?? "—"}</span> },
     { clave: "telefono", ajustar: true, titulo: "Teléfono", render: (r) => <span className="cifra">{r.telefono || "—"}</span> },
-    { clave: "productos", titulo: "Productos", cifra: true, render: (r) => formatearNumero(r.productos?.length ?? 0) },
+    { clave: "insumos", titulo: "Insumos", cifra: true, render: (r) => formatearNumero(r.insumos?.length ?? 0) },
     { clave: "compras_count", titulo: "Compras", cifra: true, render: (r) => formatearNumero(r.compras_count ?? 0) },
     { clave: "activo", ajustar: true, titulo: "Estado", render: (r) => <EstadoBadge activo={r.activo} /> },
     {
@@ -338,18 +339,18 @@ function CamposProveedor({ f }) {
         <Input etiqueta="Dirección" {...f.props("direccion", { requerido: false })} maxLength={255} ayuda="Opcional" />
       </Seccion>
 
-      <Seccion titulo="Productos que surte" descripcion="Busca y agrega los productos que este proveedor suministra; al registrar una compra se ofrecen primero.">
+      <Seccion titulo="Insumos que surte" descripcion="Busca y agrega los insumos que este proveedor suministra; al registrar una compra se ofrecen primero.">
         <SelectorBusqueda
-          url="/compras/productos"
+          url="/inventario/insumos"
           filtros={{ activo: true }}
           multiple
-          valor={f.form.productos}
-          onCambiar={(productos) => f.setForm((prev) => ({ ...prev, productos }))}
-          placeholder="Buscar producto por nombre o SKU..."
+          valor={f.form.insumos}
+          onCambiar={(insumos) => f.setForm((prev) => ({ ...prev, insumos }))}
+          placeholder="Buscar insumo por nombre o grupo..."
           etiquetaDe={(p) => p.nombre}
-          detalleDe={(p) => p.sku}
-          nombreCampo="productos"
-          ayuda={f.form.productos.length === 0 ? "Sin productos asociados todavía (opcional)" : `${f.form.productos.length} producto(s) asociado(s)`}
+          detalleDe={(p) => p.grupo}
+          nombreCampo="insumos"
+          ayuda={f.form.insumos.length === 0 ? "Sin insumos asociados todavía (opcional)" : `${f.form.insumos.length} insumo(s) asociado(s)`}
         />
       </Seccion>
     </>
@@ -486,30 +487,29 @@ export function ProveedorDetalle() {
               <p className="dato-grande cifra">{formatearNumero(data.compras_count ?? 0)}</p>
               <p className="text-[12px] text-[var(--texto-terciario)] mt-1">compras registradas a este proveedor</p>
               {puede("compras", "crear") && (
-                <Button variante="terciario" tamano="sm" className="mt-3" onClick={() => navigate(`/compras/nuevo?proveedor=${id}`)}>
+                <Button variante="terciario" tamano="sm" className="mt-3" onClick={() => navigate(`/inventario/compras/nuevo?proveedor=${id}`)}>
                   <Plus size={14} /> Registrar compra
                 </Button>
               )}
             </Card>
           </div>
 
-          <Card titulo="Productos que surte" descripcion={`${data.productos?.length ?? 0} producto(s) asociado(s).`}>
+          <Card titulo="Insumos que surte" descripcion={`${data.insumos?.length ?? 0} insumo(s) asociado(s).`}>
             <Table
               columnas={[
                 {
                   clave: "nombre",
-                  titulo: "Producto",
+                  titulo: "Insumo",
                   render: (p) => (
-                    <Link to={`/compras/productos/${p.id}`} className="enlace">
+                    <Link to={`/inventario/insumos/${p.id}`} className="enlace">
                       {p.nombre}
                     </Link>
                   ),
                 },
-                { clave: "sku", ajustar: true, titulo: "SKU", render: (p) => <span className="cifra">{p.sku}</span> },
-                { clave: "stock", titulo: "Stock", cifra: true, render: (p) => formatearNumero(p.stock) },
+                { clave: "existencia", titulo: "Existencia", cifra: true, render: (p) => legible(p.existencia, p.unidad) },
               ]}
-              filas={data.productos ?? []}
-              vacio="Este proveedor no tiene productos asociados. Agrégalos desde Editar."
+              filas={data.insumos ?? []}
+              vacio="Este proveedor no tiene insumos asociados. Agrégalos desde Editar."
             />
           </Card>
         </div>

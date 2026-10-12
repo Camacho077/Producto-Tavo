@@ -7,7 +7,9 @@ from sqlalchemy.orm import Session
 
 from app.core.permisos import tenant_con_permiso
 from app.db.session import get_db
-from app.modules.compras.models import Categoria, Compra, Producto
+from app.modules.catalogo.models import Categoria, Producto
+from app.modules.compras.models import Compra
+from app.modules.inventario.models import Insumo, MovimientoInsumo
 from app.modules.dashboard import avisos as reglas_de_aviso
 from app.modules.dashboard.periodos import (
     DESFASE_NEGOCIO,
@@ -157,29 +159,26 @@ def _mas_vendidos(db: Session, tenant_id, v: Ventana) -> list[dict]:
 
 
 def _inventario(db: Session, tenant_id, v: Ventana) -> dict:
-    """Agregados de inventario más la rejilla 2x2 por categoría: valor en
-    bodega, unidades y cómo se movieron sus ventas frente al tramo anterior."""
+    """Inventario de INSUMOS (2026-10-12): cuántos hay activos, cuántos bajo
+    su mínimo, el valor de la bodega a costo y la rejilla 2x2 por grupo de
+    insumo (valor a costo y cuánto se CONSUMIÓ en el tramo, frente al
+    anterior)."""
+    valor = Insumo.existencia * Insumo.costo_unitario
     fila = (
         db.query(
-            func.coalesce(func.sum(case((Producto.activo.is_(True), 1), else_=0)), 0).label("activos"),
-            func.coalesce(func.sum(Producto.stock), 0).label("unidades"),
+            func.coalesce(func.sum(case((Insumo.activo.is_(True), 1), else_=0)), 0).label("activos"),
             func.coalesce(
                 func.sum(
                     case(
-                        (
-                            Producto.activo.is_(True)
-                            & (Producto.stock_minimo > 0)
-                            & (Producto.stock <= Producto.stock_minimo),
-                            1,
-                        ),
+                        (Insumo.activo.is_(True) & (Insumo.minimo > 0) & (Insumo.existencia <= Insumo.minimo), 1),
                         else_=0,
                     )
                 ),
                 0,
-            ).label("bajo_stock"),
-            func.coalesce(func.sum(Producto.stock * Producto.precio), 0).label("valor"),
+            ).label("bajo_minimo"),
+            func.coalesce(func.sum(case((Insumo.existencia > 0, valor), else_=0)), 0).label("valor"),
         )
-        .filter(Producto.tenant_id == tenant_id)
+        .filter(Insumo.tenant_id == tenant_id)
         .one()
     )
     pedidos_abiertos = (
@@ -188,65 +187,60 @@ def _inventario(db: Session, tenant_id, v: Ventana) -> dict:
         .scalar()
     )
 
-    # Valor y unidades en bodega por categoría (las cuatro de más valor).
-    por_categoria = (
+    grupo = func.coalesce(Insumo.grupo, "Sin grupo")
+    por_grupo = (
         db.query(
-            Categoria.id.label("categoria_id"),
-            Categoria.nombre.label("nombre"),
-            func.coalesce(func.sum(Producto.stock * Producto.precio), 0).label("valor"),
-            func.coalesce(func.sum(Producto.stock), 0).label("unidades"),
+            grupo.label("grupo"),
+            func.coalesce(func.sum(case((Insumo.existencia > 0, valor), else_=0)), 0).label("valor"),
+            func.count(Insumo.id).label("insumos"),
         )
-        .join(Producto, Producto.categoria_id == Categoria.id)
-        .filter(Categoria.tenant_id == tenant_id, Producto.tenant_id == tenant_id)
-        .group_by(Categoria.id, Categoria.nombre)
-        .order_by(func.coalesce(func.sum(Producto.stock * Producto.precio), 0).desc(), Categoria.nombre)
+        .filter(Insumo.tenant_id == tenant_id, Insumo.activo.is_(True))
+        .group_by(grupo)
+        .order_by(func.coalesce(func.sum(case((Insumo.existencia > 0, valor), else_=0)), 0).desc(), grupo)
         .limit(TOPE_CATEGORIAS)
         .all()
     )
 
-    # Ventas de cada categoría en los dos tramos, para la variación de la ficha.
-    monto = VentaItem.cantidad * VentaItem.precio_unitario
-    ventas_categoria = (
+    # Consumo (costo de lo que salió por ventas) de cada grupo en los dos tramos.
+    salida = -MovimientoInsumo.valor
+    consumo = (
         db.query(
-            Producto.categoria_id.label("categoria_id"),
-            func.coalesce(func.sum(case((Venta.fecha >= v.desde, monto), else_=0)), 0).label("actual"),
-            func.coalesce(func.sum(case((Venta.fecha < v.hasta_anterior, monto), else_=0)), 0).label("anterior"),
+            grupo.label("grupo"),
+            func.coalesce(func.sum(case((MovimientoInsumo.created_at >= v.desde, salida), else_=0)), 0).label("actual"),
+            func.coalesce(func.sum(case((MovimientoInsumo.created_at < v.hasta_anterior, salida), else_=0)), 0).label("anterior"),
         )
-        .join(VentaItem, VentaItem.producto_id == Producto.id)
-        .join(Venta, Venta.id == VentaItem.venta_id)
+        .join(Insumo, Insumo.id == MovimientoInsumo.insumo_id)
         .filter(
-            Venta.tenant_id == tenant_id,
-            Venta.estado == "completada",
-            Venta.fecha >= v.desde_anterior,
-            Venta.fecha < v.hasta,
-            Producto.categoria_id.isnot(None),
+            MovimientoInsumo.tenant_id == tenant_id,
+            MovimientoInsumo.tipo == "venta",
+            MovimientoInsumo.created_at >= v.desde_anterior,
+            MovimientoInsumo.created_at < v.hasta,
         )
-        .group_by(Producto.categoria_id)
+        .group_by(grupo)
         .all()
     )
-    movimiento = {f.categoria_id: (float(f.actual), float(f.anterior)) for f in ventas_categoria}
+    movimiento = {f.grupo: (float(f.actual), float(f.anterior)) for f in consumo}
 
-    categorias = []
-    for f in por_categoria:
-        actual, anterior = movimiento.get(f.categoria_id, (0.0, 0.0))
-        categorias.append(
+    grupos = []
+    for f in por_grupo:
+        actual, anterior = movimiento.get(f.grupo, (0.0, 0.0))
+        grupos.append(
             {
-                "categoria_id": str(f.categoria_id),
-                "nombre": f.nombre,
+                "categoria_id": f.grupo,
+                "nombre": f.grupo,
                 "valor": float(f.valor),
-                "unidades": int(f.unidades),
+                "unidades": int(f.insumos),
                 "vendido": actual,
                 "variacion": variacion(actual, anterior),
             }
         )
 
     return {
-        "productos_activos": int(fila.activos or 0),
-        "unidades_stock": int(fila.unidades or 0),
-        "bajo_stock": int(fila.bajo_stock or 0),
+        "insumos_activos": int(fila.activos or 0),
+        "bajo_minimo": int(fila.bajo_minimo or 0),
         "valor_inventario": float(fila.valor or 0),
         "pedidos_abiertos": int(pedidos_abiertos or 0),
-        "categorias": categorias,
+        "categorias": grupos,
     }
 
 

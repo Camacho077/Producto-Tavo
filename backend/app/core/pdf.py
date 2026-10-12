@@ -1,10 +1,13 @@
 """
-Generación de PDF para documentos de negocio (compras, ventas, pedidos).
+Generación de PDF para documentos de negocio (compras, ventas, órdenes).
 
-Un solo generador para los tres documentos: cabecera con la empresa del
-tenant, bloque de datos del documento, tabla de ítems con filas alternadas,
-totales y pie. Devuelve los bytes del PDF listos para responder con
-`application/pdf`.
+Un solo generador: cabecera con el restaurante (tenant), bloque de datos del
+documento, tabla de ítems con filas alternadas, totales y pie. Devuelve los
+bytes del PDF listos para responder con `application/pdf`.
+
+Cada ítem es {descripcion, detalle, cantidad, precio_unitario, subtotal}:
+`detalle` es lo que va en la segunda columna (la unidad de compra de un
+insumo, los modificadores de un plato…) y su título es `columna_detalle`.
 """
 from datetime import datetime
 from decimal import Decimal
@@ -17,19 +20,28 @@ from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import mm
 from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
-# Paleta del producto (ver frontend/src/index.css). El PDF es papel blanco,
-# así que usa el esquema CLARO completo: blanco + crema, sin ningún otro color.
-MARRON = colors.HexColor("#3B2A18")  # texto principal, títulos, encabezado de tabla
-TIERRA = colors.HexColor("#8A6B44")  # texto secundario
-ARENA = colors.HexColor("#D9C5A0")  # bordes y separadores
-CREMA_HONDO = colors.HexColor("#F2E7D3")  # fila de totales
-CREMA = colors.HexColor("#FBF6EC")  # superficies y texto sobre marrón
+from app.core.branding import EMPRESA_PROVEEDORA, NOMBRE_PRODUCTO
+
+# Paleta MONOCROMÁTICA del producto (2026-10-12, la misma de
+# frontend/src/index.css en claro): el PDF es papel blanco. Antes usaba la
+# paleta Espresso/Marfil, ya retirada.
+TINTA = colors.HexColor("#18181B")  # texto principal, títulos, encabezado de tabla
+SECUNDARIO = colors.HexColor("#6B6B76")  # texto secundario
+BORDE = colors.HexColor("#E4E4E9")  # bordes y separadores
+SUTIL = colors.HexColor("#F1F1F4")  # fila de totales
+RELLENO = colors.HexColor("#F7F7F9")  # superficies y texto sobre tinta
 
 
 def formatear_moneda(valor) -> str:
     numero = Decimal(str(valor or 0)).quantize(Decimal("1"))
     entero = f"{int(numero):,}".replace(",", ".")
     return f"$ {entero}"
+
+
+def formatear_cantidad(valor) -> str:
+    """1 → "1"; 1.500 → "1,5"; 0.25 → "0,25"."""
+    numero = Decimal(str(valor or 0)).normalize()
+    return f"{numero:f}".replace(".", ",")
 
 
 def formatear_fecha(valor: datetime | None) -> str:
@@ -50,6 +62,9 @@ def generar_documento_pdf(
     total,
     notas: str | None = None,
     pie: str | None = None,
+    columna_descripcion: str = "Producto",
+    columna_detalle: str = "Detalle",
+    totales_extra: list[tuple[str, str]] | None = None,
 ) -> bytes:
     buffer = BytesIO()
     doc = SimpleDocTemplate(
@@ -65,22 +80,22 @@ def generar_documento_pdf(
 
     estilos = getSampleStyleSheet()
     st_empresa = ParagraphStyle("empresa", parent=estilos["Title"], fontSize=18, leading=22, alignment=0,
-                                textColor=MARRON, spaceAfter=0)
-    st_sub = ParagraphStyle("sub", parent=estilos["Normal"], fontSize=9, textColor=TIERRA)
-    st_titulo = ParagraphStyle("titulo", parent=estilos["Normal"], fontSize=13, leading=16, textColor=MARRON,
+                                textColor=TINTA, spaceAfter=0)
+    st_sub = ParagraphStyle("sub", parent=estilos["Normal"], fontSize=9, textColor=SECUNDARIO)
+    st_titulo = ParagraphStyle("titulo", parent=estilos["Normal"], fontSize=13, leading=16, textColor=TINTA,
                                fontName="Helvetica-Bold", alignment=TA_RIGHT)
-    st_codigo = ParagraphStyle("codigo", parent=estilos["Normal"], fontSize=10, textColor=MARRON,
+    st_codigo = ParagraphStyle("codigo", parent=estilos["Normal"], fontSize=10, textColor=TINTA,
                                alignment=TA_RIGHT, fontName="Helvetica-Bold")
-    st_meta_k = ParagraphStyle("metak", parent=estilos["Normal"], fontSize=8, textColor=TIERRA)
-    st_meta_v = ParagraphStyle("metav", parent=estilos["Normal"], fontSize=10, textColor=MARRON)
+    st_meta_k = ParagraphStyle("metak", parent=estilos["Normal"], fontSize=8, textColor=SECUNDARIO)
+    st_meta_v = ParagraphStyle("metav", parent=estilos["Normal"], fontSize=10, textColor=TINTA)
     st_celda = ParagraphStyle("celda", parent=estilos["Normal"], fontSize=9, leading=12)
     st_celda_der = ParagraphStyle("celdader", parent=st_celda, alignment=TA_RIGHT)
     st_total_k = ParagraphStyle("totalk", parent=estilos["Normal"], fontSize=10, alignment=TA_RIGHT,
-                                textColor=TIERRA)
+                                textColor=SECUNDARIO)
     st_total_v = ParagraphStyle("totalv", parent=estilos["Normal"], fontSize=14, alignment=TA_RIGHT,
-                                textColor=MARRON, fontName="Helvetica-Bold")
-    st_notas = ParagraphStyle("notas", parent=estilos["Normal"], fontSize=9, textColor=MARRON, leading=12)
-    st_pie = ParagraphStyle("pie", parent=estilos["Normal"], fontSize=8, textColor=TIERRA)
+                                textColor=TINTA, fontName="Helvetica-Bold")
+    st_notas = ParagraphStyle("notas", parent=estilos["Normal"], fontSize=9, textColor=TINTA, leading=12)
+    st_pie = ParagraphStyle("pie", parent=estilos["Normal"], fontSize=8, textColor=SECUNDARIO)
 
     contenido = []
 
@@ -92,7 +107,7 @@ def generar_documento_pdf(
                 Paragraph(titulo.upper(), st_titulo),
             ],
             [
-                Paragraph("Sistema de gestión · JS Company", st_sub),
+                Paragraph(f"{NOMBRE_PRODUCTO} · {EMPRESA_PROVEEDORA}", st_sub),
                 Paragraph(codigo, st_codigo),
             ],
         ],
@@ -100,7 +115,7 @@ def generar_documento_pdf(
     )
     cabecera.setStyle(TableStyle([
         ("VALIGN", (0, 0), (-1, -1), "TOP"),
-        ("LINEBELOW", (0, -1), (-1, -1), 1.2, MARRON),
+        ("LINEBELOW", (0, -1), (-1, -1), 1.2, TINTA),
         ("BOTTOMPADDING", (0, -1), (-1, -1), 8),
     ]))
     contenido += [cabecera, Spacer(1, 8 * mm)]
@@ -114,8 +129,8 @@ def generar_documento_pdf(
         filas_meta.append([Paragraph(v or "—", st_meta_v) for _, v in grupo] + [""] * (3 - len(grupo)))
     tabla_meta = Table(filas_meta, colWidths=["34%", "33%", "33%"])
     tabla_meta.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (-1, -1), CREMA),
-        ("BOX", (0, 0), (-1, -1), 0.5, ARENA),
+        ("BACKGROUND", (0, 0), (-1, -1), RELLENO),
+        ("BOX", (0, 0), (-1, -1), 0.5, BORDE),
         ("TOPPADDING", (0, 0), (-1, -1), 4),
         ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
         ("LEFTPADDING", (0, 0), (-1, -1), 8),
@@ -123,51 +138,48 @@ def generar_documento_pdf(
     contenido += [tabla_meta, Spacer(1, 7 * mm)]
 
     # ---------- Ítems ----------
-    encabezado = ["#", "Producto", "SKU", "Cant.", "Precio unit.", "Subtotal"]
+    encabezado = ["#", columna_descripcion, columna_detalle, "Cant.", "Precio unit.", "Subtotal"]
     filas = [encabezado]
     for i, it in enumerate(items, start=1):
         filas.append([
             str(i),
-            Paragraph(it.get("producto_nombre") or "—", st_celda),
-            Paragraph(it.get("producto_sku") or "—", st_celda),
-            Paragraph(str(it.get("cantidad", 0)), st_celda_der),
+            Paragraph(it.get("descripcion") or "—", st_celda),
+            Paragraph(it.get("detalle") or "—", st_celda),
+            Paragraph(formatear_cantidad(it.get("cantidad", 0)), st_celda_der),
             Paragraph(formatear_moneda(it.get("precio_unitario", 0)), st_celda_der),
             Paragraph(formatear_moneda(it.get("subtotal", 0)), st_celda_der),
         ])
-    tabla = Table(filas, colWidths=[8 * mm, None, 28 * mm, 16 * mm, 30 * mm, 32 * mm], repeatRows=1)
+    tabla = Table(filas, colWidths=[8 * mm, None, 34 * mm, 18 * mm, 28 * mm, 30 * mm], repeatRows=1)
     estilo = TableStyle([
-        ("BACKGROUND", (0, 0), (-1, 0), MARRON),
-        ("TEXTCOLOR", (0, 0), (-1, 0), CREMA),
+        ("BACKGROUND", (0, 0), (-1, 0), TINTA),
+        ("TEXTCOLOR", (0, 0), (-1, 0), RELLENO),
         ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
         ("FONTSIZE", (0, 0), (-1, 0), 8.5),
         ("ALIGN", (3, 0), (-1, -1), "RIGHT"),
         ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
         ("FONTSIZE", (0, 1), (-1, -1), 9),
-        ("LINEBELOW", (0, 1), (-1, -1), 0.4, ARENA),
+        ("LINEBELOW", (0, 1), (-1, -1), 0.4, BORDE),
         ("TOPPADDING", (0, 0), (-1, -1), 5),
         ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
     ])
     for fila in range(1, len(filas)):
         if fila % 2 == 0:
-            estilo.add("BACKGROUND", (0, fila), (-1, fila), CREMA)
+            estilo.add("BACKGROUND", (0, fila), (-1, fila), RELLENO)
     tabla.setStyle(estilo)
     contenido += [tabla, Spacer(1, 5 * mm)]
 
     # ---------- Totales ----------
-    cantidad_total = sum(int(it.get("cantidad", 0)) for it in items)
     totales = Table(
-        [
-            [Paragraph("Ítems", st_total_k), Paragraph(str(len(items)), st_meta_v)],
-            [Paragraph("Unidades", st_total_k), Paragraph(str(cantidad_total), st_meta_v)],
-            [Paragraph("TOTAL", st_total_k), Paragraph(formatear_moneda(total), st_total_v)],
-        ],
+        [[Paragraph("Ítems", st_total_k), Paragraph(str(len(items)), st_meta_v)]]
+        + [[Paragraph(k, st_total_k), Paragraph(v, st_meta_v)] for k, v in (totales_extra or [])]
+        + [[Paragraph("TOTAL", st_total_k), Paragraph(formatear_moneda(total), st_total_v)]],
         colWidths=[30 * mm, 40 * mm],
         hAlign="RIGHT",
     )
     totales.setStyle(TableStyle([
         ("ALIGN", (1, 0), (1, -1), "RIGHT"),
-        ("LINEABOVE", (0, -1), (-1, -1), 0.8, MARRON),
-        ("BACKGROUND", (0, -1), (-1, -1), CREMA_HONDO),
+        ("LINEABOVE", (0, -1), (-1, -1), 0.8, TINTA),
+        ("BACKGROUND", (0, -1), (-1, -1), SUTIL),
         ("TOPPADDING", (0, 0), (-1, -1), 4),
         ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
     ]))

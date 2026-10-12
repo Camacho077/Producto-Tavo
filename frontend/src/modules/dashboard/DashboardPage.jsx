@@ -260,7 +260,7 @@ function ListaMasVendidos({ productos, maximo }) {
   return (
     <div className="lista-productos" ref={refLista}>
       {productos.map((producto, i) => (
-        <Link key={producto.producto_id} to={`/compras/productos/${producto.producto_id}`} className="producto">
+        <Link key={producto.producto_id} to={`/carta/${producto.producto_id}`} className="producto">
           <MiniaturaProducto indice={i} retardo={i * 1.2} />
           <div className="producto__cuerpo">
             <p className="producto__nombre" title={producto.nombre}>
@@ -302,11 +302,11 @@ function RejillaInventario({ inventario }) {
     return (
       <div className="tarjeta tarjeta--mini dash-inventario__vacio" ref={refPrimera}>
         <p className="dash-vacio">
-          Aún no hay categorías con existencias. Crea una categoría y registra una compra para ver el inventario
-          repartido aquí.
+          Aún no hay insumos con existencias. Crea tus insumos y registra una compra para ver la bodega
+          repartida aquí por grupo.
         </p>
-        <Link to="/compras/categorias/nuevo" className="enlace">
-          Crear categoría
+        <Link to="/inventario/insumos/nuevo" className="enlace">
+          Crear insumo
         </Link>
       </div>
     );
@@ -322,7 +322,9 @@ function RejillaInventario({ inventario }) {
           <CifraAnimada como="p" className="mini__valor cifra" valor={categoria.valor} formato={formatearMoneda} />
           <div className="mini__pie">
             <Variacion valor={categoria.variacion} />
-            <span>{formatearNumero(categoria.unidades)} uds</span>
+            <span>
+              {formatearNumero(categoria.unidades)} {categoria.unidades === 1 ? "insumo" : "insumos"}
+            </span>
           </div>
         </TarjetaLuz>
       ))}
@@ -386,7 +388,7 @@ export default function DashboardPage() {
   const buscar = (evento) => {
     evento.preventDefault();
     const q = textoBusqueda.trim();
-    if (q) navigate(`/compras/productos?q=${encodeURIComponent(q)}`);
+    if (q) navigate(`/carta?q=${encodeURIComponent(q)}`);
   };
 
   return (
@@ -485,7 +487,7 @@ export default function DashboardPage() {
             <TarjetaLuz className="reveal dash-vendidos tarjeta--quieta" estilo={{ "--d": ".22s" }}>
               <div className="fila-entre">
                 <h2 className="tarjeta__titulo">Productos más vendidos</h2>
-                <Link to="/compras/productos" className="enlace enlace--pequeno">
+                <Link to="/carta" className="enlace enlace--pequeno">
                   Ver todo
                 </Link>
               </div>

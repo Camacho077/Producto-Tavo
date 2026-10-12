@@ -6,7 +6,13 @@ from sqlalchemy.orm import Session
 from app.core import mensajes
 from app.core.consultas import obtener_del_tenant
 from app.core.errors import ConflictError
-from app.modules.compras.services import obtener_producto_o_404, registrar_movimiento, siguiente_numero
+from app.db.models import Tenant
+from app.modules.ajustes.schemas import configuracion_de
+from app.modules.catalogo import recetas
+from app.modules.catalogo.models import Producto
+from app.modules.catalogo.services import obtener_producto_o_404, opciones_carga_producto
+from app.modules.compras.services import siguiente_numero
+from app.modules.inventario import services as inventario
 from app.modules.ventas import models, schemas
 
 # Transiciones permitidas del pedido: desde cada estado, a cuáles se puede pasar.
@@ -113,32 +119,32 @@ def _construir_items(db: Session, tenant_id: uuid.UUID, items_payload, modelo_it
     return items, total
 
 
-def _descontar_stock(
+def _descontar_receta(
     db: Session, tenant_id: uuid.UUID, venta: models.Venta, usuario_nombre: str | None = None, accion: str | None = None
 ) -> None:
-    """Valida TODO antes de mover nada: si una línea no tiene stock, no se
-    descuenta ninguna y el stock jamás queda negativo.
+    """Saca de la bodega los insumos de las recetas de lo vendido (2026-10-12:
+    el inventario es de INSUMOS, no de platos). Valida TODO antes de mover
+    nada: si un insumo no alcanza, no se descuenta ninguno.
 
     `accion` es lo que dice el mensaje de error. Por defecto cita la venta
     ("completar la venta VEN-000012"); al REGISTRAR una venta nueva no se cita
     el número, porque el rechazo revierte la transacción y ese número nunca
     llega a existir (el usuario lo buscaría y no lo encontraría)."""
-    productos = {item.producto_id: obtener_producto_o_404(db, tenant_id, item.producto_id) for item in venta.items}
-    pedido_por_producto: dict = {}
+    ids = {item.producto_id for item in venta.items}
+    productos = {
+        p.id: p
+        for p in db.query(Producto).options(*opciones_carga_producto()).filter(Producto.tenant_id == tenant_id, Producto.id.in_(ids)).all()
+    }
+    lineas = [recetas.LineaVendida(productos[item.producto_id], item.cantidad) for item in venta.items]
     for item in venta.items:
-        pedido_por_producto[item.producto_id] = pedido_por_producto.get(item.producto_id, 0) + item.cantidad
-    for producto_id, cantidad in pedido_por_producto.items():
-        producto = productos[producto_id]
-        if producto.stock < cantidad:
-            raise ConflictError(
-                mensajes.stock_insuficiente(
-                    accion or f"completar la venta {codigo_venta(venta.numero)}", producto.nombre, producto.stock, cantidad
-                )
-            )
-    for item in venta.items:
-        registrar_movimiento(
-            db, tenant_id, productos[item.producto_id], "venta", -item.cantidad, "venta", venta.id, codigo_venta(venta.numero), usuario_nombre
-        )
+        item.costo_unitario = recetas.costo_unitario_vendido(productos[item.producto_id], [])
+    config = configuracion_de(db.get(Tenant, tenant_id))
+    inventario.descontar(
+        db, tenant_id, recetas.consumo(lineas),
+        tipo="venta", documento_tipo="venta", documento_id=venta.id, documento_codigo=codigo_venta(venta.numero),
+        usuario_nombre=usuario_nombre, accion=accion or f"completar la venta {codigo_venta(venta.numero)}",
+        quien="la venta", permitir_negativo=config.vender_sin_existencias, fecha=venta.fecha,
+    )
 
 
 def crear_venta(db: Session, tenant_id: uuid.UUID, payload: schemas.VentaCreate, usuario_nombre: str | None = None) -> models.Venta:
@@ -158,7 +164,7 @@ def crear_venta(db: Session, tenant_id: uuid.UUID, payload: schemas.VentaCreate,
     db.flush()
     if payload.confirmar:
         try:
-            _descontar_stock(db, tenant_id, venta, usuario_nombre, accion="registrar la venta")
+            _descontar_receta(db, tenant_id, venta, usuario_nombre, accion="registrar la venta")
         except ConflictError:
             # La venta ya se había agregado (flush) para numerarla: se deshace
             # EXPLÍCITAMENTE, sin depender de cómo se cierre la sesión.
@@ -177,7 +183,7 @@ def confirmar_venta(db: Session, tenant_id: uuid.UUID, venta_id: uuid.UUID, usua
             mensajes.estado_no_permite("completar", "la venta", codigo_venta(venta.numero), venta.estado, ("pendiente",))
         )
 
-    _descontar_stock(db, tenant_id, venta, usuario_nombre)
+    _descontar_receta(db, tenant_id, venta, usuario_nombre)
     venta.estado = "completada"
     db.commit()
     db.refresh(venta)
@@ -198,8 +204,8 @@ def cancelar_venta(db: Session, tenant_id: uuid.UUID, venta_id: uuid.UUID) -> mo
 
 
 def anular_venta(db: Session, tenant_id: uuid.UUID, venta_id: uuid.UUID, usuario_nombre: str | None = None) -> models.Venta:
-    """Anula una venta pendiente o completada. Si estaba completada, el stock
-    descontado vuelve al inventario."""
+    """Anula una venta pendiente o completada. Si estaba completada, los
+    insumos que salieron vuelven a la bodega (exactamente lo que salió)."""
     venta = obtener_venta_o_404(db, tenant_id, venta_id)
     if venta.estado not in ("pendiente", "completada"):
         raise ConflictError(
@@ -209,11 +215,10 @@ def anular_venta(db: Session, tenant_id: uuid.UUID, venta_id: uuid.UUID, usuario
         )
 
     if venta.estado == "completada":
-        for item in venta.items:
-            producto = obtener_producto_o_404(db, tenant_id, item.producto_id)
-            registrar_movimiento(
-                db, tenant_id, producto, "anulacion_venta", item.cantidad, "venta", venta.id, codigo_venta(venta.numero), usuario_nombre
-            )
+        inventario.devolver_documento(
+            db, tenant_id, tipo_original="venta", tipo="anulacion_venta", documento_tipo="venta",
+            documento_id=venta.id, documento_codigo=codigo_venta(venta.numero), usuario_nombre=usuario_nombre,
+        )
 
     venta.estado = "anulada"
     db.commit()

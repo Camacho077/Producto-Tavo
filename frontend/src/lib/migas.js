@@ -11,9 +11,13 @@ export function migasDe(base, ...resto) {
 
 /** Migas fijas de cada módulo, en un solo sitio. */
 export const MIGAS = {
-  compras: [{ etiqueta: "Compras", a: "/compras" }],
-  productos: [{ etiqueta: "Compras", a: "/compras" }, { etiqueta: "Productos", a: "/compras/productos" }],
-  proveedores: [{ etiqueta: "Compras", a: "/compras" }, { etiqueta: "Proveedores", a: "/compras/proveedores" }],
+  carta: [{ etiqueta: "Carta", a: "/carta" }],
+  platos: [{ etiqueta: "Carta", a: "/carta" }, { etiqueta: "Platos", a: "/carta" }],
+  combos: [{ etiqueta: "Carta", a: "/carta" }, { etiqueta: "Combos", a: "/carta/combos" }],
+  inventario: [{ etiqueta: "Inventario", a: "/inventario/insumos" }],
+  insumos: [{ etiqueta: "Inventario", a: "/inventario/insumos" }, { etiqueta: "Insumos", a: "/inventario/insumos" }],
+  compras: [{ etiqueta: "Inventario", a: "/inventario/insumos" }, { etiqueta: "Compras", a: "/inventario/compras" }],
+  proveedores: [{ etiqueta: "Inventario", a: "/inventario/insumos" }, { etiqueta: "Proveedores", a: "/inventario/proveedores" }],
   ventas: [{ etiqueta: "Ventas", a: "/ventas" }],
   pedidos: [{ etiqueta: "Ventas", a: "/ventas" }, { etiqueta: "Pedidos", a: "/ventas/pedidos" }],
   usuarios: [{ etiqueta: "Seguridad", a: "/seguridad/usuarios" }, { etiqueta: "Usuarios", a: "/seguridad/usuarios" }],

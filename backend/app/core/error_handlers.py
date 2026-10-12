@@ -76,7 +76,10 @@ def _traducir_error(err: dict) -> dict:
 def register_exception_handlers(app: FastAPI) -> None:
     @app.exception_handler(AppError)
     async def app_error_handler(request: Request, exc: AppError):
-        return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
+        contenido = {"detail": exc.detail}
+        if exc.datos:
+            contenido["datos"] = exc.datos
+        return JSONResponse(status_code=exc.status_code, content=contenido)
 
     @app.exception_handler(RequestValidationError)
     async def validation_error_handler(request: Request, exc: RequestValidationError):

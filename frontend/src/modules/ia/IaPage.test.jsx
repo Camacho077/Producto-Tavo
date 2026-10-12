@@ -48,7 +48,7 @@ describe("Sugerencias IA", () => {
     expect(titulo).toBeInTheDocument();
     expect(screen.getByText(/Cuesta \$9\.000 y se vende a \$10\.000/)).toBeInTheDocument();
     expect(screen.getByText("Margen").nextSibling).toHaveTextContent("10 %");
-    expect(screen.getByRole("link", { name: "Ver producto" })).toHaveAttribute("href", "/compras/productos/p1");
+    expect(screen.getByRole("link", { name: "Ver plato" })).toHaveAttribute("href", "/carta/p1");
     expect(api.get).toHaveBeenCalledWith("/ia/sugerencias");
   });
 

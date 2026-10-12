@@ -104,6 +104,11 @@ class ConfiguracionRestaurante(BaseModel):
     sonido_cocina: bool = True
     jornada: Jornada = Field(default_factory=Jornada)
     impresoras: list[Impresora] = Field(default_factory=list, max_length=10)
+    # Por defecto NO se vende lo que no hay: si un insumo no alcanza, la orden
+    # se rechaza con la causa ("quedan 200 g de queso…"). En True el
+    # inventario puede quedar en negativo (útil mientras se carga la bodega
+    # real) y el panel de avisos lo señala.
+    vender_sin_existencias: bool = False
 
     @field_validator("tipos_orden")
     @classmethod

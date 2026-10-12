@@ -12,15 +12,16 @@ from decimal import Decimal
 import pytest
 
 from app.core.exportar import _celda
-from tests.conftest import PROVEEDOR_PRUEBA
+from tests.conftest import PROVEEDOR_PRUEBA, crear_insumo
 
 API = "/api/v1"
 
 LISTADOS = [
-    "/compras/categorias",
+    "/catalogo/categorias",
+    "/inventario/insumos",
     "/ajustes/mesas",
     "/compras/proveedores",
-    "/compras/productos",
+    "/catalogo/productos",
     "/compras/compras",
     "/ventas/ventas",
     "/ventas/pedidos",
@@ -46,7 +47,13 @@ def empresa(client, tenant_factory, usuario_factory, auth_headers_factory):
 
 
 def crear_producto(client, h, nombre, sku, precio="1000"):
-    r = client.post(f"{API}/compras/productos", headers=h, json={"nombre": nombre, "sku": sku, "precio": precio})
+    """Devuelve el id del INSUMO base del plato (lo que se compra)."""
+    insumo = crear_insumo(client, h, f"Grano de {nombre}")
+    r = client.post(f"{API}/catalogo/productos", headers=h, json={
+        "nombre": nombre, "sku": sku, "precio": precio, "receta": [{"insumo_id": insumo["id"], "cantidad": "1", "unidad": "unidad"}],
+    })
+    assert r.status_code == 201, r.json()
+    return insumo["id"]
     assert r.status_code == 201, r.json()
     return r.json()["id"]
 
@@ -61,8 +68,8 @@ def test_cada_listado_exporta_csv_con_encabezado(empresa, ruta):
 def test_respeta_la_busqueda_y_trae_todas_las_paginas(empresa):
     client, h, _ = empresa
     for i, nombre in enumerate(["Arroz", "Aceite", "Azucar", "Leche"] * 4):
-        client.post(f"{API}/compras/categorias", headers=h, json={"nombre": f"{nombre} {'abcdefghijklmnop'[i]}"})
-    filas = leer_csv(client.get(f"{API}/compras/categorias?formato=csv&q=a&por_pagina=2&pagina=3", headers=h))
+        client.post(f"{API}/catalogo/categorias", headers=h, json={"nombre": f"{nombre} {'abcdefghijklmnop'[i]}"})
+    filas = leer_csv(client.get(f"{API}/catalogo/categorias?formato=csv&q=a&por_pagina=2&pagina=3", headers=h))
     nombres = [f[0] for f in filas[1:]]
     # La paginación de la pantalla NO recorta el archivo; la búsqueda sí filtra.
     assert len(nombres) == 12 and all(n[0] == "A" for n in nombres)
@@ -70,10 +77,10 @@ def test_respeta_la_busqueda_y_trae_todas_las_paginas(empresa):
 
 def test_respeta_los_filtros(empresa):
     client, h, _ = empresa
-    a = client.post(f"{API}/compras/categorias", headers=h, json={"nombre": "Activa"}).json()
-    b = client.post(f"{API}/compras/categorias", headers=h, json={"nombre": "Pausada"}).json()
-    assert client.patch(f"{API}/compras/categorias/{b['id']}/estado", headers=h, json={"activo": False}).status_code == 200
-    filas = leer_csv(client.get(f"{API}/compras/categorias?formato=csv&activo=true", headers=h))
+    a = client.post(f"{API}/catalogo/categorias", headers=h, json={"nombre": "Activa"}).json()
+    b = client.post(f"{API}/catalogo/categorias", headers=h, json={"nombre": "Pausada"}).json()
+    assert client.patch(f"{API}/catalogo/categorias/{b['id']}/estado", headers=h, json={"activo": False}).status_code == 200
+    filas = leer_csv(client.get(f"{API}/catalogo/categorias?formato=csv&activo=true", headers=h))
     assert [f[0] for f in filas[1:]] == [a["nombre"]]
 
 
@@ -83,17 +90,17 @@ def test_formato_de_numeros_fechas_y_estados(empresa):
     prov = client.post(f"{API}/compras/proveedores", headers=h, json=PROVEEDOR_PRUEBA).json()["id"]
     client.post(f"{API}/compras/compras", headers=h, json={
         "proveedor_id": prov, "fecha": "2026-03-10T20:30:00", "confirmar": True,
-        "items": [{"producto_id": pid, "cantidad": 3, "precio_unitario": "1000"}],
+        "items": [{"insumo_id": pid, "cantidad": "3", "unidad": "unidad", "precio_unitario": "1000"}],
     })
     filas = leer_csv(client.get(f"{API}/compras/compras?formato=csv", headers=h))
     encabezado, fila = filas[0], filas[1]
     dato = dict(zip(encabezado, fila))
     assert dato["Fecha"] == "2026-03-10 15:30"  # 20:30 UTC = 15:30 en Colombia
     assert dato["Total"] == "3000,00"  # coma decimal (Excel es-CO)
-    assert dato["Productos"] == "Cafe × 3"
+    assert dato["Insumos"] == "Grano de Cafe 3 unidades"
     assert dato["Estado"] == "confirmada"
-    productos = leer_csv(client.get(f"{API}/compras/productos?formato=csv", headers=h))
-    assert dict(zip(productos[0], productos[1]))["Precio de venta"] == "12500,50"
+    productos = leer_csv(client.get(f"{API}/catalogo/productos?formato=csv", headers=h))
+    assert dict(zip(productos[0], productos[1]))["Precio"] == "12500,50"
 
 
 def test_el_costo_solo_lo_exporta_quien_lo_ve(client, tenant_factory, rol_factory, usuario_factory, auth_headers_factory):
@@ -103,12 +110,15 @@ def test_el_costo_solo_lo_exporta_quien_lo_ve(client, tenant_factory, rol_factor
     prov = client.post(f"{API}/compras/proveedores", headers=h_admin, json=PROVEEDOR_PRUEBA).json()["id"]
     client.post(f"{API}/compras/compras", headers=h_admin, json={
         "proveedor_id": prov, "fecha": "2026-03-10T09:00:00", "confirmar": True,
-        "items": [{"producto_id": pid, "cantidad": 3, "precio_unitario": "777"}],
+        "items": [{"insumo_id": pid, "cantidad": "3", "unidad": "unidad", "precio_unitario": "777"}],
     })
-    assert "Costo" in leer_csv(client.get(f"{API}/compras/productos?formato=csv", headers=h_admin))[0]
+    assert "Costo" in leer_csv(client.get(f"{API}/catalogo/productos?formato=csv", headers=h_admin))[0]
+    assert "Costo unitario" in leer_csv(client.get(f"{API}/inventario/insumos?formato=csv", headers=h_admin))[0]
 
-    cajero = rol_factory(tenant, nombre="Cajero", permisos={"productos": ["ver"]})
-    r = client.get(f"{API}/compras/productos?formato=csv", headers=auth_headers_factory(usuario_factory(tenant, rol=cajero)))
+    cajero = rol_factory(tenant, nombre="Cajero", permisos={"productos": ["ver"], "insumos": ["ver"]})
+    hc = auth_headers_factory(usuario_factory(tenant, rol=cajero))
+    r = client.get(f"{API}/catalogo/productos?formato=csv", headers=hc)
+    assert "Costo unitario" not in leer_csv(client.get(f"{API}/inventario/insumos?formato=csv", headers=hc))[0]
     assert "Costo" not in leer_csv(r)[0]
     assert "777" not in r.text
 
@@ -126,7 +136,7 @@ def test_nunca_exporta_datos_de_otra_empresa(client, tenant_factory, usuario_fac
     a, b = tenant_factory(), tenant_factory()
     h_a, h_b = auth_headers_factory(usuario_factory(a)), auth_headers_factory(usuario_factory(b))
     crear_producto(client, h_a, "Secreto", "SEC-1")
-    client.post(f"{API}/compras/categorias", headers=h_a, json={"nombre": "Reservada"})
+    client.post(f"{API}/catalogo/categorias", headers=h_a, json={"nombre": "Reservada"})
     for ruta in LISTADOS:
         r = client.get(f"{API}{ruta}?formato=csv", headers=h_b)
         assert "Secreto" not in r.text and "Reservada" not in r.text, ruta
@@ -134,12 +144,12 @@ def test_nunca_exporta_datos_de_otra_empresa(client, tenant_factory, usuario_fac
 
 def test_formato_desconocido_es_422(empresa):
     client, h, _ = empresa
-    assert client.get(f"{API}/compras/categorias?formato=xlsx", headers=h).status_code == 422
+    assert client.get(f"{API}/catalogo/categorias?formato=xlsx", headers=h).status_code == 422
 
 
 def test_sin_formato_el_listado_sigue_siendo_json_paginado(empresa):
     client, h, _ = empresa
-    cuerpo = client.get(f"{API}/compras/categorias", headers=h).json()
+    cuerpo = client.get(f"{API}/catalogo/categorias", headers=h).json()
     assert set(cuerpo) == {"items", "total", "pagina", "por_pagina", "paginas"}
 
 

@@ -10,7 +10,7 @@ vi.mock("@/lib/api", () => ({
 import { Aviso } from "@/components/ui";
 import { AvisoProvider } from "@/context/AvisoContext";
 import { api } from "@/lib/api";
-import { CategoriaDetalle, CategoriaEditar, CategoriaNueva, CategoriasLista } from "@/modules/compras/CategoriasPage";
+import { CategoriaDetalle, CategoriaEditar, CategoriaNueva, CategoriasLista } from "@/modules/carta/CategoriasPage";
 import { ConSesion } from "@/test/sesion";
 
 const PAGINA = (items, extra = {}) => ({
@@ -24,10 +24,10 @@ function montar(rutaInicial) {
       <AvisoProvider>
         <Aviso />
         <Routes>
-          <Route path="/compras/categorias" element={<CategoriasLista />} />
-          <Route path="/compras/categorias/nuevo" element={<CategoriaNueva />} />
-          <Route path="/compras/categorias/:id" element={<CategoriaDetalle />} />
-          <Route path="/compras/categorias/:id/editar" element={<CategoriaEditar />} />
+          <Route path="/carta/categorias" element={<CategoriasLista />} />
+          <Route path="/carta/categorias/nuevo" element={<CategoriaNueva />} />
+          <Route path="/carta/categorias/:id" element={<CategoriaDetalle />} />
+          <Route path="/carta/categorias/:id/editar" element={<CategoriaEditar />} />
         </Routes>
       </AvisoProvider>
     </ConSesion></MemoryRouter>
@@ -42,7 +42,7 @@ describe("Categorías — listado", () => {
   it("muestra el marcador de carga y nunca el estado vacío antes de la primera respuesta", async () => {
     let resolver;
     api.get.mockReturnValue(new Promise((r) => (resolver = r)));
-    montar("/compras/categorias");
+    montar("/carta/categorias");
 
     expect(screen.getByRole("status", { name: "Cargando registros" })).toBeInTheDocument();
     expect(screen.queryByText("Todavía no hay categorías registradas.")).toBeNull();
@@ -54,7 +54,7 @@ describe("Categorías — listado", () => {
 
   it("lista los registros del backend con su conteo de productos", async () => {
     api.get.mockResolvedValue(PAGINA([{ id: "1", nombre: "Bebidas", descripcion: "Frías", activo: true, productos_count: 3 }]));
-    montar("/compras/categorias");
+    montar("/carta/categorias");
     expect(await screen.findByText("Bebidas")).toBeInTheDocument();
     expect(screen.getByText("Frías")).toBeInTheDocument();
     expect(screen.getByText("Activo")).toBeInTheDocument();
@@ -62,7 +62,7 @@ describe("Categorías — listado", () => {
 
   it("conserva las filas actuales mientras recarga (sin volver al marcador de carga)", async () => {
     api.get.mockResolvedValueOnce(PAGINA([{ id: "1", nombre: "Bebidas", activo: true, productos_count: 0 }]));
-    montar("/compras/categorias");
+    montar("/carta/categorias");
     await screen.findByText("Bebidas");
 
     let resolver;
@@ -79,20 +79,20 @@ describe("Categorías — listado", () => {
 
   it("muestra un error visible en vez de fallar en silencio", async () => {
     api.get.mockRejectedValue({ response: { data: { detail: "No se pudo conectar" } } });
-    montar("/compras/categorias");
+    montar("/carta/categorias");
     expect(await screen.findByText("No se pudo conectar")).toBeInTheDocument();
   });
 
   it("no abre ningún diálogo para crear: navega a la pantalla /nuevo con migas", async () => {
     api.get.mockResolvedValue(PAGINA([]));
-    montar("/compras/categorias");
+    montar("/carta/categorias");
     await screen.findByText("Todavía no hay categorías registradas.");
 
     fireEvent.click(screen.getByRole("button", { name: /nueva categoría/i }));
     expect(await screen.findByRole("heading", { level: 1, name: "Nueva categoría" })).toBeInTheDocument();
     expect(screen.queryByRole("dialog")).toBeNull();
     const migas = screen.getByRole("navigation", { name: "Ruta de navegación" });
-    expect(migas).toHaveTextContent("Compras");
+    expect(migas).toHaveTextContent("Carta");
     expect(migas).toHaveTextContent("Categorías");
     expect(migas).toHaveTextContent("Nueva categoría");
   });
@@ -100,7 +100,7 @@ describe("Categorías — listado", () => {
   it("cambiar de estado sí sigue siendo un diálogo de confirmación", async () => {
     api.get.mockResolvedValue(PAGINA([{ id: "1", nombre: "Bebidas", activo: true, productos_count: 0 }]));
     api.patch.mockResolvedValue({ data: {} });
-    montar("/compras/categorias");
+    montar("/carta/categorias");
     await screen.findByText("Bebidas");
     fireEvent.click(screen.getByRole("button", { name: "Desactivar" }));
     const dialogo = await screen.findByRole("dialog");
@@ -113,7 +113,7 @@ describe("Categorías — crear", () => {
     const usuario = userEvent.setup();
     api.get.mockResolvedValue(PAGINA([]));
     api.post.mockResolvedValue({ data: { id: "9" } });
-    montar("/compras/categorias/nuevo");
+    montar("/carta/categorias/nuevo");
 
     const nombre = screen.getByLabelText(/^Nombre/);
     await usuario.click(nombre);
@@ -123,7 +123,7 @@ describe("Categorías — crear", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Guardar" }));
     await waitFor(() => {
-      expect(api.post).toHaveBeenCalledWith("/compras/categorias", { nombre: "Pinturas y acabados para exterior", descripcion: null });
+      expect(api.post).toHaveBeenCalledWith("/catalogo/categorias", { nombre: "Pinturas y acabados para exterior", descripcion: null, orden: 0 });
     });
     expect(await screen.findByRole("heading", { level: 1, name: "Categorías" })).toBeInTheDocument();
     expect(screen.getByRole("status", { name: "" })).toHaveTextContent("Categoría creada");
@@ -131,7 +131,7 @@ describe("Categorías — crear", () => {
 
   it("Cancelar vuelve al listado sin llamar al backend", async () => {
     api.get.mockResolvedValue(PAGINA([]));
-    montar("/compras/categorias/nuevo");
+    montar("/carta/categorias/nuevo");
     fireEvent.click(screen.getByRole("button", { name: "Cancelar" }));
     expect(await screen.findByRole("heading", { level: 1, name: "Categorías" })).toBeInTheDocument();
     expect(api.post).not.toHaveBeenCalled();
@@ -144,20 +144,20 @@ describe("Categorías — detalle y editar", () => {
   it("el detalle muestra el marcador de carga hasta que llega el registro, sin diálogos", async () => {
     let resolver;
     api.get.mockReturnValue(new Promise((r) => (resolver = r)));
-    montar("/compras/categorias/1");
+    montar("/carta/categorias/1");
     expect(screen.getByRole("status", { name: "Cargando" })).toBeInTheDocument();
 
     resolver({ data: REGISTRO });
     expect(await screen.findByRole("heading", { level: 1, name: "Bebidas" })).toBeInTheDocument();
     expect(screen.getByText("Frías")).toBeInTheDocument();
     expect(screen.queryByRole("dialog")).toBeNull();
-    expect(api.get).toHaveBeenCalledWith("/compras/categorias/1");
+    expect(api.get).toHaveBeenCalledWith("/catalogo/categorias/1");
   });
 
   it("editar precarga el formulario en una pantalla propia y envía PUT", async () => {
     api.get.mockResolvedValue({ data: REGISTRO });
     api.put.mockResolvedValue({ data: REGISTRO });
-    montar("/compras/categorias/1/editar");
+    montar("/carta/categorias/1/editar");
 
     const nombre = await screen.findByLabelText(/^Nombre/);
     await waitFor(() => expect(nombre).toHaveValue("Bebidas"));
@@ -165,7 +165,7 @@ describe("Categorías — detalle y editar", () => {
 
     fireEvent.change(nombre, { target: { value: "Bebidas frías" } });
     fireEvent.click(screen.getByRole("button", { name: "Guardar cambios" }));
-    await waitFor(() => expect(api.put).toHaveBeenCalledWith("/compras/categorias/1", { nombre: "Bebidas frías", descripcion: "Frías" }));
+    await waitFor(() => expect(api.put).toHaveBeenCalledWith("/catalogo/categorias/1", { nombre: "Bebidas frías", descripcion: "Frías", orden: 0 }));
     expect(await screen.findByRole("heading", { level: 1, name: "Bebidas" })).toBeInTheDocument();
   });
 });
@@ -179,15 +179,15 @@ describe("Categorías — exportar a CSV", () => {
     api.get.mockImplementation((_url, config) =>
       Promise.resolve(config?.responseType === "blob" ? { data: new Blob(["﻿Nombre\r\n"]) } : PAGINA([{ id: "1", nombre: "Bebidas", activo: true, productos_count: 0 }]))
     );
-    montar("/compras/categorias");
+    montar("/carta/categorias");
     await screen.findByText("Bebidas");
     await userEvent.type(screen.getByRole("searchbox"), "beb");
-    await waitFor(() => expect(api.get).toHaveBeenLastCalledWith("/compras/categorias", expect.objectContaining({ params: expect.objectContaining({ q: "beb" }) })));
+    await waitFor(() => expect(api.get).toHaveBeenLastCalledWith("/catalogo/categorias", expect.objectContaining({ params: expect.objectContaining({ q: "beb" }) })));
 
     await userEvent.click(screen.getByRole("button", { name: /Exportar CSV/ }));
 
     await waitFor(() => expect(clic).toHaveBeenCalled());
-    expect(api.get).toHaveBeenLastCalledWith("/compras/categorias", {
+    expect(api.get).toHaveBeenLastCalledWith("/catalogo/categorias", {
       params: { q: "beb", formato: "csv" },
       responseType: "blob",
     });
@@ -201,7 +201,7 @@ describe("Categorías — exportar a CSV", () => {
         ? Promise.reject({ response: { status: 413, data: new Blob([JSON.stringify({ detail: "La exportación tendría 60.000 filas y el máximo es 50.000." })]) } })
         : Promise.resolve(PAGINA([{ id: "1", nombre: "Bebidas", activo: true, productos_count: 0 }]))
     );
-    montar("/compras/categorias");
+    montar("/carta/categorias");
     await screen.findByText("Bebidas");
     await userEvent.click(screen.getByRole("button", { name: /Exportar CSV/ }));
     expect(await screen.findByRole("alert")).toHaveTextContent("La exportación tendría 60.000 filas y el máximo es 50.000.");

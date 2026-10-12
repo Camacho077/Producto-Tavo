@@ -22,6 +22,20 @@ const MESA_RE = /[A-Za-zÁÉÍÓÚÜÑáéíóúüñ0-9 -]/;
 
 const soloDigitos = (t) => t.replace(/\D/g, "");
 
+/** Dígitos y UN separador decimal (la coma se vuelve punto), con tope de decimales. */
+function filtroDecimal(decimales) {
+  return {
+    admite: (c, valor, posicion) => {
+      if (DIGITO_RE.test(c)) {
+        const punto = valor.indexOf(".");
+        return punto === -1 || posicion <= punto || valor.length - punto - 1 < decimales;
+      }
+      return (c === "." || c === ",") && !valor.includes(".") && valor.length > 0;
+    },
+    normalizarCaracter: (c) => (c === "," ? "." : c),
+  };
+}
+
 export const FILTROS = {
   // Nombres de persona, categoría, razón social, rol.
   nombre: {
@@ -48,17 +62,11 @@ export const FILTROS = {
 
   // Precios, montos, porcentajes: dígitos y UN separador decimal (punto; la
   // coma se convierte en punto), máximo 2 decimales.
-  decimal: {
-    admite: (c, valor, posicion) => {
-      if (DIGITO_RE.test(c)) {
-        const punto = valor.indexOf(".");
-        // Máximo 2 decimales al insertar después del punto.
-        return punto === -1 || posicion <= punto || valor.length - punto - 1 < 2;
-      }
-      return (c === "." || c === ",") && !valor.includes(".") && valor.length > 0;
-    },
-    normalizarCaracter: (c) => (c === "," ? "." : c),
-  },
+  decimal: filtroDecimal(2),
+  // Cantidades de insumos (2026-10-12): 1,5 kg; 0,25 L → 3 decimales.
+  cantidad: filtroDecimal(3),
+  // Costo unitario de un insumo ($ por gramo puede llevar decimales): 4.
+  costo: filtroDecimal(4),
 
   // Documentos de identidad: solo dígitos.
   digitos: {

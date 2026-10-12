@@ -11,7 +11,7 @@ Lo que protege este archivo:
 3. Por cada ruta con un id: un usuario de OTRA empresa recibe 404 y nunca
    datos ajenos, y la empresa dueña no ve nada cambiado.
 4. Reglas contra la escalada de privilegios y protección del Administrador.
-5. El costo (precio_compra) solo lo ve y lo escribe quien puede ver compras.
+5. Costos y márgenes solo para quien tiene `costos.ver`.
 """
 import importlib
 import uuid
@@ -61,21 +61,26 @@ ESPERADO = {
     ("DELETE", "/ajustes/mesas/{mesa_id}"): ("mesas", "eliminar"),
     **{
         (metodo, ruta.format(r=recurso, id=f"{{{singular}_id}}")): (modulo, accion)
-        for recurso, singular, modulo in (
-            ("categorias", "categoria", "categorias"),
-            ("proveedores", "proveedor", "proveedores"),
-            ("productos", "producto", "productos"),
+        for prefijo, recurso, singular, modulo in (
+            ("catalogo", "categorias", "categoria", "categorias"),
+            ("catalogo", "productos", "producto", "productos"),
+            ("inventario", "insumos", "insumo", "insumos"),
+            ("compras", "proveedores", "proveedor", "proveedores"),
         )
         for metodo, ruta, accion in (
-            ("GET", "/compras/{r}", "ver"),
-            ("GET", "/compras/{r}/{id}", "ver"),
-            ("POST", "/compras/{r}", "crear"),
-            ("PUT", "/compras/{r}/{id}", "editar"),
-            ("PATCH", "/compras/{r}/{id}/estado", "cambiar_estado"),
-            ("DELETE", "/compras/{r}/{id}", "eliminar"),
+            ("GET", "/" + prefijo + "/{r}", "ver"),
+            ("GET", "/" + prefijo + "/{r}/{id}", "ver"),
+            ("POST", "/" + prefijo + "/{r}", "crear"),
+            ("PUT", "/" + prefijo + "/{r}/{id}", "editar"),
+            ("PATCH", "/" + prefijo + "/{r}/{id}/estado", "cambiar_estado"),
+            ("DELETE", "/" + prefijo + "/{r}/{id}", "eliminar"),
         )
     },
-    ("GET", "/compras/productos/{producto_id}/movimientos"): ("productos", "ver"),
+    ("PATCH", "/catalogo/productos/{producto_id}/agotado"): ("productos", "cambiar_estado"),
+    ("PUT", "/catalogo/productos/{producto_id}/imagen"): ("productos", "editar"),
+    ("DELETE", "/catalogo/productos/{producto_id}/imagen"): ("productos", "editar"),
+    ("GET", "/inventario/insumos/{insumo_id}/movimientos"): ("insumos", "ver"),
+    ("GET", "/inventario/grupos"): ("insumos", "ver"),
     ("GET", "/compras/compras"): ("compras", "ver"),
     ("GET", "/compras/compras/{compra_id}"): ("compras", "ver"),
     ("GET", "/compras/compras/{compra_id}/pdf"): ("compras", "ver"),
@@ -110,7 +115,7 @@ SIN_PERMISO = {
 
 
 def _rutas_de_negocio():
-    for modulo in ("seguridad", "dashboard", "compras", "ventas", "ia", "ajustes", "imagenes"):
+    for modulo in ("seguridad", "dashboard", "catalogo", "inventario", "compras", "ventas", "ia", "ajustes", "imagenes"):
         router = importlib.import_module(f"app.modules.{modulo}.router").router
         for ruta in router.routes:
             for metodo in ruta.methods - {"HEAD", "OPTIONS"}:
@@ -152,7 +157,7 @@ def test_toda_ruta_de_negocio_exige_el_permiso_esperado():
 
 
 def test_el_catalogo_cubre_los_modulos_pedidos():
-    for modulo in ("compras", "productos", "categorias", "proveedores", "ventas", "pedidos", "usuarios", "roles", "dashboard", "ajustes", "mesas"):
+    for modulo in ("compras", "productos", "categorias", "insumos", "costos", "proveedores", "ventas", "pedidos", "usuarios", "roles", "dashboard", "ajustes", "mesas"):
         assert modulo in CATALOGO
     # Cada par usado en ESPERADO existe en el catálogo.
     for modulo, accion in ESPERADO.values():
@@ -235,19 +240,20 @@ def dos_empresas(client, tenant_factory, usuario_factory, auth_headers_factory):
         assert r.status_code == 201, (ruta, r.text)
         return r.json()
 
-    cat = crear("/compras/categorias", {"nombre": "Bebidas"})
+    cat = crear("/catalogo/categorias", {"nombre": "Bebidas"})
     zona = crear("/ajustes/zonas", {"nombre": "Terraza"})
     mesa = crear("/ajustes/mesas", {"nombre": "B2", "zona_id": zona["id"]})
     prov = crear("/compras/proveedores", {"tipo_persona": "juridica", "nit": "890903938-8", "razon_social": "Proveedor de Pruebas", "representante_nombre": "Ana Prueba"})
-    prod = crear("/compras/productos", {"nombre": "Gaseosa", "sku": "GAS-1", "precio": "3000", "precio_compra": "1800"})
-    compra = crear("/compras/compras", {"proveedor_id": prov["id"], "fecha": "2026-01-01T09:00:00", "confirmar": True, "items": [{"producto_id": prod["id"], "cantidad": 10, "precio_unitario": "1800"}]})
+    insumo = crear("/inventario/insumos", {"nombre": "Gaseosa fría", "unidad": "unidad"})
+    prod = crear("/catalogo/productos", {"nombre": "Gaseosa", "precio": "3000", "receta": [{"insumo_id": insumo["id"], "cantidad": "1", "unidad": "unidad"}]})
+    compra = crear("/compras/compras", {"proveedor_id": prov["id"], "fecha": "2026-01-01T09:00:00", "confirmar": True, "items": [{"insumo_id": insumo["id"], "cantidad": "10", "unidad": "unidad", "precio_unitario": "1800"}]})
     venta = crear("/ventas/ventas", {"cliente_nombre": "Cliente Uno", "fecha": "2026-01-02T09:00:00", "confirmar": True, "items": [{"producto_id": prod["id"], "cantidad": 1, "precio_unitario": "3000"}]})
     pedido = crear("/ventas/pedidos", {"cliente_nombre": "Cliente Dos", "fecha": "2026-01-02T09:00:00", "items": [{"producto_id": prod["id"], "cantidad": 1, "precio_unitario": "3000"}]})
     rol = crear("/seguridad/roles", {"nombre": "Vendedor", "permisos": {"ventas": ["ver"]}})
     usuario = crear("/seguridad/usuarios", {"nombre_completo": "Pedro Pérez", "email": f"{uuid.uuid4().hex[:8]}@a.com", "password": "clave-segura-123", "rol_id": rol["id"]})
 
     ids = {
-        "categoria_id": cat["id"], "zona_id": zona["id"], "mesa_id": mesa["id"], "proveedor_id": prov["id"], "producto_id": prod["id"],
+        "categoria_id": cat["id"], "zona_id": zona["id"], "mesa_id": mesa["id"], "proveedor_id": prov["id"], "producto_id": prod["id"], "insumo_id": insumo["id"],
         "compra_id": compra["id"], "venta_id": venta["id"], "pedido_id": pedido["id"], "rol_id": rol["id"], "usuario_id": usuario["id"],
     }
     return ha, hb, ids
@@ -260,6 +266,8 @@ CUERPOS = {
     ("PUT", "mesa_id"): {"nombre": "ROBADA"},
     ("PUT", "proveedor_id"): {"razon_social": "Robada SAS"},
     ("PUT", "producto_id"): {"nombre": "Robado"},
+    ("PUT", "insumo_id"): {"nombre": "Robado"},
+    ("PATCH", "producto_id"): {"activo": False, "agotado": True},
     ("PUT", "pedido_id"): {"prioridad": "baja"},
     ("PUT", "usuario_id"): {"nombre_completo": "Nombre Robado"},
     ("PUT", "rol_id"): {"descripcion": "robado"},
@@ -295,7 +303,7 @@ def test_otra_empresa_recibe_404_y_nunca_datos_ajenos(metodo, path, param, clien
 
 def test_los_listados_de_otra_empresa_no_traen_nada_ajeno(client, dos_empresas):
     ha, hb, ids = dos_empresas
-    for ruta in ("/compras/categorias", "/ajustes/zonas", "/ajustes/mesas", "/compras/proveedores", "/compras/productos",
+    for ruta in ("/catalogo/categorias", "/ajustes/zonas", "/ajustes/mesas", "/compras/proveedores", "/catalogo/productos", "/inventario/insumos",
                  "/compras/compras", "/ventas/ventas", "/ventas/pedidos", "/seguridad/usuarios", "/seguridad/roles"):
         texto = client.get(f"{API}{ruta}", headers=hb).text
         for valor in ids.values():
@@ -384,24 +392,20 @@ def test_degradar_al_ultimo_administrador_se_bloquea(client, empresa, usuario_fa
 # ---------------------------------------------------------------------------
 # 5. Costos y márgenes
 # ---------------------------------------------------------------------------
-def test_el_cajero_no_ve_ni_escribe_el_costo(client, tenant_factory, rol_factory, usuario_factory, auth_headers_factory):
+def test_sin_costos_ver_no_hay_costo_ni_margen(client, tenant_factory, rol_factory, usuario_factory, auth_headers_factory):
     tenant = tenant_factory()
     ha = auth_headers_factory(usuario_factory(tenant))
     descripcion, permisos_cajero = ROLES_DE_EJEMPLO["Cajero"]
-    permisos_cajero = {**permisos_cajero, "productos": ["ver", "editar"]}
-    hc = auth_headers_factory(usuario_factory(tenant, rol=rol_factory(tenant, nombre="Cajero", permisos=permisos_cajero)))
+    hc = auth_headers_factory(usuario_factory(tenant, rol=rol_factory(tenant, nombre="Cajero", permisos={**permisos_cajero, "insumos": ["ver"]})))
 
-    prod = client.post(f"{API}/compras/productos", headers=ha, json={"nombre": "Leche", "sku": "LE-1", "precio": "4000", "precio_compra": "2500"}).json()
-    assert prod["precio_compra"] == "2500.00"
+    insumo = client.post(f"{API}/inventario/insumos", headers=ha, json={"nombre": "Leche", "unidad": "L", "costo_unitario": "2500"}).json()
+    prod = client.post(f"{API}/catalogo/productos", headers=ha, json={"nombre": "Café con leche", "precio": "4000",
+                       "receta": [{"insumo_id": insumo["id"], "cantidad": "200", "unidad": "ml"}]}).json()
+    assert prod["costo"] == "500.00"
 
-    visto = client.get(f"{API}/compras/productos/{prod['id']}", headers=hc).json()
-    assert visto["precio_compra"] is None and visto["precio"] == "4000.00"
-    assert all(p["precio_compra"] is None for p in client.get(f"{API}/compras/productos", headers=hc).json()["items"])
-
-    # Intentar sobrescribir el costo: se ignora.
-    r = client.put(f"{API}/compras/productos/{prod['id']}", headers=hc, json={"nombre": "Leche Entera", "precio_compra": "1"})
-    assert r.status_code == 200
-    assert client.get(f"{API}/compras/productos/{prod['id']}", headers=ha).json()["precio_compra"] == "2500.00"
+    visto = client.get(f"{API}/catalogo/productos/{prod['id']}", headers=hc).json()
+    assert visto["costo"] is None and visto["margen"] is None and visto["precio"] == "4000.00"
+    assert client.get(f"{API}/inventario/insumos/{insumo['id']}", headers=hc).json()["costo_unitario"] is None
 
 
 # ---------------------------------------------------------------------------
@@ -423,6 +427,7 @@ def test_el_catalogo_trae_solo_las_acciones_de_cada_modulo(client, empresa):
     catalogo = client.get(f"{API}/seguridad/permisos", headers=empresa["h_admin"]).json()
     por_clave = {m["clave"]: m for m in catalogo["modulos"]}
     assert por_clave["compras"]["acciones"] == ["ver", "crear", "cambiar_estado", "anular"]
+    assert por_clave["costos"]["acciones"] == ["ver"]
     assert "editar" not in por_clave["ventas"]["acciones"]
     assert "eliminar" not in por_clave["pedidos"]["acciones"]
     assert por_clave["dashboard"]["acciones"] == ["ver"]

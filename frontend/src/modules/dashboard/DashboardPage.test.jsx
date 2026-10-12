@@ -93,7 +93,7 @@ const montar = () =>
           <Routes>
             <Route path="/" element={<DashboardPage />} />
             {/* Destino del buscador, para poder comprobar que navega de verdad. */}
-            <Route path="/compras/productos" element={<ListadoFalso />} />
+            <Route path="/carta" element={<ListadoFalso />} />
           </Routes>
         </AuthProvider>
       </ThemeProvider>
@@ -137,7 +137,7 @@ describe("Dashboard — datos reales del tenant", () => {
     // Cada producto enlaza a su ficha.
     expect(screen.getByRole("link", { name: /Silla ejecutiva Roble/ })).toHaveAttribute(
       "href",
-      "/compras/productos/p-1"
+      "/carta/p-1"
     );
     // Sin categoría no se inventa una: se dice que no la tiene.
     expect(screen.getByText("Sin categoría")).toBeInTheDocument();
@@ -190,7 +190,7 @@ describe("Dashboard — datos reales del tenant", () => {
     await screen.findByText("Materiales");
 
     expect(screen.getByText("Cocina")).toBeInTheDocument();
-    expect(screen.getByText("430 uds")).toBeInTheDocument();
+    expect(screen.getByText("430 insumos")).toBeInTheDocument();
     expect(document.querySelectorAll(".objeto3d")).toHaveLength(2);
   });
 
@@ -278,10 +278,10 @@ describe("Dashboard — datos reales del tenant", () => {
     montar();
 
     expect(await screen.findByText(/Todavía no hay ventas completadas en este periodo/)).toBeInTheDocument();
-    expect(screen.getByText(/Aún no hay categorías con existencias/)).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Crear categoría" })).toHaveAttribute(
+    expect(screen.getByText(/Aún no hay insumos con existencias/)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Crear insumo" })).toHaveAttribute(
       "href",
-      "/compras/categorias/nuevo"
+      "/inventario/insumos/nuevo"
     );
   });
 

@@ -17,7 +17,9 @@ from app.db.session import Base
 # Importar todos los modelos para que Alembic los detecte en autogenerate
 from app.db.models import Tenant  # noqa: F401
 from app.modules.seguridad.models import Usuario, Rol  # noqa: F401
-from app.modules.compras.models import Categoria, Proveedor, Producto, Compra, CompraItem, MovimientoInventario, proveedor_productos  # noqa: F401
+from app.modules.catalogo.models import Categoria, Producto, RecetaItem, Modificador, ComboItem  # noqa: F401
+from app.modules.inventario.models import Insumo, MovimientoInsumo  # noqa: F401
+from app.modules.compras.models import Proveedor, Compra, CompraItem, proveedor_insumos  # noqa: F401
 from app.modules.ventas.models import Venta, VentaItem, Pedido, PedidoItem, PedidoEvento  # noqa: F401
 from app.modules.ajustes.models import Zona, Mesa  # noqa: F401
 from app.modules.imagenes.models import Imagen  # noqa: F401

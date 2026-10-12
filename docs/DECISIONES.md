@@ -144,6 +144,88 @@ Docker).
 INSUMOS), modificadores, combos, imágenes de plato, insumos con unidades y
 recetas con costo, margen y porcentaje de costo.
 
+### 2026-10-12 — Fase 2: carta, insumos y recetas (el inventario pasa a los insumos)
+
+**Alcance real (cambio respecto al plan):** en cuanto los platos tienen
+receta, el "stock de un plato" deja de tener sentido: lo que se gasta son los
+insumos. Por eso esta fase también tuvo que llevar a insumos las COMPRAS
+(antes compraban productos) y hacer que la venta manual heredada descuente
+POR RECETA. La fase 3 queda para lo que falta del inventario (mermas,
+conteos, historial general, alertas, carga inicial).
+
+**Hecho**
+- Backend en tres módulos: `catalogo` (categorías, platos y combos con
+  receta y modificadores; `/catalogo/...`), `inventario` (insumos y sus
+  movimientos; `/inventario/...`) y `compras` (proveedores ↔ insumos y
+  compras de insumos). Migración `d2a0b1c2d3e4`: los productos pierden
+  stock, mínimo y costo de compra; se borran `movimientos_inventario` y
+  `proveedor_productos`; las compras viejas (de productos de reventa) se
+  eliminan porque no tienen equivalente en insumos (no había datos de ningún
+  restaurante).
+- Frontend: grupo **Carta** (Platos `/carta`, Combos `/carta/combos`,
+  Categorías `/carta/categorias`) y grupo **Inventario** (Insumos,
+  Compras y Proveedores bajo `/inventario/...`). Editor de líneas genérico
+  (`components/EditorLineas.jsx`) para receta, modificadores, platos de un
+  combo e insumos de una compra; `components/FotoPlato.jsx`.
+- Dashboard, avisos e IA adaptados: inventario a costo por grupo de insumo,
+  avisos de insumos agotados (solo los que están en alguna receta) y bajo
+  el mínimo, y en la IA: lista de compras por consumo, insumos quietos,
+  platos con % de costo alto (con el insumo que más pesa) y proveedor más
+  barato por UNIDAD del insumo (compara g contra kg).
+- Seed de demostración de restaurante (12 insumos, 9 platos con receta y
+  modificadores, combo de estudiante, 3 proveedores, compras y ventas que
+  descuentan por receta). La fase 12 lo amplía.
+- PDF monocromo (antes Espresso/Marfil) y genérico (columnas de
+  descripción y detalle): cierra uno de los riesgos heredados.
+
+**Decidido**
+- **Unidades**: el insumo vive en UNA unidad (kg, g, L, ml, unidad); compras
+  y recetas pueden escribirse en otra de la misma familia y el backend
+  convierte (`inventario/unidades.py`, espejo `lib/unidades.js`). Entre
+  familias, error con la causa.
+- **Costo del insumo por promedio ponderado** de las compras; las salidas se
+  valoran al costo vigente y ese `valor` del movimiento es el costo de lo
+  vendido. Anular una compra saca su peso del promedio si tiene sentido; si
+  no, conserva el costo vigente. El costo se puede fijar a mano (antes de
+  la primera compra) solo con `costos.ver`.
+- **Costo del plato EN VIVO** (no se guarda): sube un insumo y todos los
+  platos que lo usan se recalculan solos. La venta guarda el costo unitario
+  de cada línea en ese momento (`venta_items.costo_unitario`). Un plato sin
+  receta muestra "sin dato", nunca costo cero.
+- **Margen sobre el precio SIN impuesto al consumo** cuando la carta lo
+  incluye (8 %: no es ingreso del restaurante).
+- **Merma** por línea de receta: se descuenta cantidad × (1 + merma %).
+- **Modificadores**: "sin" gratis que deja de descontar un insumo de la
+  receta; "extra" con precio que suma UN insumo con su cantidad (la "receta
+  del extra"). Un extra con varios insumos queda fuera por ahora.
+- **Combos** = productos de tipo combo con sus platos, precio especial,
+  vigencia (desde/hasta) y días de la semana; al venderse, cada plato
+  descuenta su receta. Un combo no lleva otros combos.
+- **Agotado hoy** = `agotado_fecha` de la jornada actual: vuelve solo al
+  empezar la siguiente.
+- **Imagen por defecto**: el render 3D monocromo del producto (los SVG CC0
+  ya aprobados), estable por plato; con foto, la foto (WebP 640 px).
+- **No se vende lo que no hay**: si un insumo no alcanza, 409 con la causa
+  exacta ("quedan 200 g de Queso y la venta necesita 300 g") y, en `datos`,
+  los faltantes (para ofrecer "agotado" en la fase 4). Opción por empresa
+  `vender_sin_existencias` (por defecto apagada) para mientras se carga la
+  bodega real. Los insumos se leen con `SELECT … FOR UPDATE`.
+- **Los movimientos llevan la fecha del documento** (una compra registrada
+  con fecha de ayer entró ayer): sin esto el consumo y la IA quedaban en el
+  día equivocado.
+- **Permisos nuevos**: `insumos` (CRUD) y `costos.ver` (costo, margen, % de
+  costo y costo de insumos; un cajero o mesero no lo tienen). `productos` se
+  conserva como clave pero significa "la carta".
+- **Planes provisionales**: Carta y Caja desde Básico (sin ellas no se
+  opera); Inventario desde Estándar. Precios y módulos exactos: decisión
+  del usuario.
+- Nombres de la carta e insumos admiten dígitos y signos; las categorías
+  también pasaron a esa regla y llevan `orden` (pestañas al tomar pedidos).
+
+**Sigue (fase 3)**: mermas y daños con motivo, ajuste por conteo físico,
+historial general de movimientos, alertas de stock bajo y carga inicial
+desde plantilla Excel/CSV con validación fila por fila.
+
 ---
 
 ## 1. Configuración crítica que NO se borra
@@ -1049,6 +1131,7 @@ skill (Impeccable desaconseja Inter; aquí no se cambia).
 
 | Fecha | Decisión / hito |
 |---|---|
+| 2026-10-12 | Fase 2: carta con recetas (costo, margen, % de costo en vivo), modificadores, combos con vigencia, agotado hoy, fotos de plato; inventario de INSUMOS con unidades y promedio ponderado; compras de insumos; IA y dashboard sobre insumos (§0) |
 | 2026-10-12 | Fase 1: branding en un archivo ("JS Restaurante"), Marcas eliminada, Ajustes del restaurante (negocio, logo, operación, impresoras, jornada, zonas y mesas), imágenes WebP procesadas en el servidor (§0) |
 | 2026-10-12 | **Producto Tavo** nace como copia del Producto JS (`8146ea0`) en repo propio; mapa de puertos 5175/4175/8002/5433/5679, Docker aislado (`name: tavo`), scripts que no tocan al otro producto, `verificar-puertos.ps1`, guarda contra `uvicorn` a secas (§0, §1) |
 | 2026-09-15 | Fase 0: limpieza de código muerto y origen único de estilos |

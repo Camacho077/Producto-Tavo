@@ -5,8 +5,10 @@
  */
 const OBJETO = {
   dashboard: "el dashboard",
-  compras: "compras",
-  productos: "productos",
+  compras: "compras de insumos",
+  productos: "platos y combos",
+  insumos: "insumos",
+  costos: "costos y márgenes",
   categorias: "categorías",
   proveedores: "proveedores",
   ventas: "ventas",

@@ -18,7 +18,7 @@ function coincide(pathname, path) {
 function seccionActual(modulos, pathname) {
   for (const modulo of modulos) {
     if (modulo.hijos) {
-      // El hijo más específico gana: /compras/productos no es "Compras".
+      // El hijo más específico gana: /carta/combos no es "Platos".
       const hijo = [...modulo.hijos].sort((a, b) => b.path.length - a.path.length).find((h) => coincide(pathname, h.path));
       if (hijo) return hijo.label === modulo.label ? [modulo.label] : [modulo.label, hijo.label];
     } else if (coincide(pathname, modulo.path)) {

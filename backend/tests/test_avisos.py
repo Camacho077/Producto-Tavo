@@ -13,7 +13,7 @@ from tests.nombres import letras
 
 from app.core.tiempo import ahora_utc
 from app.modules.dashboard import avisos as reglas
-from tests.conftest import PROVEEDOR_PRUEBA
+from tests.conftest import comprar, crear_insumo, crear_plato
 
 URL = "/api/v1/dashboard/avisos"
 
@@ -26,28 +26,16 @@ def sesion(client, tenant_factory, usuario_factory, auth_headers_factory):
 
 
 def crear_producto(client, headers, nombre, sku, precio="1000", stock_minimo=0):
-    resp = client.post(
-        "/api/v1/compras/productos",
-        headers=headers,
-        json={"nombre": nombre, "sku": sku, "precio": precio, "stock_minimo": stock_minimo},
-    )
-    assert resp.status_code == 201, resp.json()
-    return resp.json()
+    """Plato cuya receta gasta una unidad del insumo `nombre` (el inventario
+    es de insumos: los avisos de existencias nombran al insumo)."""
+    insumo = crear_insumo(client, headers, nombre, minimo=str(stock_minimo))
+    plato = crear_plato(client, headers, f"Plato de {nombre}", precio, receta=[(insumo["id"], "1", "unidad")], sku=sku)
+    return {**plato, "insumo_id": insumo["id"]}
 
 
 def dar_stock(client, headers, producto_id, cantidad, fecha="2026-01-01T09:00:00"):
-    proveedor = client.post("/api/v1/compras/proveedores", headers=headers, json=PROVEEDOR_PRUEBA).json()
-    resp = client.post(
-        "/api/v1/compras/compras",
-        headers=headers,
-        json={
-            "proveedor_id": proveedor["id"],
-            "fecha": fecha,
-            "confirmar": True,
-            "items": [{"producto_id": producto_id, "cantidad": cantidad, "precio_unitario": "500"}],
-        },
-    )
-    assert resp.status_code == 201, resp.json()
+    plato = client.get(f"/api/v1/catalogo/productos/{producto_id}", headers=headers).json()
+    comprar(client, headers, [(plato["receta"][0]["insumo_id"], cantidad, "unidad", "500")], fecha=fecha)
 
 
 def vender(client, headers, producto_id, cantidad, fecha, precio="1000"):
@@ -95,16 +83,16 @@ def test_un_producto_con_stock_sano_no_genera_avisos(sesion):
 # =====================================================================
 # Stock
 # =====================================================================
-def test_producto_en_cero_es_un_aviso_critico_que_enlaza_a_su_ficha(sesion):
+def test_insumo_en_cero_es_un_aviso_critico_que_enlaza_a_su_ficha(sesion):
     client, headers, _ = sesion
     producto = crear_producto(client, headers, "Teclado", "TEC-1")
     cuerpo = client.get(URL, headers=headers).json()
 
     a = aviso(cuerpo, "stock_agotado")
     assert a["nivel"] == "critico"
-    assert a["titulo"] == "1 producto agotado"
-    assert "Teclado" in a["texto"] and "0 unidades" in a["texto"]
-    assert a["enlace"] == {"recurso": "producto", "id": producto["id"]}
+    assert a["titulo"] == "1 insumo agotado"
+    assert "Teclado sin existencias" in a["texto"]
+    assert a["enlace"] == {"recurso": "insumo", "id": producto["insumo_id"]}
     assert cuerpo["todo_en_orden"] is False
 
 
@@ -113,9 +101,9 @@ def test_varios_agotados_se_resumen_y_enlazan_al_listado(sesion):
     for i in range(5):
         crear_producto(client, headers, f"Producto {letras(i)}", f"P-{i}")
     a = aviso(client.get(URL, headers=headers).json(), "stock_agotado")
-    assert a["titulo"] == "5 productos agotados"
+    assert a["titulo"] == "5 insumos agotados"
     assert "y 2 más" in a["texto"]
-    assert a["enlace"] == {"recurso": "productos", "id": None}
+    assert a["enlace"] == {"recurso": "insumos", "id": None}
 
 
 def test_stock_bajo_el_minimo_avisa_con_la_cifra_y_el_minimo(sesion):
@@ -124,9 +112,15 @@ def test_stock_bajo_el_minimo_avisa_con_la_cifra_y_el_minimo(sesion):
     dar_stock(client, headers, producto["id"], 3)
     a = aviso(client.get(URL, headers=headers).json(), "stock_bajo")
     assert a["nivel"] == "advertencia"
-    assert a["titulo"] == "1 producto bajo el mínimo"
-    assert "Mouse (3 unidades, mínimo 10)" in a["texto"]
-    assert a["enlace"] == {"recurso": "producto", "id": producto["id"]}
+    assert a["titulo"] == "1 insumo bajo el mínimo"
+    assert "Mouse (3 unidades, mínimo 10 unidades)" in a["texto"]
+    assert a["enlace"] == {"recurso": "insumo", "id": producto["insumo_id"]}
+
+
+def test_un_insumo_que_no_esta_en_ninguna_receta_no_avisa_agotado(sesion):
+    client, headers, _ = sesion
+    crear_insumo(client, headers, "Servilletas")
+    assert "stock_agotado" not in claves(client.get(URL, headers=headers).json())
 
 
 def test_sin_minimo_configurado_no_se_inventa_una_alerta_de_stock_bajo(sesion):
@@ -206,7 +200,7 @@ def test_el_mas_vendido_de_la_semana_enlaza_al_producto(sesion, db_session):
     vender(client, headers, otro["id"], 4, (ahora - timedelta(days=1)).isoformat())
 
     a = next(x for x in reglas.calcular(db_session, tenant.id, ahora)["avisos"] if x["clave"] == "mas_vendido")
-    assert a["titulo"] == "Lo más vendido de la semana: Diadema"
+    assert a["titulo"] == "Lo más vendido de la semana: Plato de Diadema"
     assert "9 unidades" in a["texto"]
     assert a["enlace"] == {"recurso": "producto", "id": top["id"]}
 

@@ -8,20 +8,14 @@ from app.core import mensajes
 from app.core.consultas import obtener_del_tenant
 from app.core.errors import ConflictError, NotFoundError
 from app.modules.compras import models, schemas
+from app.modules.inventario import services as inventario
+from app.modules.inventario.models import Insumo
+from app.modules.inventario.unidades import compatibles, convertir, legible, unidades_de_familia
+
+CENTAVOS = Decimal("0.01")
 
 
 # ---------- Serialización (campos calculados que el ORM no tiene) ----------
-def serializar_catalogo(obj, productos_count: int = 0) -> dict:
-    return {
-        "id": obj.id,
-        "nombre": obj.nombre,
-        "descripcion": obj.descripcion,
-        "activo": obj.activo,
-        "productos_count": productos_count,
-        "created_at": obj.created_at,
-    }
-
-
 def serializar_proveedor(p: models.Proveedor, compras_count: int = 0) -> dict:
     return {
         "id": p.id,
@@ -40,32 +34,17 @@ def serializar_proveedor(p: models.Proveedor, compras_count: int = 0) -> dict:
         "direccion": p.direccion,
         "activo": p.activo,
         "compras_count": compras_count,
-        "productos": [{"id": x.id, "nombre": x.nombre, "sku": x.sku, "stock": x.stock} for x in p.productos],
+        "insumos": [{"id": x.id, "nombre": x.nombre, "unidad": x.unidad, "existencia": x.existencia} for x in p.insumos],
         "created_at": p.created_at,
-    }
-
-
-def serializar_producto(p: models.Producto) -> dict:
-    return {
-        "id": p.id,
-        "nombre": p.nombre,
-        "sku": p.sku,
-        "descripcion": p.descripcion,
-        "precio": p.precio,
-        "precio_compra": p.precio_compra,
-        "stock": p.stock,
-        "stock_minimo": p.stock_minimo,
-        "activo": p.activo,
-        "categoria_id": p.categoria_id,
-        "categoria_nombre": p.categoria.nombre if p.categoria else None,
-        "proveedores": [{"id": x.id, "nombre": x.nombre} for x in p.proveedores],
-        "created_at": p.created_at,
-        "updated_at": p.updated_at,
     }
 
 
 def codigo_compra(numero: int) -> str:
     return f"COM-{numero:06d}"
+
+
+def subtotal(item: models.CompraItem) -> Decimal:
+    return (Decimal(item.precio_unitario) * Decimal(item.cantidad)).quantize(CENTAVOS)
 
 
 def serializar_compra(c: models.Compra) -> dict:
@@ -83,27 +62,17 @@ def serializar_compra(c: models.Compra) -> dict:
         "items": [
             {
                 "id": it.id,
-                "producto_id": it.producto_id,
-                "producto_nombre": it.producto.nombre if it.producto else None,
-                "producto_sku": it.producto.sku if it.producto else None,
+                "insumo_id": it.insumo_id,
+                "insumo_nombre": it.insumo.nombre if it.insumo else None,
+                "insumo_unidad": it.insumo.unidad if it.insumo else None,
                 "cantidad": it.cantidad,
+                "unidad": it.unidad,
                 "precio_unitario": it.precio_unitario,
-                "subtotal": Decimal(it.precio_unitario) * it.cantidad,
+                "subtotal": subtotal(it),
             }
             for it in c.items
         ],
     }
-
-
-def conteo_productos_por(db: Session, tenant_id: uuid.UUID, columna) -> dict:
-    """{categoria_id: cantidad de productos} para el tenant."""
-    filas = (
-        db.query(columna, func.count(models.Producto.id))
-        .filter(models.Producto.tenant_id == tenant_id, columna.isnot(None))
-        .group_by(columna)
-        .all()
-    )
-    return {clave: total for clave, total in filas}
 
 
 def conteo_compras_por_proveedor(db: Session, tenant_id: uuid.UUID) -> dict:
@@ -117,18 +86,8 @@ def conteo_compras_por_proveedor(db: Session, tenant_id: uuid.UUID) -> dict:
 
 
 # ---------- Búsquedas o 404 ----------
-# Todas filtran por tenant_id (ver app/core/consultas.py): un id de otra
-# empresa responde 404, no el registro ajeno.
-def obtener_producto_o_404(db: Session, tenant_id: uuid.UUID, producto_id: uuid.UUID) -> models.Producto:
-    return obtener_del_tenant(db, models.Producto, tenant_id, producto_id, "El producto indicado")
-
-
 def obtener_proveedor_o_404(db: Session, tenant_id: uuid.UUID, proveedor_id: uuid.UUID) -> models.Proveedor:
     return obtener_del_tenant(db, models.Proveedor, tenant_id, proveedor_id, "El proveedor indicado")
-
-
-def obtener_categoria_o_404(db: Session, tenant_id: uuid.UUID, categoria_id: uuid.UUID) -> models.Categoria:
-    return obtener_del_tenant(db, models.Categoria, tenant_id, categoria_id, "La categoría indicada")
 
 
 def obtener_compra_o_404(db: Session, tenant_id: uuid.UUID, compra_id: uuid.UUID) -> models.Compra:
@@ -140,95 +99,70 @@ def siguiente_numero(db: Session, tenant_id: uuid.UUID, modelo) -> int:
     return int(actual) + 1
 
 
-# ---------- Inventario ----------
-def registrar_movimiento(
-    db: Session,
-    tenant_id: uuid.UUID,
-    producto: models.Producto,
-    tipo: str,
-    cantidad: int,
-    documento_tipo: str,
-    documento_id: uuid.UUID,
-    documento_codigo: str,
-    usuario_nombre: str | None,
-) -> models.MovimientoInventario:
-    """Aplica `cantidad` (con signo) al stock y deja la traza. Nunca deja el
-    stock negativo: eso lo garantiza quien llama validando antes."""
-    if producto.stock + cantidad < 0:
-        raise ConflictError(
-            mensajes.stock_insuficiente(
-                f"registrar el movimiento de {documento_codigo}", producto.nombre, producto.stock, abs(cantidad)
-            )
-        )
-    producto.stock += cantidad
-    movimiento = models.MovimientoInventario(
-        tenant_id=tenant_id,
-        producto_id=producto.id,
-        tipo=tipo,
-        cantidad=cantidad,
-        stock_resultante=producto.stock,
-        documento_tipo=documento_tipo,
-        documento_id=documento_id,
-        documento_codigo=documento_codigo,
-        usuario_nombre=usuario_nombre,
-    )
-    db.add(movimiento)
-    return movimiento
-
-
-def sincronizar_productos_proveedor(db: Session, tenant_id: uuid.UUID, proveedor: models.Proveedor, producto_ids) -> None:
-    """Reemplaza la lista de productos que surte el proveedor (solo del tenant).
+def sincronizar_insumos_proveedor(db: Session, tenant_id: uuid.UUID, proveedor: models.Proveedor, insumo_ids) -> None:
+    """Reemplaza la lista de insumos que surte el proveedor (solo del tenant).
     Se escribe la tabla intermedia a mano para dejar tenant_id en cada fila."""
-    ids = list(dict.fromkeys(producto_ids or []))
-    productos = (
-        db.query(models.Producto).filter(models.Producto.tenant_id == tenant_id, models.Producto.id.in_(ids)).all()
-        if ids
-        else []
-    )
-    if len(productos) != len(ids):
-        faltantes = len(ids) - len(productos)
+    ids = list(dict.fromkeys(insumo_ids or []))
+    insumos = db.query(Insumo).filter(Insumo.tenant_id == tenant_id, Insumo.id.in_(ids)).all() if ids else []
+    if len(insumos) != len(ids):
+        faltantes = len(ids) - len(insumos)
         raise NotFoundError(
-            f"No se pudo guardar el proveedor: {mensajes.plural(faltantes, 'producto')} de los seleccionados "
+            f"No se pudo guardar el proveedor: {mensajes.plural(faltantes, 'insumo')} de los seleccionados "
             "ya no existe(n) o pertenece(n) a otra empresa."
         )
     if proveedor.id is None:
         db.flush()
-    tabla = models.proveedor_productos
+    tabla = models.proveedor_insumos
     db.execute(tabla.delete().where(tabla.c.proveedor_id == proveedor.id))
-    if productos:
-        db.execute(
-            tabla.insert(),
-            [{"proveedor_id": proveedor.id, "producto_id": p.id, "tenant_id": tenant_id} for p in productos],
-        )
-    db.expire(proveedor, ["productos"])
+    if insumos:
+        db.execute(tabla.insert(), [{"proveedor_id": proveedor.id, "insumo_id": i.id, "tenant_id": tenant_id} for i in insumos])
+    db.expire(proveedor, ["insumos"])
 
 
 # ---------- Compras ----------
-def _aplicar_stock(db: Session, tenant_id: uuid.UUID, compra: models.Compra, signo: int, usuario_nombre: str | None = None) -> None:
-    tipo = "compra" if signo > 0 else "anulacion_compra"
+def _entrada(item: models.CompraItem) -> tuple[Decimal, Decimal]:
+    """(cantidad en la unidad del insumo, costo de UNA unidad del insumo)."""
+    cantidad = convertir(Decimal(item.cantidad), item.unidad, item.insumo.unidad)
+    costo = (subtotal(item) / cantidad) if cantidad > 0 else Decimal("0")
+    return cantidad, costo
+
+
+def _aplicar_entrada(db: Session, tenant_id: uuid.UUID, compra: models.Compra, usuario_nombre: str | None) -> None:
+    insumos = inventario.bloquear_insumos(db, tenant_id, [it.insumo_id for it in compra.items])
     for item in compra.items:
-        producto = obtener_producto_o_404(db, tenant_id, item.producto_id)
-        registrar_movimiento(
-            db, tenant_id, producto, tipo, signo * item.cantidad, "compra", compra.id, codigo_compra(compra.numero), usuario_nombre
+        item.insumo = insumos[item.insumo_id]
+        cantidad, costo = _entrada(item)
+        inventario.registrar(
+            db, tenant_id, item.insumo, "compra", cantidad,
+            documento_tipo="compra", documento_id=compra.id, documento_codigo=codigo_compra(compra.numero),
+            usuario_nombre=usuario_nombre, costo_entrada=costo, fecha=compra.fecha,
         )
-        if signo > 0:
-            producto.precio_compra = item.precio_unitario
 
 
 def crear_compra(db: Session, tenant_id: uuid.UUID, payload: schemas.CompraCreate, usuario_nombre: str | None = None) -> models.Compra:
     obtener_proveedor_o_404(db, tenant_id, payload.proveedor_id)
+    ids = [it.insumo_id for it in payload.items]
+    insumos = {i.id: i for i in db.query(Insumo).filter(Insumo.tenant_id == tenant_id, Insumo.id.in_(ids)).all()}
+    if len(insumos) != len(set(ids)):
+        raise NotFoundError("Uno de los insumos de la compra ya no existe o pertenece a otra empresa: recarga la pantalla.")
+    if len(set(ids)) != len(ids):
+        repetido = next(insumos[i].nombre for i in ids if ids.count(i) > 1)
+        raise ConflictError(f"La compra repite el insumo {repetido}: súmalo en una sola línea.")
 
     total = Decimal("0")
     items = []
     for item in payload.items:
-        obtener_producto_o_404(db, tenant_id, item.producto_id)
-        total += item.precio_unitario * item.cantidad
+        insumo = insumos[item.insumo_id]
+        if not compatibles(item.unidad, insumo.unidad):
+            raise ConflictError(
+                f"{insumo.nombre} se lleva en {insumo.unidad}: no se puede comprar en {item.unidad}. "
+                f"Usa {', '.join(unidades_de_familia(insumo.unidad))}."
+            )
+        total += (item.precio_unitario * item.cantidad).quantize(CENTAVOS)
         items.append(
             models.CompraItem(
-                tenant_id=tenant_id,
-                producto_id=item.producto_id,
-                cantidad=item.cantidad,
-                precio_unitario=item.precio_unitario,
+                tenant_id=tenant_id, insumo_id=item.insumo_id, cantidad=item.cantidad,
+                unidad=item.unidad, precio_unitario=item.precio_unitario, insumo=insumo,
             )
         )
 
@@ -245,7 +179,7 @@ def crear_compra(db: Session, tenant_id: uuid.UUID, payload: schemas.CompraCreat
     db.add(compra)
     db.flush()
     if payload.confirmar:
-        _aplicar_stock(db, tenant_id, compra, +1, usuario_nombre)
+        _aplicar_entrada(db, tenant_id, compra, usuario_nombre)
         compra.estado = "confirmada"
     db.commit()
     db.refresh(compra)
@@ -258,8 +192,7 @@ def confirmar_compra(db: Session, tenant_id: uuid.UUID, compra_id: uuid.UUID, us
         raise ConflictError(
             mensajes.estado_no_permite("confirmar", "la compra", codigo_compra(compra.numero), compra.estado, ("pendiente",))
         )
-
-    _aplicar_stock(db, tenant_id, compra, +1, usuario_nombre)
+    _aplicar_entrada(db, tenant_id, compra, usuario_nombre)
     compra.estado = "confirmada"
     db.commit()
     db.refresh(compra)
@@ -272,7 +205,6 @@ def cancelar_compra(db: Session, tenant_id: uuid.UUID, compra_id: uuid.UUID) -> 
         raise ConflictError(
             mensajes.estado_no_permite("cancelar", "la compra", codigo_compra(compra.numero), compra.estado, ("pendiente",))
         )
-
     compra.estado = "cancelada"
     db.commit()
     db.refresh(compra)
@@ -280,27 +212,33 @@ def cancelar_compra(db: Session, tenant_id: uuid.UUID, compra_id: uuid.UUID) -> 
 
 
 def anular_compra(db: Session, tenant_id: uuid.UUID, compra_id: uuid.UUID, usuario_nombre: str | None = None) -> models.Compra:
-    """Anula una compra pendiente o confirmada. Si estaba confirmada, el
-    stock que había subido se revierte (no puede quedar negativo)."""
+    """Anula una compra pendiente o confirmada. Si estaba confirmada, lo que
+    sumó sale de la bodega (no puede quedar negativo) y su peso sale del
+    costo promedio del insumo."""
     compra = obtener_compra_o_404(db, tenant_id, compra_id)
     if compra.estado not in ("pendiente", "confirmada"):
         raise ConflictError(
-            mensajes.estado_no_permite(
-                "anular", "la compra", codigo_compra(compra.numero), compra.estado, ("pendiente", "confirmada")
-            )
+            mensajes.estado_no_permite("anular", "la compra", codigo_compra(compra.numero), compra.estado, ("pendiente", "confirmada"))
         )
-
+    codigo = codigo_compra(compra.numero)
     if compra.estado == "confirmada":
+        insumos = inventario.bloquear_insumos(db, tenant_id, [it.insumo_id for it in compra.items])
         for item in compra.items:
-            producto = obtener_producto_o_404(db, tenant_id, item.producto_id)
-            if producto.stock < item.cantidad:
+            item.insumo = insumos[item.insumo_id]
+            cantidad, _ = _entrada(item)
+            if Decimal(item.insumo.existencia) < cantidad:
                 raise ConflictError(
-                    f"No se puede anular la compra {codigo_compra(compra.numero)}: el producto {producto.nombre} "
-                    f"solo tiene {mensajes.unidades(producto.stock)} en stock y esta compra ingresó "
-                    f"{item.cantidad} — parte de ese stock ya se vendió y quedaría en negativo."
+                    f"No se puede anular la compra {codigo}: de {item.insumo.nombre} quedan "
+                    f"{legible(item.insumo.existencia, item.insumo.unidad)} y esta compra ingresó "
+                    f"{legible(cantidad, item.insumo.unidad)}: parte ya se gastó y la existencia quedaría en negativo."
                 )
-        _aplicar_stock(db, tenant_id, compra, -1, usuario_nombre)
-
+        for item in compra.items:
+            cantidad, costo = _entrada(item)
+            inventario.revertir_costo_de_entrada(item.insumo, cantidad, costo)
+            inventario.registrar(
+                db, tenant_id, item.insumo, "anulacion_compra", -cantidad,
+                documento_tipo="compra", documento_id=compra.id, documento_codigo=codigo, usuario_nombre=usuario_nombre,
+            )
     compra.estado = "anulada"
     db.commit()
     db.refresh(compra)

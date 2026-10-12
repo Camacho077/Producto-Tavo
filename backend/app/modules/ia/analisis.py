@@ -1,31 +1,31 @@
 """
-SUGERENCIAS DE NEGOCIO (módulo IA, add-on de pago) — 2026-10-01.
+SUGERENCIAS DE NEGOCIO (módulo IA, add-on de pago) — 2026-10-01; adaptado al
+restaurante el 2026-10-12 (inventario de INSUMOS y costo por RECETA).
 
 Todo se calcula AQUÍ, dentro del sistema, con estadística sobre los datos
-reales del tenant (ventas completadas, compras confirmadas, stock y precios).
-No se llama a ningún modelo ni servicio externo: no sale ningún dato del
-sistema (ver docs/ia/README.md). Tampoco se usa ningún dato personal de
-clientes: solo cantidades, montos, fechas y productos.
+reales del tenant (ventas completadas, compras confirmadas, consumo de
+insumos y recetas). No se llama a ningún modelo ni servicio externo: no sale
+ningún dato del sistema (ver docs/ia/README.md). Tampoco se usa ningún dato
+personal de clientes: solo cantidades, montos, fechas, platos e insumos.
 
 Reglas de oro:
 - Cada sugerencia dice POR QUÉ se generó (`por_que`) y con QUÉ datos
   (`datos`: pares etiqueta/valor con las cifras usadas).
 - Si no hay datos suficientes, se dice (`sin_datos` de la sección), nunca se
   inventa una cifra. Cada regla tiene su propio umbral mínimo.
-- Costos y márgenes solo para quien puede verlos (`compras.ver`, la misma
-  regla que el costo del producto): a los demás la sección les explica por
+- Costos y márgenes solo para quien puede verlos (`costos.ver`, la misma
+  regla que el costeo de la carta): a los demás la sección les explica por
   qué no la ven.
-- Una sola pasada de consultas agregadas: cuesta lo mismo con 10 ventas que
-  con 10.000.
+- Pocas consultas agregadas: cuesta lo mismo con 10 ventas que con 10.000.
 
 Secciones:
-    alertas       quiebres de stock previsibles, caídas de venta
-    reponer       productos a reponer y cuánto
-    ganadores     productos que más crecen
+    alertas       insumos que se acabarían pronto, caídas de venta
+    reponer       lista de compras sugerida (insumos y cuánto)
+    ganadores     platos que más crecen
     patrones      días de la semana y franjas horarias fuertes
-    rotacion      productos con baja rotación (capital quieto)
-    precios       oportunidades de precio según margen        (costos)
-    proveedores   proveedor con mejores condiciones por producto (costos)
+    rotacion      insumos quietos (capital inmovilizado)
+    precios       platos con costo alto según su receta        (costos)
+    proveedores   proveedor más barato por insumo                (costos)
 """
 import math
 import uuid
@@ -37,24 +37,30 @@ from sqlalchemy import case, func
 from sqlalchemy.orm import Session
 
 from app.core.mensajes import plural, unidades
-from app.modules.compras.models import Compra, CompraItem, Producto, Proveedor
+from app.db.models import Tenant
+from app.modules.ajustes.schemas import configuracion_de
+from app.modules.catalogo import recetas
+from app.modules.catalogo.models import Producto
+from app.modules.catalogo.services import opciones_carga_producto
+from app.modules.compras.models import Compra, CompraItem, Proveedor
 from app.modules.dashboard.periodos import DESFASE_NEGOCIO
+from app.modules.inventario.models import Insumo, MovimientoInsumo
+from app.modules.inventario.unidades import convertir, legible
 from app.modules.ventas.models import Venta, VentaItem
 
 # ---------------------------------------------------------------------------
 # Umbrales con nombre: cambiarlos es un solo sitio y los tests se apoyan aquí.
 # ---------------------------------------------------------------------------
-VENTANA_DIAS = 30  # ritmo de venta actual
+VENTANA_DIAS = 30  # ritmo de venta y de consumo actual
 HISTORIA_DIAS = 90  # base mínima para hablar de "el negocio"
-COSTOS_DIAS = 180  # compras que cuentan para costo promedio y proveedores
+COSTOS_DIAS = 180  # compras que cuentan para comparar proveedores
 MIN_VENTAS_BASE = 5  # ventas completadas en 90 días para cualquier análisis
 MIN_DIAS_BASE = 3  # días distintos con ventas en 90 días
 
-MIN_UNIDADES_RITMO = 3  # unidades en 30 días para estimar un ritmo
-MIN_DIAS_RITMO = 2  # días distintos con venta del producto en 30 días
+MIN_DIAS_RITMO = 2  # días distintos con consumo del insumo en 30 días
 DIAS_QUIEBRE = 7  # cobertura por debajo de esto: quiebre previsible
-DIAS_REPONER = 21  # cobertura por debajo de esto: conviene reponer
-DIAS_A_CUBRIR = 30  # la reposición sugerida cubre este horizonte
+DIAS_REPONER = 21  # cobertura por debajo de esto: conviene comprar
+DIAS_A_CUBRIR = 30  # la compra sugerida cubre este horizonte
 
 MIN_UNIDADES_CAIDA = 5  # unidades del tramo anterior para medir una caída
 CAIDA_PRODUCTO_PCT = 40.0
@@ -63,12 +69,14 @@ CRECIMIENTO_GANADOR_PCT = 20.0
 MIN_UNIDADES_GANADOR = 5
 MAX_GANADORES = 5
 
-DIAS_PRODUCTO_NUEVO = 30  # un producto más nuevo no puede tener "baja rotación"
+DIAS_INSUMO_NUEVO = 30  # un insumo más nuevo no puede estar "quieto"
 ROTACION_DIAS = 60
-ROTACION_MINIMA = 0.25  # vender menos de 1/4 del stock en 60 días es lento
+ROTACION_MINIMA = 0.25  # gastar menos de 1/4 de la existencia en 60 días es lento
 
-MARGEN_OBJETIVO = 0.25
-MARGEN_BAJO = 0.15
+# Restaurante: el indicador es el PORCENTAJE DE COSTO del plato (costo de la
+# receta sobre el precio sin impuesto). Una carta sana anda cerca del 30-35 %.
+COSTO_OBJETIVO_PCT = 35.0
+COSTO_ALTO_PCT = 45.0
 AHORRO_MINIMO_PCT = 5.0
 
 MIN_VENTAS_PATRON = 10
@@ -79,9 +87,9 @@ DIAS_SEMANA = ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", 
 DIAS_PLURAL = ["domingos", "lunes", "martes", "miércoles", "jueves", "viernes", "sábados"]
 
 PRIVACIDAD = (
-    "Calculado dentro del sistema con estadística sobre tus ventas, compras y "
-    "stock. No se envía ningún dato a servicios externos ni se usan datos "
-    "personales de tus clientes."
+    "Calculado dentro del sistema con estadística sobre tus ventas, compras, "
+    "recetas e inventario. No se envía ningún dato a servicios externos ni se "
+    "usan datos personales de tus clientes."
 )
 
 
@@ -99,12 +107,6 @@ def _pct(valor: float) -> str:
 def _num(valor: float, decimales: int = 1) -> str:
     texto = f"{valor:,.{decimales}f}".replace(",", "X").replace(".", ",").replace("X", ".")
     return texto.rstrip("0").rstrip(",") if decimales else texto
-
-
-def _por_dia(ritmo: float) -> str:
-    """1 → "1 unidad por día"; 1.33 → "1,3 unidades por día"."""
-    texto = _num(ritmo)
-    return f"{texto} {'unidad' if texto == '1' else 'unidades'} por día"
 
 
 def _fecha(d: datetime) -> str:
@@ -182,106 +184,138 @@ def _base(db, tenant_id, ahora):
     return int(ventas), int(dias)
 
 
-def _costos(db, tenant_id, ahora):
-    """Costo promedio por producto y por (producto, proveedor) en 180 días."""
+def _consumo_por_insumo(db, tenant_id, ahora):
+    """Lo que salió de cada insumo por ventas (en su unidad): últimos 30 días,
+    días distintos con salida, últimos 60 días y la última salida."""
+    inicio_act = ahora - timedelta(days=VENTANA_DIAS)
+    inicio_rot = ahora - timedelta(days=ROTACION_DIAS)
+    salida = -MovimientoInsumo.cantidad
+    en_act = MovimientoInsumo.created_at >= inicio_act
+    dia = func.date_trunc("day", MovimientoInsumo.created_at + DESFASE_NEGOCIO)
+    filas = (
+        db.query(
+            MovimientoInsumo.insumo_id,
+            func.coalesce(func.sum(case((en_act, salida), else_=0)), 0).label("c_act"),
+            func.coalesce(func.sum(case((MovimientoInsumo.created_at >= inicio_rot, salida), else_=0)), 0).label("c_rot"),
+            func.count(func.distinct(case((en_act, dia)))).label("dias_act"),
+            func.max(MovimientoInsumo.created_at).label("ultima"),
+        )
+        .filter(MovimientoInsumo.tenant_id == tenant_id, MovimientoInsumo.tipo == "venta")
+        .group_by(MovimientoInsumo.insumo_id)
+        .all()
+    )
+    return {f.insumo_id: f for f in filas}
+
+
+def _compras_por_insumo(db, tenant_id, ahora, insumos):
+    """Precio promedio por UNIDAD DEL INSUMO, por proveedor, en 180 días (la
+    compra puede venir en kg aunque el insumo se lleve en g)."""
     inicio = ahora - timedelta(days=COSTOS_DIAS)
     filas = (
         db.query(
-            CompraItem.producto_id,
+            CompraItem.insumo_id,
             Compra.proveedor_id,
-            func.sum(CompraItem.cantidad).label("unidades"),
+            CompraItem.unidad,
+            func.sum(CompraItem.cantidad).label("cantidad"),
             func.sum(CompraItem.cantidad * CompraItem.precio_unitario).label("monto"),
             func.count(func.distinct(Compra.id)).label("compras"),
             func.max(Compra.fecha).label("ultima"),
         )
         .join(Compra, Compra.id == CompraItem.compra_id)
         .filter(Compra.tenant_id == tenant_id, CompraItem.tenant_id == tenant_id, Compra.estado == "confirmada", Compra.fecha >= inicio)
-        .group_by(CompraItem.producto_id, Compra.proveedor_id)
+        .group_by(CompraItem.insumo_id, Compra.proveedor_id, CompraItem.unidad)
         .all()
     )
-    por_producto: dict = defaultdict(lambda: {"unidades": 0, "monto": Decimal(0), "compras": 0})
-    por_proveedor: dict = defaultdict(list)
+    por_insumo: dict = defaultdict(dict)
     for f in filas:
-        p = por_producto[f.producto_id]
-        p["unidades"] += int(f.unidades)
-        p["monto"] += Decimal(f.monto)
-        p["compras"] += int(f.compras)
-        por_proveedor[f.producto_id].append(f)
-    return por_producto, por_proveedor
+        insumo = insumos.get(f.insumo_id)
+        if insumo is None:
+            continue
+        acumulado = por_insumo[f.insumo_id].setdefault(
+            f.proveedor_id,
+            {"proveedor_id": f.proveedor_id, "cantidad": Decimal(0), "monto": Decimal(0), "compras": 0, "ultima": f.ultima},
+        )
+        acumulado["cantidad"] += convertir(Decimal(f.cantidad), f.unidad, insumo.unidad)
+        acumulado["monto"] += Decimal(f.monto)
+        acumulado["compras"] += int(f.compras)
+        acumulado["ultima"] = max(acumulado["ultima"], f.ultima)
+    return por_insumo
 
 
-def _ritmo(v) -> float | None:
-    """Unidades por día en los últimos 30, o None si no hay base suficiente."""
-    if v is None or int(v.u_act) < MIN_UNIDADES_RITMO or int(v.dias_act) < MIN_DIAS_RITMO:
+def _ritmo_insumo(c) -> float | None:
+    """Consumo por día en los últimos 30, o None sin base suficiente."""
+    if c is None or float(c.c_act) <= 0 or int(c.dias_act) < MIN_DIAS_RITMO:
         return None
-    return int(v.u_act) / VENTANA_DIAS
+    return float(c.c_act) / VENTANA_DIAS
+
+
+def _cantidad(valor: float, unidad: str) -> str:
+    return legible(Decimal(str(round(valor, 3))), unidad)
 
 
 # ---------------------------------------------------------------------------
 # Reglas
 # ---------------------------------------------------------------------------
-def _stock(productos, ventas, ahora):
-    """Quiebres previsibles (alerta) y reposición sugerida."""
+def _insumos_a_comprar(insumos, consumo, ahora):
+    """Quiebres previsibles (alerta) y lista de compras sugerida."""
     alertas, reponer = [], []
     sin_ritmo = 0
-    for p in productos:
-        v = ventas.get(p.id)
-        ritmo = _ritmo(v)
+    for i in insumos:
+        c = consumo.get(i.id)
+        ritmo = _ritmo_insumo(c)
+        existencia, minimo = float(i.existencia), float(i.minimo)
         if ritmo is None:
-            if p.stock <= p.stock_minimo and p.stock_minimo > 0:
-                # Sin historia de venta, la única base es el mínimo configurado.
-                faltan = p.stock_minimo - p.stock + 1
+            if minimo > 0 and existencia <= minimo:
+                faltan = minimo * 2 - existencia
                 reponer.append(
                     _sugerencia(
-                        "reponer", "advertencia", f"Reponer {p.nombre}",
-                        f"Tiene {unidades(p.stock)} y su mínimo configurado es {p.stock_minimo}. "
-                        "No hay ventas suficientes en 30 días para estimar un ritmo, así que la cantidad "
-                        "sugerida solo devuelve el stock por encima del mínimo.",
-                        [("Stock actual", unidades(p.stock)), ("Mínimo configurado", unidades(p.stock_minimo)),
-                         ("Vendidas en 30 días", unidades(int(v.u_act) if v else 0))],
-                        f"Comprar al menos {unidades(faltan)}.", "producto", p.id,
+                        "reponer", "advertencia", f"Comprar {i.nombre}",
+                        f"Quedan {_cantidad(existencia, i.unidad)} y su mínimo es {_cantidad(minimo, i.unidad)}. "
+                        "Sin consumo suficiente en 30 días para estimar un ritmo, la cantidad sugerida deja la "
+                        "existencia en el doble del mínimo.",
+                        [("Existencia", _cantidad(existencia, i.unidad)), ("Mínimo", _cantidad(minimo, i.unidad))],
+                        f"Comprar al menos {_cantidad(faltan, i.unidad)}.", "insumo", i.id,
                     )
                 )
-            elif p.stock > 0 or v is not None:
+            elif c is not None:
                 sin_ritmo += 1
             continue
-        cobertura = p.stock / ritmo if ritmo else math.inf
+        cobertura = max(existencia, 0.0) / ritmo
         datos = [
-            ("Vendidas en 30 días", f"{unidades(int(v.u_act))} en {plural(int(v.dias_act), 'día', 'días')}"),
-            ("Ritmo", _por_dia(ritmo)),
-            ("Stock actual", unidades(p.stock)),
-            ("Cobertura", "agotado" if p.stock <= 0 else f"{_num(cobertura, 0)} días"),
+            ("Consumo en 30 días", f"{_cantidad(float(c.c_act), i.unidad)} en {plural(int(c.dias_act), 'día', 'días')}"),
+            ("Ritmo", f"{_cantidad(ritmo, i.unidad)} por día"),
+            ("Existencia", _cantidad(existencia, i.unidad)),
+            ("Cobertura", "agotado" if existencia <= 0 else f"{_num(cobertura, 0)} días"),
         ]
-        sugerida = max(0, math.ceil(ritmo * DIAS_A_CUBRIR + p.stock_minimo - p.stock))
+        sugerida = max(0.0, ritmo * DIAS_A_CUBRIR + minimo - existencia)
         if cobertura < DIAS_QUIEBRE:
-            fin = ahora + timedelta(days=cobertura)
             titulo = (
-                f"{p.nombre} ya está agotado y se sigue pidiendo"
-                if p.stock <= 0
-                else f"{p.nombre} se agotaría hacia el {_fecha(fin)}"
+                f"{i.nombre} ya se acabó y se sigue gastando"
+                if existencia <= 0
+                else f"{i.nombre} se acabaría hacia el {_fecha(ahora + timedelta(days=cobertura))}"
             )
             alertas.append(
                 _sugerencia(
                     "quiebre", "critico", titulo,
-                    f"Al ritmo de los últimos 30 días ({_por_dia(ritmo)}) el stock de "
-                    f"{unidades(p.stock)} alcanza para unos {_num(cobertura, 0)} días, menos que los {DIAS_QUIEBRE} "
-                    "que da margen para reponer.",
-                    datos, f"Reponer {unidades(sugerida)} para cubrir {DIAS_A_CUBRIR} días.", "producto", p.id,
+                    f"Al ritmo de los últimos 30 días ({_cantidad(ritmo, i.unidad)} por día) quedan "
+                    f"{_cantidad(existencia, i.unidad)}: alcanza para unos {_num(cobertura, 0)} días, menos que los "
+                    f"{DIAS_QUIEBRE} que dan margen para comprar.",
+                    datos, f"Comprar {_cantidad(sugerida, i.unidad)} para cubrir {DIAS_A_CUBRIR} días.", "insumo", i.id,
                 )
             )
-        if cobertura < DIAS_REPONER or p.stock <= p.stock_minimo:
+        if cobertura < DIAS_REPONER or (minimo > 0 and existencia <= minimo):
             motivo = (
-                f"está en {unidades(p.stock)}, en o por debajo de su mínimo ({p.stock_minimo})"
-                if p.stock <= p.stock_minimo
+                f"está en {_cantidad(existencia, i.unidad)}, en o por debajo de su mínimo ({_cantidad(minimo, i.unidad)})"
+                if minimo > 0 and existencia <= minimo
                 else f"alcanza para unos {_num(cobertura, 0)} días, menos de {DIAS_REPONER}"
             )
             reponer.append(
                 _sugerencia(
-                    "reponer", "critico" if cobertura < DIAS_QUIEBRE else "advertencia", f"Reponer {p.nombre}",
-                    f"Vende {_por_dia(ritmo)} y su stock {motivo}. La cantidad sugerida cubre "
-                    f"{DIAS_A_CUBRIR} días de venta más el mínimo configurado.",
-                    datos + [("Sugerido", unidades(sugerida))],
-                    f"Comprar {unidades(sugerida)}.", "producto", p.id,
+                    "reponer", "critico" if cobertura < DIAS_QUIEBRE else "advertencia", f"Comprar {i.nombre}",
+                    f"Se gastan {_cantidad(ritmo, i.unidad)} por día y su existencia {motivo}. La cantidad sugerida "
+                    f"cubre {DIAS_A_CUBRIR} días de consumo más el mínimo configurado.",
+                    datos + [("Sugerido", _cantidad(sugerida, i.unidad))],
+                    f"Comprar {_cantidad(sugerida, i.unidad)}.", "insumo", i.id,
                 )
             )
     orden = {"critico": 0, "advertencia": 1}
@@ -302,7 +336,7 @@ def _caidas(productos, ventas):
                     f"Los últimos {VENTANA_DIAS} días suman {_pesos(tot_act)} frente a {_pesos(tot_ant)} de los "
                     f"{VENTANA_DIAS} anteriores (tramos del mismo largo).",
                     [("Últimos 30 días", _pesos(tot_act)), ("30 días anteriores", _pesos(tot_ant)), ("Cambio", f"▼ {_pct(abs(cambio))}")],
-                    "Revisa qué productos explican la caída (abajo) y si hubo falta de stock.", "ventas", clave="total",
+                    "Revisa qué platos explican la caída (abajo) y si faltaron insumos.", "ventas", clave="total",
                 )
             )
     nombres = {p.id: p for p in productos}
@@ -313,13 +347,13 @@ def _caidas(productos, ventas):
         cambio = (u_act - u_ant) / u_ant * 100
         if cambio <= -CAIDA_PRODUCTO_PCT:
             p = nombres[pid]
-            agotado = " Además está agotado: parte de la caída puede ser falta de stock." if p.stock <= 0 else ""
+            agotado = " Además está marcado como agotado: parte de la caída puede ser falta de insumos." if p.agotado_fecha else ""
             alertas.append(
                 _sugerencia(
                     "caida_producto", "advertencia", f"{p.nombre} vende {_pct(abs(cambio))} menos",
                     f"Pasó de {unidades(u_ant)} a {unidades(u_act)} entre los dos últimos tramos de {VENTANA_DIAS} días.{agotado}",
                     [("30 días anteriores", unidades(u_ant)), ("Últimos 30 días", unidades(u_act)), ("Cambio", f"▼ {_pct(abs(cambio))}")],
-                    "Revisa precio, exhibición y stock de este producto.", "producto", pid,
+                    "Revisa su precio, cómo se ofrece y si le faltaron insumos.", "producto", pid,
                 )
             )
     return alertas
@@ -352,118 +386,123 @@ def _ganadores(productos, ventas):
                  if crecimiento is not None else f"Vendió {unidades(int(v.u_act))} en 30 días y no había vendido nada en los 30 anteriores")
                 + f", y aporta el {_pct(monto / total * 100)} de lo vendido en el tramo.",
                 [("Unidades 30 días", unidades(int(v.u_act))), ("Monto 30 días", _pesos(monto)), ("Variación", variacion)],
-                "Asegura su stock y dale visibilidad: es lo que más está jalando.", "producto", pid,
+                "Asegura sus insumos y dale visibilidad: es lo que más está jalando.", "producto", pid,
             )
         )
     return res
 
 
-def _rotacion(productos, ventas, costos, ver_costos, ahora):
+def _insumos_quietos(insumos, consumo, ver_costos, ahora):
+    """Insumos con existencia que casi no se gastan: capital quieto y riesgo
+    de vencimiento."""
     res = []
-    for p in productos:
-        if p.stock <= max(0, p.stock_minimo) or (ahora - p.created_at).days < DIAS_PRODUCTO_NUEVO:
+    for i in insumos:
+        existencia = float(i.existencia)
+        if existencia <= max(0.0, float(i.minimo)) or (ahora - i.created_at).days < DIAS_INSUMO_NUEVO:
             continue
-        v = ventas.get(p.id)
-        vendidas = int(v.u_rot) if v else 0
-        rotacion = vendidas / p.stock
-        if rotacion >= ROTACION_MINIMA:
+        c = consumo.get(i.id)
+        gastado = float(c.c_rot) if c else 0.0
+        if gastado / existencia >= ROTACION_MINIMA:
             continue
-        costo = _costo_unitario(p, costos)
-        if ver_costos and costo is not None:
-            capital = ("Capital inmovilizado (a costo)", _pesos(costo * p.stock))
-        else:
-            capital = ("Valor a precio de venta", _pesos(p.precio * p.stock))
-        ultima = f"la última fue el {_fecha(v.ultima)}" if v and v.ultima else "nunca se ha vendido"
-        dias_salida = f"unos {_num(p.stock / (vendidas / ROTACION_DIAS), 0)} días" if vendidas else "sin fecha: no se está vendiendo"
+        datos = [("Gastado en 60 días", _cantidad(gastado, i.unidad)), ("Existencia", _cantidad(existencia, i.unidad))]
+        if ver_costos:
+            datos.append(("Capital quieto (a costo)", _pesos(Decimal(i.existencia) * Decimal(i.costo_unitario))))
+        ultima = f"la última salida fue el {_fecha(c.ultima)}" if c and c.ultima else "no ha salido nunca por ventas"
         res.append(
             _sugerencia(
-                "rotacion", "advertencia" if vendidas == 0 else "informativo", f"{p.nombre} rota lento",
-                f"Vendió {unidades(vendidas)} en {ROTACION_DIAS} días y tiene {unidades(p.stock)} en stock ({ultima}). "
-                f"A ese ritmo el stock tardaría {dias_salida} en salir.",
-                [("Vendidas en 60 días", unidades(vendidas)), ("Stock", unidades(p.stock)), capital],
-                "Considera una promoción, un combo con un producto ganador o pausar sus compras.", "producto", p.id,
+                "rotacion", "advertencia" if gastado == 0 else "informativo", f"{i.nombre} casi no se gasta",
+                f"Se gastaron {_cantidad(gastado, i.unidad)} en {ROTACION_DIAS} días y quedan {_cantidad(existencia, i.unidad)} ({ultima}).",
+                datos,
+                "Úsalo en el plato del día o en una promoción, revisa su vencimiento y pausa sus compras.", "insumo", i.id,
             )
         )
     res.sort(key=lambda s: 0 if s["nivel"] == "advertencia" else 1)
     return res
 
 
-def _costo_unitario(p, costos) -> Decimal | None:
-    c = costos.get(p.id)
-    if c and c["unidades"]:
-        return c["monto"] / c["unidades"]
-    return Decimal(p.precio_compra) if p.precio_compra is not None else None
+def _ingrediente_mas_caro(p) -> str | None:
+    """"Queso (48 % del costo)": el insumo que más pesa en la receta."""
+    if p.tipo != "plato" or not p.receta:
+        return None
+    lineas = [(recetas.costo_linea(l), l) for l in p.receta]
+    total = sum((c for c, _ in lineas), Decimal(0))
+    if total <= 0:
+        return None
+    costo, linea = max(lineas, key=lambda x: x[0])
+    return f"{linea.insumo.nombre} ({_pct(float(costo / total * 100))} del costo)"
 
 
-def _precios(productos, ventas, costos):
-    res, sin_costo = [], 0
+def _precios(productos, ventas, config):
+    """Platos cuyo costo por receta se come demasiado del precio."""
+    res, sin_receta = [], 0
     for p in productos:
-        costo = _costo_unitario(p, costos)
-        if costo is None or costo <= 0:
-            sin_costo += 1
+        costeo = recetas.costeo(p, config)
+        if costeo["costo"] is None or costeo["porcentaje_costo"] is None:
+            sin_receta += 1
             continue
-        precio = Decimal(p.precio)
-        margen = float((precio - costo) / precio) if precio > 0 else -1.0
-        if margen >= MARGEN_BAJO:
+        pct = float(costeo["porcentaje_costo"])
+        if pct < COSTO_ALTO_PCT:
             continue
-        c = costos.get(p.id)
-        origen = (f"promedio de {plural(c['compras'], 'compra', 'compras')} en {COSTOS_DIAS} días"
-                  if c and c["unidades"] else "costo registrado en el producto")
-        sugerido = costo / Decimal(1 - MARGEN_OBJETIVO)
+        neto = costeo["precio_neto"]
+        # Si la carta incluye el impuesto, el precio sugerido también lo incluye.
+        factor = Decimal(p.precio) / neto if neto else Decimal(1)
+        sugerido = Decimal(costeo["costo"]) / Decimal(COSTO_OBJETIVO_PCT / 100) * factor
         v = ventas.get(p.id)
         demanda = f" Vendió {unidades(int(v.u_act))} en 30 días: el ajuste pesa en caja." if v and int(v.u_act) else ""
-        if margen < 0:
-            nivel, titulo = "critico", f"{p.nombre} se vende por debajo del costo"
+        caro = _ingrediente_mas_caro(p)
+        if pct >= 100:
+            nivel, titulo = "critico", f"{p.nombre} se vende por debajo de su costo"
         else:
-            nivel, titulo = "oportunidad", f"{p.nombre} deja poco margen"
+            nivel, titulo = "oportunidad", f"{p.nombre} tiene un costo del {_pct(pct)}"
         res.append(
             _sugerencia(
                 "precio", nivel, titulo,
-                f"Cuesta {_pesos(costo)} ({origen}) y se vende a {_pesos(precio)}: margen de {_pct(margen * 100)}, "
-                f"por debajo del {_pct(MARGEN_BAJO * 100)}.{demanda}",
-                [("Costo", _pesos(costo)), ("Precio actual", _pesos(precio)), ("Margen", _pct(margen * 100)),
-                 (f"Precio para {_pct(MARGEN_OBJETIVO * 100)} de margen", _pesos(sugerido))],
-                f"Evalúa subir el precio hacia {_pesos(sugerido)} o negociar el costo.", "producto", p.id,
+                f"Su receta cuesta {_pesos(costeo['costo'])} y se vende a {_pesos(p.precio)} ({_pesos(neto)} sin impuesto): "
+                f"el costo es el {_pct(pct)} del precio, por encima del {_pct(COSTO_ALTO_PCT)}."
+                + (f" Lo que más pesa es {caro}." if caro else "") + demanda,
+                [("Costo por receta", _pesos(costeo["costo"])), ("Precio", _pesos(p.precio)), ("% de costo", _pct(pct)),
+                 (f"Precio para un costo del {_pct(COSTO_OBJETIVO_PCT)}", _pesos(sugerido))],
+                f"Evalúa subir el precio hacia {_pesos(sugerido)}, ajustar la porción o negociar el insumo.", "producto", p.id,
             )
         )
     res.sort(key=lambda s: 0 if s["nivel"] == "critico" else 1)
-    return res, sin_costo
+    return res, sin_receta
 
 
-def _proveedores(db, tenant_id, productos, por_proveedor, ventas):
-    nombres = {p.id: p for p in productos}
-    comparables = {pid: filas for pid, filas in por_proveedor.items() if len(filas) >= 2 and pid in nombres}
+def _proveedores(db, tenant_id, insumos, por_insumo, consumo):
+    comparables = {iid: list(provs.values()) for iid, provs in por_insumo.items() if len(provs) >= 2 and iid in insumos}
     if not comparables:
         return [], 0
-    ids = {f.proveedor_id for filas in comparables.values() for f in filas}
+    ids = {f["proveedor_id"] for filas in comparables.values() for f in filas}
     provs = {p.id: p for p in db.query(Proveedor).filter(Proveedor.tenant_id == tenant_id, Proveedor.id.in_(ids)).all()}
     res = []
-    for pid, filas in comparables.items():
-        costo = lambda f: Decimal(f.monto) / int(f.unidades)  # noqa: E731
+    for iid, filas in comparables.items():
+        costo = lambda f: f["monto"] / f["cantidad"] if f["cantidad"] else Decimal(0)  # noqa: E731
         mejor = min(filas, key=costo)
-        ultima = max(filas, key=lambda f: f.ultima)  # a quién se le compró de último
-        if ultima.proveedor_id == mejor.proveedor_id:
-            continue
+        ultima = max(filas, key=lambda f: f["ultima"])  # a quién se le compró de último
         c_mejor, c_ultima = costo(mejor), costo(ultima)
+        if ultima["proveedor_id"] == mejor["proveedor_id"] or c_ultima <= 0:
+            continue
         ahorro = float((c_ultima - c_mejor) / c_ultima * 100)
         if ahorro < AHORRO_MINIMO_PCT:
             continue
-        p = nombres[pid]
-        v = ventas.get(pid)
-        mensual = int(v.u_act) if v else 0
+        i = insumos[iid]
+        c = consumo.get(iid)
+        mensual = Decimal(str(float(c.c_act))) if c else Decimal(0)
         impacto = (
-            [("Ahorro en un mes de venta", f"{_pesos((c_ultima - c_mejor) * mensual)} ({unidades(mensual)})")]
+            [("Ahorro en un mes de consumo", f"{_pesos((c_ultima - c_mejor) * mensual)} ({legible(mensual, i.unidad)})")]
             if mensual else []
         )
-        n_mejor, n_ultima = provs[mejor.proveedor_id].nombre, provs[ultima.proveedor_id].nombre
+        n_mejor, n_ultima = provs[mejor["proveedor_id"]].nombre, provs[ultima["proveedor_id"]].nombre
         res.append(
             _sugerencia(
-                "proveedor", "oportunidad", f"{p.nombre}: {n_mejor} te sale {_pct(ahorro)} más barato",
-                f"En {COSTOS_DIAS} días le compraste a {n_ultima} a {_pesos(c_ultima)} en promedio "
-                f"({plural(int(ultima.compras), 'compra', 'compras')}, la última el {_fecha(ultima.ultima)}) y a {n_mejor} a "
-                f"{_pesos(c_mejor)} ({plural(int(mejor.compras), 'compra', 'compras')}).",
-                [(n_mejor, f"{_pesos(c_mejor)} / ud"), (n_ultima, f"{_pesos(c_ultima)} / ud"), ("Diferencia", f"▼ {_pct(ahorro)}")] + impacto,
-                f"Cotiza la próxima compra con {n_mejor}.", "proveedor", mejor.proveedor_id, clave=pid,
+                "proveedor", "oportunidad", f"{i.nombre}: {n_mejor} te sale {_pct(ahorro)} más barato",
+                f"En {COSTOS_DIAS} días le compraste a {n_ultima} a {_pesos(c_ultima)} por {i.unidad} en promedio "
+                f"({plural(int(ultima['compras']), 'compra', 'compras')}, la última el {_fecha(ultima['ultima'])}) y a {n_mejor} a "
+                f"{_pesos(c_mejor)} por {i.unidad} ({plural(int(mejor['compras']), 'compra', 'compras')}).",
+                [(n_mejor, f"{_pesos(c_mejor)} / {i.unidad}"), (n_ultima, f"{_pesos(c_ultima)} / {i.unidad}"), ("Diferencia", f"▼ {_pct(ahorro)}")]
+                + impacto,
+                f"Cotiza la próxima compra con {n_mejor}.", "proveedor", mejor["proveedor_id"], clave=iid,
             )
         )
     return res, len(comparables)
@@ -493,7 +532,7 @@ def _patrones(db, tenant_id, ahora):
                 f"En las últimas {SEMANAS_PATRON} semanas los {DIAS_PLURAL[int(mejor)]} concentran el {_pct(parte)} de lo "
                 f"vendido (un reparto parejo sería {_pct(100 / 7)}); el día más flojo es el {DIAS_SEMANA[peor]}.",
                 [(d.capitalize(), _pesos(por_dia.get(i, 0))) for i, d in enumerate(DIAS_SEMANA)],
-                f"Refuerza stock y personal antes de cada {DIAS_SEMANA[int(mejor)]}; prueba una promoción el {DIAS_SEMANA[peor]}.",
+                f"Prepara más y refuerza el personal antes de cada {DIAS_SEMANA[int(mejor)]}; prueba una promoción el {DIAS_SEMANA[peor]}.",
                 clave="dia",
             )
         )
@@ -509,7 +548,7 @@ def _patrones(db, tenant_id, ahora):
                 f"El {_pct(parte_h)} de las ventas de las últimas {SEMANAS_PATRON} semanas se registró en esas tres horas "
                 "(hora de Colombia).",
                 [("Ventas en la franja", str(bloques[inicio_bloque])), ("Ventas totales", str(int(n_ventas)))],
-                "Programa reposición y turnos para llegar completos a esa franja.", clave="hora",
+                "Ten la preparación y los turnos listos antes de esa franja.", clave="hora",
             )
         )
     return res, (None if res else "No hay un día ni una franja que se destaque: las ventas están repartidas de forma pareja.")
@@ -530,65 +569,77 @@ def calcular(db: Session, tenant_id: uuid.UUID, ahora: datetime, ver_costos: boo
             f"Con {plural(ventas_90, 'venta completada', 'ventas completadas')} en {plural(dias_90, 'día', 'días')} "
             f"de los últimos {HISTORIA_DIAS}, todavía no hay base para estimar ritmos ni tendencias. Hacen falta al "
             f"menos {MIN_VENTAS_BASE} ventas en {MIN_DIAS_BASE} días distintos. Las sugerencias que no dependen de "
-            "la historia de ventas (márgenes y proveedores) sí se muestran."
+            "la historia de ventas (costo de los platos y proveedores) sí se muestran."
         ),
     }
 
-    productos = db.query(Producto).filter(Producto.tenant_id == tenant_id, Producto.activo.is_(True)).order_by(Producto.nombre).all()
+    productos = (
+        db.query(Producto)
+        .options(*opciones_carga_producto())
+        .filter(Producto.tenant_id == tenant_id, Producto.activo.is_(True))
+        .order_by(Producto.nombre)
+        .all()
+    )
+    insumos_lista = db.query(Insumo).filter(Insumo.tenant_id == tenant_id, Insumo.activo.is_(True)).order_by(Insumo.nombre).all()
+    insumos = {i.id: i for i in insumos_lista}
     ventas = _ventas_por_producto(db, tenant_id, ahora)
-    costos, por_proveedor = _costos(db, tenant_id, ahora)
+    consumo = _consumo_por_insumo(db, tenant_id, ahora)
     insuficiente = "Sin base suficiente de ventas (ver arriba)."
 
     if suficiente:
-        quiebres, reponer, sin_ritmo = _stock(productos, ventas, ahora)
+        quiebres, reponer, sin_ritmo = _insumos_a_comprar(insumos_lista, consumo, ahora)
         alertas = quiebres + _caidas(productos, ventas)
         ganadores = _ganadores(productos, ventas)
         patrones, nota_patrones = _patrones(db, tenant_id, ahora)
-        rotacion = _rotacion(productos, ventas, costos, ver_costos, ahora)
+        rotacion = _insumos_quietos(insumos_lista, consumo, ver_costos, ahora)
         nota_reponer = None if reponer else (
-            "Ningún producto necesita reposición en los próximos " f"{DIAS_REPONER} días al ritmo actual."
-            + (f" {plural(sin_ritmo, 'producto no tiene', 'productos no tienen')} ventas suficientes en 30 días para estimar su ritmo." if sin_ritmo else "")
+            f"Ningún insumo se acabaría en los próximos {DIAS_REPONER} días al ritmo actual."
+            + (f" {plural(sin_ritmo, 'insumo no tiene', 'insumos no tienen')} consumo suficiente en 30 días para estimar su ritmo." if sin_ritmo else "")
         )
         secciones = [
-            _seccion("alertas", "Alertas inteligentes", "Quiebres de stock previsibles y caídas de venta.", alertas,
-                     None if alertas else "Sin quiebres previsibles ni caídas notables: el ritmo de venta y el stock van parejos."),
-            _seccion("reponer", "Productos a reponer", f"Cobertura menor a {DIAS_REPONER} días al ritmo de los últimos 30.", reponer, nota_reponer),
-            _seccion("ganadores", "Productos ganadores", f"Los que más venden y crecen al menos {_pct(CRECIMIENTO_GANADOR_PCT)}.", ganadores,
-                     None if ganadores else "Ningún producto crece de forma notable frente a los 30 días anteriores."),
+            _seccion("alertas", "Alertas inteligentes", "Insumos que se acabarían pronto y caídas de venta.", alertas,
+                     None if alertas else "Ningún insumo se acaba pronto y no hay caídas notables de venta."),
+            _seccion("reponer", "Lista de compras sugerida", f"Insumos que alcanzan para menos de {DIAS_REPONER} días al consumo de los últimos 30.", reponer, nota_reponer),
+            _seccion("ganadores", "Platos ganadores", f"Los que más venden y crecen al menos {_pct(CRECIMIENTO_GANADOR_PCT)}.", ganadores,
+                     None if ganadores else "Ningún plato crece de forma notable frente a los 30 días anteriores."),
             _seccion("patrones", "Patrones de venta", f"Días y horas fuertes en las últimas {SEMANAS_PATRON} semanas.", patrones, nota_patrones),
-            _seccion("rotacion", "Baja rotación", f"Stock que se vende muy despacio (menos de un cuarto en {ROTACION_DIAS} días).", rotacion,
-                     None if rotacion else "Todo el stock con más de 30 días rota a un ritmo razonable."),
+            _seccion("rotacion", "Insumos quietos", f"Existencias que casi no se gastan (menos de un cuarto en {ROTACION_DIAS} días).", rotacion,
+                     None if rotacion else "Todos los insumos con más de 30 días se gastan a un ritmo razonable."),
         ]
     else:
         secciones = [
             _seccion(clave, titulo, desc, sin_datos=insuficiente)
             for clave, titulo, desc in (
-                ("alertas", "Alertas inteligentes", "Quiebres de stock previsibles y caídas de venta."),
-                ("reponer", "Productos a reponer", "Según el ritmo de venta."),
-                ("ganadores", "Productos ganadores", "Los que más venden y crecen."),
+                ("alertas", "Alertas inteligentes", "Insumos que se acabarían pronto y caídas de venta."),
+                ("reponer", "Lista de compras sugerida", "Según el consumo de los insumos."),
+                ("ganadores", "Platos ganadores", "Los que más venden y crecen."),
                 ("patrones", "Patrones de venta", "Días y horas fuertes."),
-                ("rotacion", "Baja rotación", "Stock que se vende muy despacio."),
+                ("rotacion", "Insumos quietos", "Existencias que casi no se gastan."),
             )
         ]
 
-    sin_permiso = "Tu rol no ve costos ni márgenes (requiere el permiso de ver compras), así que esta sección no se muestra."
+    sin_permiso = "Tu rol no ve costos ni márgenes (requiere el permiso de ver costos), así que esta sección no se muestra."
     if ver_costos:
-        precios, sin_costo = _precios(productos, ventas, costos)
-        proveedores, comparables = _proveedores(db, tenant_id, productos, por_proveedor, ventas)
-        nota_precios = None if precios else (
-            f"Todos los productos con costo conocido dejan al menos {_pct(MARGEN_BAJO * 100)} de margen."
-            + (f" {plural(sin_costo, 'producto no tiene', 'productos no tienen')} costo (ni compras en {COSTOS_DIAS} días ni costo registrado)." if sin_costo else "")
-            if len(productos) > sin_costo else "Ningún producto tiene costo conocido todavía: registra compras para calcular márgenes."
-        )
+        config = configuracion_de(db.get(Tenant, tenant_id))
+        precios, sin_receta = _precios(productos, ventas, config)
+        proveedores, comparables = _proveedores(db, tenant_id, insumos, _compras_por_insumo(db, tenant_id, ahora, insumos), consumo)
+        if precios:
+            nota_precios = None
+        elif len(productos) > sin_receta:
+            nota_precios = f"Todos los platos con receta cuestan menos del {_pct(COSTO_ALTO_PCT)} de su precio." + (
+                f" {plural(sin_receta, 'plato no tiene', 'platos no tienen')} receta completa para costearlo." if sin_receta else ""
+            )
+        else:
+            nota_precios = "Ningún plato tiene receta todavía: arma las recetas para conocer su costo."
         nota_prov = None if proveedores else (
-            f"Ningún producto se ha comprado a más de un proveedor en {COSTOS_DIAS} días: no hay con qué comparar."
-            if not comparables else "Ya le compras cada producto al proveedor más barato que tienes registrado."
+            f"Ningún insumo se ha comprado a más de un proveedor en {COSTOS_DIAS} días: no hay con qué comparar."
+            if not comparables else "Ya le compras cada insumo al proveedor más barato que tienes registrado."
         )
-        secciones.append(_seccion("precios", "Oportunidades de precio", f"Productos con margen menor a {_pct(MARGEN_BAJO * 100)}.", precios, nota_precios, True))
-        secciones.append(_seccion("proveedores", "Proveedores con mejores condiciones", f"Costo promedio por proveedor en {COSTOS_DIAS} días.", proveedores, nota_prov, True))
+        secciones.append(_seccion("precios", "Platos con costo alto", f"Platos cuyo costo por receta pasa del {_pct(COSTO_ALTO_PCT)} del precio.", precios, nota_precios, True))
+        secciones.append(_seccion("proveedores", "Proveedores con mejores condiciones", f"Precio promedio por insumo y proveedor en {COSTOS_DIAS} días.", proveedores, nota_prov, True))
     else:
-        secciones.append(_seccion("precios", "Oportunidades de precio", "Según el margen de cada producto.", sin_datos=sin_permiso, requiere_costos=True))
-        secciones.append(_seccion("proveedores", "Proveedores con mejores condiciones", "Costo por proveedor.", sin_datos=sin_permiso, requiere_costos=True))
+        secciones.append(_seccion("precios", "Platos con costo alto", "Según el costo de cada receta.", sin_datos=sin_permiso, requiere_costos=True))
+        secciones.append(_seccion("proveedores", "Proveedores con mejores condiciones", "Precio por insumo y proveedor.", sin_datos=sin_permiso, requiere_costos=True))
 
     return {
         "generado_en": ahora.isoformat(),

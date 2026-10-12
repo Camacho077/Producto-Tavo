@@ -17,6 +17,8 @@ const INPUTMODE = {
   correo: "email",
   carta: "text",
   mesa: "text",
+  cantidad: "decimal",
+  costo: "decimal",
 };
 
 /**

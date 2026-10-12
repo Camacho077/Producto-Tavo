@@ -46,24 +46,36 @@ const modLegal = modulo(() => import("@/modules/legal/LegalPage"));
 const PoliticaDatosPage = pantalla(modLegal, "PoliticaDatosPage");
 const TerminosPage = pantalla(modLegal, "TerminosPage");
 
-const modComprasPage = modulo(() => import("@/modules/compras/ComprasPage"));
-const ComprasLista = pantalla(modComprasPage, "ComprasLista");
-const CompraNueva = pantalla(modComprasPage, "CompraNueva");
-const CompraDetalle = pantalla(modComprasPage, "CompraDetalle");
+const modPlatos = modulo(() => import("@/modules/carta/PlatosPage"));
+const PlatosLista = pantalla(modPlatos, "PlatosLista");
+const PlatoNuevo = pantalla(modPlatos, "PlatoNuevo");
+const PlatoDetalle = pantalla(modPlatos, "PlatoDetalle");
+const PlatoEditar = pantalla(modPlatos, "PlatoEditar");
 
-const modProductos = modulo(() => import("@/modules/compras/ProductosPage"));
-const ProductosLista = pantalla(modProductos, "ProductosLista");
-const ProductoNuevo = pantalla(modProductos, "ProductoNuevo");
-const ProductoDetalle = pantalla(modProductos, "ProductoDetalle");
-const ProductoEditar = pantalla(modProductos, "ProductoEditar");
+const modCombos = modulo(() => import("@/modules/carta/CombosPage"));
+const CombosLista = pantalla(modCombos, "CombosLista");
+const ComboNuevo = pantalla(modCombos, "ComboNuevo");
+const ComboDetalle = pantalla(modCombos, "ComboDetalle");
+const ComboEditar = pantalla(modCombos, "ComboEditar");
 
-const modCategorias = modulo(() => import("@/modules/compras/CategoriasPage"));
+const modCategorias = modulo(() => import("@/modules/carta/CategoriasPage"));
 const CategoriasLista = pantalla(modCategorias, "CategoriasLista");
 const CategoriaNueva = pantalla(modCategorias, "CategoriaNueva");
 const CategoriaDetalle = pantalla(modCategorias, "CategoriaDetalle");
 const CategoriaEditar = pantalla(modCategorias, "CategoriaEditar");
 
-const modProveedores = modulo(() => import("@/modules/compras/ProveedoresPage"));
+const modInsumos = modulo(() => import("@/modules/inventario/InsumosPage"));
+const InsumosLista = pantalla(modInsumos, "InsumosLista");
+const InsumoNuevo = pantalla(modInsumos, "InsumoNuevo");
+const InsumoDetalle = pantalla(modInsumos, "InsumoDetalle");
+const InsumoEditar = pantalla(modInsumos, "InsumoEditar");
+
+const modComprasPage = modulo(() => import("@/modules/inventario/ComprasPage"));
+const ComprasLista = pantalla(modComprasPage, "ComprasLista");
+const CompraNueva = pantalla(modComprasPage, "CompraNueva");
+const CompraDetalle = pantalla(modComprasPage, "CompraDetalle");
+
+const modProveedores = modulo(() => import("@/modules/inventario/ProveedoresPage"));
 const ProveedoresLista = pantalla(modProveedores, "ProveedoresLista");
 const ProveedorNuevo = pantalla(modProveedores, "ProveedorNuevo");
 const ProveedorDetalle = pantalla(modProveedores, "ProveedorDetalle");
@@ -109,10 +121,12 @@ const ZonaEditar = pantalla(modMesas, "ZonaEditar");
 
 /** Qué módulo pinta cada ruta, del prefijo más específico al más general. */
 const MODULO_POR_RUTA = [
-  ["/compras/productos", modProductos],
-  ["/compras/categorias", modCategorias],
-  ["/compras/proveedores", modProveedores],
-  ["/compras", modComprasPage],
+  ["/carta/combos", modCombos],
+  ["/carta/categorias", modCategorias],
+  ["/carta", modPlatos],
+  ["/inventario/compras", modComprasPage],
+  ["/inventario/proveedores", modProveedores],
+  ["/inventario", modInsumos],
   ["/ventas/pedidos", modPedidos],
   ["/ventas", modVentas],
   ["/seguridad/roles", modRoles],
@@ -190,26 +204,33 @@ export default function App() {
 
                     {/* Cada acción es una pantalla con ruta propia:
                         listado → /x, crear → /x/nuevo, detalle → /x/:id, editar → /x/:id/editar.
-                        React Router prioriza los segmentos estáticos (/compras/productos)
-                        sobre los dinámicos (/compras/:id), así que el orden no importa. */}
-                    <Route path="/compras" element={<ConPermiso modulo="compras" accion="ver"><ComprasLista /></ConPermiso>} />
-                    <Route path="/compras/nuevo" element={<ConPermiso modulo="compras" accion="crear"><CompraNueva /></ConPermiso>} />
-                    <Route path="/compras/:id" element={<ConPermiso modulo="compras" accion="ver"><CompraDetalle /></ConPermiso>} />
+                        React Router prioriza los segmentos estáticos (/carta/combos)
+                        sobre los dinámicos (/carta/:id), así que el orden no importa. */}
+                    <Route path="/carta" element={<ConPermiso modulo="productos" accion="ver"><PlatosLista /></ConPermiso>} />
+                    <Route path="/carta/nuevo" element={<ConPermiso modulo="productos" accion="crear"><PlatoNuevo /></ConPermiso>} />
+                    <Route path="/carta/:id" element={<ConPermiso modulo="productos" accion="ver"><PlatoDetalle /></ConPermiso>} />
+                    <Route path="/carta/:id/editar" element={<ConPermiso modulo="productos" accion="editar"><PlatoEditar /></ConPermiso>} />
+                    <Route path="/carta/combos" element={<ConPermiso modulo="productos" accion="ver"><CombosLista /></ConPermiso>} />
+                    <Route path="/carta/combos/nuevo" element={<ConPermiso modulo="productos" accion="crear"><ComboNuevo /></ConPermiso>} />
+                    <Route path="/carta/combos/:id" element={<ConPermiso modulo="productos" accion="ver"><ComboDetalle /></ConPermiso>} />
+                    <Route path="/carta/combos/:id/editar" element={<ConPermiso modulo="productos" accion="editar"><ComboEditar /></ConPermiso>} />
+                    <Route path="/carta/categorias" element={<ConPermiso modulo="categorias" accion="ver"><CategoriasLista /></ConPermiso>} />
+                    <Route path="/carta/categorias/nuevo" element={<ConPermiso modulo="categorias" accion="crear"><CategoriaNueva /></ConPermiso>} />
+                    <Route path="/carta/categorias/:id" element={<ConPermiso modulo="categorias" accion="ver"><CategoriaDetalle /></ConPermiso>} />
+                    <Route path="/carta/categorias/:id/editar" element={<ConPermiso modulo="categorias" accion="editar"><CategoriaEditar /></ConPermiso>} />
 
-                    <Route path="/compras/productos" element={<ConPermiso modulo="productos" accion="ver"><ProductosLista /></ConPermiso>} />
-                    <Route path="/compras/productos/nuevo" element={<ConPermiso modulo="productos" accion="crear"><ProductoNuevo /></ConPermiso>} />
-                    <Route path="/compras/productos/:id" element={<ConPermiso modulo="productos" accion="ver"><ProductoDetalle /></ConPermiso>} />
-                    <Route path="/compras/productos/:id/editar" element={<ConPermiso modulo="productos" accion="editar"><ProductoEditar /></ConPermiso>} />
-
-                    <Route path="/compras/categorias" element={<ConPermiso modulo="categorias" accion="ver"><CategoriasLista /></ConPermiso>} />
-                    <Route path="/compras/categorias/nuevo" element={<ConPermiso modulo="categorias" accion="crear"><CategoriaNueva /></ConPermiso>} />
-                    <Route path="/compras/categorias/:id" element={<ConPermiso modulo="categorias" accion="ver"><CategoriaDetalle /></ConPermiso>} />
-                    <Route path="/compras/categorias/:id/editar" element={<ConPermiso modulo="categorias" accion="editar"><CategoriaEditar /></ConPermiso>} />
-
-                    <Route path="/compras/proveedores" element={<ConPermiso modulo="proveedores" accion="ver"><ProveedoresLista /></ConPermiso>} />
-                    <Route path="/compras/proveedores/nuevo" element={<ConPermiso modulo="proveedores" accion="crear"><ProveedorNuevo /></ConPermiso>} />
-                    <Route path="/compras/proveedores/:id" element={<ConPermiso modulo="proveedores" accion="ver"><ProveedorDetalle /></ConPermiso>} />
-                    <Route path="/compras/proveedores/:id/editar" element={<ConPermiso modulo="proveedores" accion="editar"><ProveedorEditar /></ConPermiso>} />
+                    <Route path="/inventario" element={<Navigate to="/inventario/insumos" replace />} />
+                    <Route path="/inventario/insumos" element={<ConPermiso modulo="insumos" accion="ver"><InsumosLista /></ConPermiso>} />
+                    <Route path="/inventario/insumos/nuevo" element={<ConPermiso modulo="insumos" accion="crear"><InsumoNuevo /></ConPermiso>} />
+                    <Route path="/inventario/insumos/:id" element={<ConPermiso modulo="insumos" accion="ver"><InsumoDetalle /></ConPermiso>} />
+                    <Route path="/inventario/insumos/:id/editar" element={<ConPermiso modulo="insumos" accion="editar"><InsumoEditar /></ConPermiso>} />
+                    <Route path="/inventario/compras" element={<ConPermiso modulo="compras" accion="ver"><ComprasLista /></ConPermiso>} />
+                    <Route path="/inventario/compras/nuevo" element={<ConPermiso modulo="compras" accion="crear"><CompraNueva /></ConPermiso>} />
+                    <Route path="/inventario/compras/:id" element={<ConPermiso modulo="compras" accion="ver"><CompraDetalle /></ConPermiso>} />
+                    <Route path="/inventario/proveedores" element={<ConPermiso modulo="proveedores" accion="ver"><ProveedoresLista /></ConPermiso>} />
+                    <Route path="/inventario/proveedores/nuevo" element={<ConPermiso modulo="proveedores" accion="crear"><ProveedorNuevo /></ConPermiso>} />
+                    <Route path="/inventario/proveedores/:id" element={<ConPermiso modulo="proveedores" accion="ver"><ProveedorDetalle /></ConPermiso>} />
+                    <Route path="/inventario/proveedores/:id/editar" element={<ConPermiso modulo="proveedores" accion="editar"><ProveedorEditar /></ConPermiso>} />
 
                     <Route path="/ventas" element={<ConPermiso modulo="ventas" accion="ver"><VentasLista /></ConPermiso>} />
                     <Route path="/ventas/nuevo" element={<ConPermiso modulo="ventas" accion="crear"><VentaNueva /></ConPermiso>} />

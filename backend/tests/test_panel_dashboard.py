@@ -23,7 +23,7 @@ from app.modules.dashboard.periodos import (
     variacion,
     ventana_de_periodo,
 )
-from tests.conftest import PROVEEDOR_PRUEBA
+from tests.conftest import comprar as comprar_insumos, crear_insumo, crear_plato
 
 URL_PANEL = "/api/v1/dashboard/panel"
 URL_SERIE = "/api/v1/dashboard/serie"
@@ -37,35 +37,25 @@ def sesion(client, tenant_factory, usuario_factory, auth_headers_factory):
 
 
 def crear_categoria(client, headers, nombre):
-    resp = client.post("/api/v1/compras/categorias", headers=headers, json={"nombre": nombre})
+    resp = client.post("/api/v1/catalogo/categorias", headers=headers, json={"nombre": nombre})
     assert resp.status_code == 201, resp.json()
     return resp.json()
 
 
-def crear_producto(client, headers, nombre, sku, precio="1000", categoria_id=None, stock_minimo=0):
-    cuerpo = {"nombre": nombre, "sku": sku, "precio": precio, "stock_minimo": stock_minimo}
-    if categoria_id:
-        cuerpo["categoria_id"] = categoria_id
-    resp = client.post("/api/v1/compras/productos", headers=headers, json=cuerpo)
-    assert resp.status_code == 201, resp.json()
-    return resp.json()
+def crear_producto(client, headers, nombre, sku, precio="1000", categoria_id=None, grupo=None):
+    """Plato cuya receta gasta una unidad del insumo "Insumo de <nombre>"."""
+    insumo = crear_insumo(client, headers, f"Insumo de {nombre}", grupo=grupo)
+    extra = {"categoria_id": categoria_id} if categoria_id else {}
+    return crear_plato(client, headers, nombre, precio, receta=[(insumo["id"], "1", "unidad")], sku=sku, **extra)
 
 
 def comprar(client, headers, producto_id, cantidad, precio="500", fecha=None):
-    """Compra confirmada: es la única vía por la que entra stock."""
-    proveedor = client.post("/api/v1/compras/proveedores", headers=headers, json=PROVEEDOR_PRUEBA).json()
-    resp = client.post(
-        "/api/v1/compras/compras",
-        headers=headers,
-        json={
-            "proveedor_id": proveedor["id"],
-            "fecha": (fecha or ahora_utc()).isoformat(timespec="seconds"),
-            "confirmar": True,
-            "items": [{"producto_id": producto_id, "cantidad": cantidad, "precio_unitario": precio}],
-        },
+    """Compra confirmada del insumo del plato: la única vía por la que entra existencia."""
+    plato = client.get(f"/api/v1/catalogo/productos/{producto_id}", headers=headers).json()
+    return comprar_insumos(
+        client, headers, [(plato["receta"][0]["insumo_id"], cantidad, "unidad", precio)],
+        fecha=(fecha or ahora_utc()).isoformat(timespec="seconds"),
     )
-    assert resp.status_code == 201, resp.json()
-    return resp.json()
 
 
 def vender(client, headers, producto_id, cantidad, precio="1000", fecha=None, cliente="Cliente Uno"):
@@ -338,31 +328,27 @@ def test_mas_vendidos_se_limita_a_los_que_caben_en_la_pantalla(sesion):
     assert unidades == sorted(unidades, reverse=True)
 
 
-def test_inventario_arma_la_rejilla_por_categoria(sesion):
+def test_inventario_arma_la_rejilla_por_grupo_de_insumo(sesion):
+    """El inventario es de insumos, valorado a COSTO, agrupado por su grupo;
+    "vendido" es el costo de lo que salió por ventas en el periodo."""
     client, headers = sesion
-    cocina = crear_categoria(client, headers, "Cocina")
-    bano = crear_categoria(client, headers, "Bano")
+    olla = crear_producto(client, headers, "Sopa", "SKU-SOPA", precio="1000", grupo="Cocina")
+    toalla = crear_producto(client, headers, "Postre", "SKU-POSTRE", precio="100", grupo="Bodega")
+    comprar(client, headers, olla["id"], 10, precio="500")   # 10 x 500 = 5.000 a costo
+    comprar(client, headers, toalla["id"], 20, precio="500")  # 20 x 500 = 10.000 a costo
+    vender(client, headers, olla["id"], 2, precio="1000")    # salen 2 x 500 = 1.000 a costo
 
-    olla = crear_producto(client, headers, "Olla", "SKU-OLLA", precio="1000", categoria_id=cocina["id"])
-    toalla = crear_producto(client, headers, "Toalla", "SKU-TOALLA", precio="100", categoria_id=bano["id"])
-    comprar(client, headers, olla["id"], 10)     # 10 x 1.000 = 10.000 en bodega
-    comprar(client, headers, toalla["id"], 20)   # 20 x   100 =  2.000 en bodega
-    vender(client, headers, olla["id"], 2, precio="1000")
-
-    body = client.get(f"{URL_PANEL}?periodo=hoy", headers=headers).json()
-    inv = body["inventario"]
-
-    assert inv["productos_activos"] == 2
-    assert inv["unidades_stock"] == 8 + 20
-    assert inv["valor_inventario"] == 8 * 1000 + 20 * 100
+    inv = client.get(f"{URL_PANEL}?periodo=hoy", headers=headers).json()["inventario"]
+    assert inv["insumos_activos"] == 2
+    assert inv["valor_inventario"] == 8 * 500 + 20 * 500
 
     por_nombre = {c["nombre"]: c for c in inv["categorias"]}
-    assert list(por_nombre) == ["Cocina", "Bano"]  # ordenadas por valor
-    assert por_nombre["Cocina"]["valor"] == 8000.0
-    assert por_nombre["Cocina"]["unidades"] == 8
-    assert por_nombre["Cocina"]["vendido"] == 2000.0
-    assert por_nombre["Bano"]["vendido"] == 0.0
-    assert por_nombre["Bano"]["variacion"] is None  # sin base anterior
+    assert list(por_nombre) == ["Bodega", "Cocina"]  # ordenados por valor
+    assert por_nombre["Cocina"]["valor"] == 4000.0
+    assert por_nombre["Cocina"]["unidades"] == 1  # un insumo en el grupo
+    assert por_nombre["Cocina"]["vendido"] == 1000.0
+    assert por_nombre["Bodega"]["vendido"] == 0.0
+    assert por_nombre["Bodega"]["variacion"] is None  # sin base anterior
 
 
 def test_panel_aislado_por_tenant(client, tenant_factory, usuario_factory, auth_headers_factory):
@@ -383,7 +369,7 @@ def test_panel_aislado_por_tenant(client, tenant_factory, usuario_factory, auth_
     assert body_a["totales"]["ventas"] == 5000.0
     assert body_b["totales"]["ventas"] == 0
     assert body_b["mas_vendidos"] == []
-    assert body_b["inventario"]["unidades_stock"] == 0
+    assert body_b["inventario"]["valor_inventario"] == 0
 
 
 # =====================================================================

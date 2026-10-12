@@ -164,6 +164,56 @@
     }
   }
 
+  /* Editor de líneas genérico (components/EditorLineas.jsx): receta,
+     modificadores, platos de un combo, insumos de una compra. */
+  .lineas {
+    display: grid;
+    gap: 0.75rem;
+  }
+  .lineas__fila {
+    display: grid;
+    grid-template-columns: var(--lineas-columnas);
+    gap: 0.5rem;
+    align-items: end;
+  }
+  .lineas__celda {
+    min-width: 0;
+  }
+  .lineas__nota {
+    margin-top: 4px;
+    font-size: 12px;
+    color: var(--texto-secundario);
+    text-align: right;
+  }
+  .lineas__vacio {
+    margin: 0;
+    font-size: 13px;
+    color: var(--texto-terciario);
+  }
+  .lineas__pie {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.5rem 1rem;
+    padding-top: 0.75rem;
+    border-top: var(--borde-fino) solid var(--linea);
+    font-size: 13px;
+    color: var(--texto-secundario);
+  }
+  .lineas__pie strong {
+    font-size: 18px;
+    color: var(--texto);
+  }
+  @media (max-width: 640px) {
+    .lineas__fila {
+      grid-template-columns: 1fr 1fr;
+    }
+    .lineas__fila > .lineas__celda:first-child {
+      grid-column: 1 / -1;
+    }
+  }
+
   /* --------------------------------------------------------------------------
      LÍNEA DE TIEMPO (seguimiento de pedidos)
      -------------------------------------------------------------------------- */

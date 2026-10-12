@@ -1,5 +1,6 @@
 import {
   ClipboardList,
+  Layers,
   LayoutGrid,
   KeyRound,
   LayoutDashboard,
@@ -12,6 +13,7 @@ import {
   Tags,
   Truck,
   Users,
+  UtensilsCrossed,
 } from "lucide-react";
 
 // Cada módulo del catálogo (brief sección 2) mapeado a su ruta de frontend.
@@ -29,16 +31,31 @@ export const MODULES = [
     plan: "basico",
   },
   {
-    key: "compras",
-    label: "Compras",
-    path: "/compras",
-    icon: ShoppingCart,
+    // Carta (2026-10-12): platos con receta, combos y categorías. Desde
+    // Básico: sin carta no hay órdenes.
+    key: "carta",
+    label: "Carta",
+    path: "/carta",
+    icon: UtensilsCrossed,
+    plan: "basico",
+    hijos: [
+      { key: "productos", label: "Platos", path: "/carta", icon: UtensilsCrossed },
+      { key: "combos", permiso: "productos", label: "Combos", path: "/carta/combos", icon: Layers },
+      { key: "categorias", label: "Categorías", path: "/carta/categorias", icon: Tags },
+    ],
+  },
+  {
+    // Inventario de INSUMOS (2026-10-12): existencias por movimientos,
+    // compras a proveedores y costo que alimenta las recetas.
+    key: "inventario",
+    label: "Inventario",
+    path: "/inventario/insumos",
+    icon: Package,
     plan: "estandar",
     hijos: [
-      { key: "compras", label: "Compras", path: "/compras", icon: ShoppingCart },
-      { key: "productos", label: "Productos", path: "/compras/productos", icon: Package },
-      { key: "categorias", label: "Categorías", path: "/compras/categorias", icon: Tags },
-      { key: "proveedores", label: "Proveedores", path: "/compras/proveedores", icon: Truck },
+      { key: "insumos", label: "Insumos", path: "/inventario/insumos", icon: Package },
+      { key: "compras", label: "Compras", path: "/inventario/compras", icon: ShoppingCart },
+      { key: "proveedores", label: "Proveedores", path: "/inventario/proveedores", icon: Truck },
     ],
   },
   {
@@ -49,7 +66,7 @@ export const MODULES = [
     label: "Caja",
     path: "/ventas",
     icon: Receipt,
-    plan: "estandar",
+    plan: "basico",
     hijos: [
       { key: "ventas", label: "Caja", path: "/ventas", icon: Receipt },
       { key: "pedidos", label: "Órdenes", path: "/ventas/pedidos", icon: ClipboardList },
@@ -120,7 +137,9 @@ export function modulosVisibles(planTenant = "basico", modulosActivos = [], pued
   if (!puede) return porPlan;
   return porPlan.flatMap((m) => {
     if (!m.hijos) return puede(m.key, "ver") ? [m] : [];
-    const hijos = m.hijos.filter((h) => puede(h.key, "ver"));
+    // `permiso`: el módulo del catálogo que exige el hijo cuando su clave
+    // no es la del permiso (Combos usa el permiso de "productos").
+    const hijos = m.hijos.filter((h) => puede(h.permiso ?? h.key, "ver"));
     return hijos.length ? [{ ...m, hijos, path: hijos[0].path }] : [];
   });
 }

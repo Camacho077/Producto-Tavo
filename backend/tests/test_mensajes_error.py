@@ -52,14 +52,6 @@ def test_plural_y_unidades():
     assert mensajes.unidades(5) == "5 unidades"
 
 
-def test_stock_insuficiente_dice_producto_disponible_y_pedido():
-    texto = mensajes.stock_insuficiente("completar la venta VEN-000012", "Iphone Pro Max", 2, 5)
-    assert texto == (
-        "No se pudo completar la venta VEN-000012: el producto Iphone Pro Max "
-        "solo tiene 2 unidades y se pidieron 5."
-    )
-
-
 def test_no_se_puede_eliminar_nombra_el_registro_y_la_dependencia():
     texto = mensajes.no_se_puede_eliminar(
         "la categoría", "Celulares", 3, "producto", "productos", "Puedes desactivarla en su lugar."
@@ -85,31 +77,31 @@ def _crear(client, headers, recurso, payload, esperado=201):
 
 def test_nombre_duplicado_dice_cual_es_el_nombre(sesion):
     client, headers, _ = sesion
-    _crear(client, headers, "compras/categorias", {"nombre": "Celulares"})
-    resp = client.post("/api/v1/compras/categorias", headers=headers, json={"nombre": "Celulares"})
+    _crear(client, headers, "catalogo/categorias", {"nombre": "Celulares"})
+    resp = client.post("/api/v1/catalogo/categorias", headers=headers, json={"nombre": "Celulares"})
     assert resp.status_code == 409
     assert_util(resp.json()["detail"], "Celulares", "nombre")
 
 
 def test_sku_duplicado_dice_cual_es_el_sku(sesion):
     client, headers, _ = sesion
-    _crear(client, headers, "compras/productos", {"nombre": "Teclado", "sku": "TEC-1", "precio": "1000"})
+    _crear(client, headers, "catalogo/productos", {"nombre": "Teclado", "sku": "TEC-1", "precio": "1000"})
     resp = client.post(
-        "/api/v1/compras/productos", headers=headers, json={"nombre": "Otro", "sku": "TEC-1", "precio": "1000"}
+        "/api/v1/catalogo/productos", headers=headers, json={"nombre": "Otro", "sku": "TEC-1", "precio": "1000"}
     )
     assert resp.status_code == 409
-    assert_util(resp.json()["detail"], "TEC-1", "SKU")
+    assert_util(resp.json()["detail"], "TEC-1", "código")
 
 
 def test_eliminar_categoria_con_productos_dice_nombre_y_cuantos(sesion):
     client, headers, _ = sesion
-    categoria = _crear(client, headers, "compras/categorias", {"nombre": "Celulares"})
+    categoria = _crear(client, headers, "catalogo/categorias", {"nombre": "Celulares"})
     for i in range(3):
         _crear(
-            client, headers, "compras/productos",
+            client, headers, "catalogo/productos",
             {"nombre": f"Equipo {letras(i)}", "sku": f"EQ-{i}", "precio": "1000", "categoria_id": categoria["id"]},
         )
-    resp = client.delete(f"/api/v1/compras/categorias/{categoria['id']}", headers=headers)
+    resp = client.delete(f"/api/v1/catalogo/categorias/{categoria['id']}", headers=headers)
     assert resp.status_code == 409
     assert resp.json()["detail"] == (
         "No se puede eliminar la categoría Celulares: tiene 3 productos asociados. "
@@ -135,9 +127,22 @@ def _tenant(db_session, tenant_id):
     return db_session.get(Tenant, tenant_id)
 
 
-def test_venta_sin_stock_dice_producto_disponible_y_pedido(sesion):
+def _plato(client, headers, nombre, precio):
+    """Plato que gasta una unidad del insumo `nombre`; devuelve (plato, insumo)."""
+    insumo = _crear(client, headers, "inventario/insumos", {"nombre": nombre, "unidad": "unidad"})
+    plato = _crear(client, headers, "catalogo/productos", {
+        "nombre": f"Plato de {nombre}", "precio": precio, "receta": [{"insumo_id": insumo["id"], "cantidad": "1", "unidad": "unidad"}],
+    })
+    return plato, insumo
+
+
+def _linea(insumo, cantidad, precio):
+    return {"insumo_id": insumo["id"], "cantidad": str(cantidad), "unidad": "unidad", "precio_unitario": precio}
+
+
+def test_venta_sin_existencias_dice_insumo_cuanto_queda_y_cuanto_necesita(sesion):
     client, headers, _ = sesion
-    producto = _crear(client, headers, "compras/productos", {"nombre": "Iphone Pro Max", "sku": "IP-18", "precio": "5000"})
+    producto, insumo = _plato(client, headers, "Queso", "5000")
     proveedor = _crear(client, headers, "compras/proveedores", PROVEEDOR_PRUEBA)
     _crear(
         client, headers, "compras/compras",
@@ -145,7 +150,7 @@ def test_venta_sin_stock_dice_producto_disponible_y_pedido(sesion):
             "proveedor_id": proveedor["id"],
             "fecha": "2026-01-01T09:00:00",
             "confirmar": True,
-            "items": [{"producto_id": producto["id"], "cantidad": 2, "precio_unitario": "4000"}],
+            "items": [_linea(insumo, 2, "4000")],
         },
     )
     resp = client.post(
@@ -159,15 +164,12 @@ def test_venta_sin_stock_dice_producto_disponible_y_pedido(sesion):
         },
     )
     assert resp.status_code == 409
-    assert resp.json()["detail"] == (
-        "No se pudo registrar la venta: el producto Iphone Pro Max "
-        "solo tiene 2 unidades y se pidieron 5."
-    )
+    assert resp.json()["detail"] == "No se pudo registrar la venta: quedan 2 unidades de Queso y la venta necesita 5 unidades."
 
 
 def test_anular_compra_cuyo_stock_ya_se_vendio_explica_el_negativo(sesion):
     client, headers, _ = sesion
-    producto = _crear(client, headers, "compras/productos", {"nombre": "Diadema", "sku": "DIA-1", "precio": "300"})
+    producto, insumo = _plato(client, headers, "Diadema", "300")
     proveedor = _crear(client, headers, "compras/proveedores", PROVEEDOR_PRUEBA)
     compra = _crear(
         client, headers, "compras/compras",
@@ -175,7 +177,7 @@ def test_anular_compra_cuyo_stock_ya_se_vendio_explica_el_negativo(sesion):
             "proveedor_id": proveedor["id"],
             "fecha": "2026-01-01T09:00:00",
             "confirmar": True,
-            "items": [{"producto_id": producto["id"], "cantidad": 4, "precio_unitario": "200"}],
+            "items": [_linea(insumo, 4, "200")],
         },
     )
     _crear(
@@ -189,12 +191,12 @@ def test_anular_compra_cuyo_stock_ya_se_vendio_explica_el_negativo(sesion):
     )
     resp = client.post(f"/api/v1/compras/compras/{compra['id']}/anular", headers=headers)
     assert resp.status_code == 409
-    assert_util(resp.json()["detail"], compra["codigo"], "Diadema", "1 unidad", "negativo")
+    assert_util(resp.json()["detail"], compra["codigo"], "Diadema", "quedan 1 unidad", "negativo")
 
 
 def test_estado_invalido_nombra_el_documento_y_los_estados(sesion):
     client, headers, _ = sesion
-    producto = _crear(client, headers, "compras/productos", {"nombre": "Mouse", "sku": "MOU-1", "precio": "100"})
+    producto, insumo = _plato(client, headers, "Mouse", "100")
     proveedor = _crear(client, headers, "compras/proveedores", PROVEEDOR_PRUEBA)
     compra = _crear(
         client, headers, "compras/compras",
@@ -202,7 +204,7 @@ def test_estado_invalido_nombra_el_documento_y_los_estados(sesion):
             "proveedor_id": proveedor["id"],
             "fecha": "2026-01-01T09:00:00",
             "confirmar": True,
-            "items": [{"producto_id": producto["id"], "cantidad": 1, "precio_unitario": "80"}],
+            "items": [_linea(insumo, 1, "80")],
         },
     )
     resp = client.post(f"/api/v1/compras/compras/{compra['id']}/confirmar", headers=headers)
@@ -212,7 +214,7 @@ def test_estado_invalido_nombra_el_documento_y_los_estados(sesion):
 
 def test_transicion_de_pedido_invalida_dice_a_donde_si_puede_ir(sesion):
     client, headers, _ = sesion
-    producto = _crear(client, headers, "compras/productos", {"nombre": "Cable", "sku": "CAB-1", "precio": "100"})
+    producto, _ = _plato(client, headers, "Cable", "100")
     pedido = _crear(
         client, headers, "ventas/pedidos",
         {
@@ -228,7 +230,7 @@ def test_transicion_de_pedido_invalida_dice_a_donde_si_puede_ir(sesion):
 
 def test_registro_inexistente_dice_que_puede_ser_de_otra_empresa(sesion):
     client, headers, _ = sesion
-    resp = client.get("/api/v1/compras/productos/00000000-0000-0000-0000-000000000001", headers=headers)
+    resp = client.get("/api/v1/catalogo/productos/00000000-0000-0000-0000-000000000001", headers=headers)
     assert resp.status_code == 404
     assert_util(resp.json()["detail"], "producto", "otra empresa")
 

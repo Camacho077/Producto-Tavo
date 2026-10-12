@@ -35,7 +35,12 @@ código. Nombre provisional del producto: "JS Restaurante".
   `backend/app/core/branding.py`, Marcas eliminada, módulo `ajustes`:
   negocio, logo, operación en `Tenant.configuracion` leída por
   `ConfiguracionRestaurante`, impresoras, jornada, zonas y mesas; imágenes
-  WebP en `app/modules/imagenes`, públicas por UUID).
+  WebP en `app/modules/imagenes`, públicas por UUID); fase 2 (el inventario
+  es de INSUMOS: módulos `catalogo` (platos/combos con receta, modificadores,
+  agotado hoy), `inventario` (insumos, unidades, movimientos, promedio
+  ponderado) y `compras` de insumos; costo del plato en vivo y permiso
+  `costos.ver`). Lo de "Stock = suma de movimientos" y "Proveedores ↔
+  Productos" de abajo es HISTÓRICO: hoy aplica a los insumos.
 
 ## Mapa de puertos — CONFIGURACIÓN CRÍTICA (no se borra en limpiezas)
 Los dos productos corren AL MISMO TIEMPO en la misma máquina. Ningún puerto,

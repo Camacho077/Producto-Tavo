@@ -160,7 +160,7 @@ export function PedidosLista() {
     <div>
       <PageHeader
         titulo="Pedidos"
-        descripcion="Compromisos con clientes, ordenados por prioridad. No mueven stock hasta que se registra la venta."
+        descripcion="Compromisos con clientes, ordenados por prioridad. No descuentan insumos hasta que se registra la venta."
         migas={migas()}
         acciones={
           puede("pedidos", "crear") && (
@@ -223,12 +223,11 @@ function CamposPedido({ f, productos }) {
         </div>
       </Seccion>
 
-      <Seccion titulo="2. Productos" descripcion="El pedido no mueve stock; se muestra el disponible como referencia.">
+      <Seccion titulo="2. Productos" descripcion="El pedido no descuenta insumos.">
         <ItemsEditor
           items={f.form.items}
           onCambiar={(items) => f.setForm((prev) => ({ ...prev, items }))}
           productos={productos}
-          mostrarStock
           errorDe={(i, campo) => f.errorVisible(`items.${i}.${campo}`)}
           alSalir={(i, campo) => f.tocar(`items.${i}.${campo}`)}
         />
@@ -242,7 +241,7 @@ function CamposPedido({ f, productos }) {
 }
 
 export function PedidoNuevo() {
-  const { items: productos } = useCatalogo("/compras/productos");
+  const { items: productos } = useCatalogo("/catalogo/productos");
   const esquema = useMemo(() => ESQUEMA, []);
   const f = useFormulario(esquema, FORM_VACIO);
   const { guardando, errorGeneral, guardar } = useGuardarPantalla(f, { volver: RUTA, mensaje: "Pedido registrado", accion: "registrar el pedido" });
@@ -269,7 +268,7 @@ export function PedidoNuevo() {
 export function PedidoEditar() {
   const { id } = useParams();
   const { data, error } = useApiResource(`${URL}/${id}`);
-  const { items: productos } = useCatalogo("/compras/productos");
+  const { items: productos } = useCatalogo("/catalogo/productos");
   const esquema = useMemo(() => ESQUEMA, []);
   const f = useFormulario(esquema, FORM_VACIO);
   const { guardando, errorGeneral, guardar } = useGuardarPantalla(f, { volver: `${RUTA}/${id}`, mensaje: "Cambios guardados", accion: "guardar el pedido" });
@@ -465,7 +464,7 @@ export function PedidoDetalle() {
                   titulo: "Producto",
                   render: (i) =>
                     i.producto_id ? (
-                      <Link to={`/compras/productos/${i.producto_id}`} className="enlace">
+                      <Link to={`/carta/${i.producto_id}`} className="enlace">
                         {i.producto_nombre ?? "—"}
                       </Link>
                     ) : (

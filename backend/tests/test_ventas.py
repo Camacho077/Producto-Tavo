@@ -1,13 +1,9 @@
-from tests.conftest import dar_stock
+from tests.conftest import crear_producto, dar_stock, stock_de
 
 
 def _crear_producto(client, headers, sku="SKU-1", precio="1000", stock_inicial=0):
-    resp = client.post(
-        "/api/v1/compras/productos",
-        headers=headers,
-        json={"nombre": "Producto", "sku": sku, "precio": precio},
-    )
-    producto = resp.json()
+    """Plato cuya receta gasta una unidad de su insumo base (conftest)."""
+    producto = crear_producto(client, headers, "Producto", precio, sku=sku)
     if stock_inicial:
         dar_stock(client, headers, producto["id"], stock_inicial)
     return producto
@@ -40,8 +36,7 @@ def test_crear_venta_queda_pendiente_y_no_toca_stock(client, tenant_factory, usu
     assert venta["estado"] == "pendiente"
     assert venta["total"] == "3000.00"
 
-    productos = client.get("/api/v1/compras/productos", headers=headers).json()["items"]
-    assert productos[0]["stock"] == 10
+    assert stock_de(client, headers, producto["id"]) == 10
 
 
 def test_pedido_flujo_completo_con_linea_de_tiempo(client, tenant_factory, usuario_factory, auth_headers_factory):
@@ -69,8 +64,7 @@ def test_pedido_flujo_completo_con_linea_de_tiempo(client, tenant_factory, usuar
     assert pedido["eventos"][0]["usuario_nombre"] == "Ana Admin"
 
     # Un pedido no toca stock.
-    productos = client.get("/api/v1/compras/productos", headers=headers).json()["items"]
-    assert productos[0]["stock"] == 10
+    assert stock_de(client, headers, producto["id"]) == 10
 
     # Transición inválida: pendiente -> entregado no está permitida.
     resp = client.patch(
@@ -140,15 +134,13 @@ def test_venta_registrada_con_confirmar_descuenta_stock(client, tenant_factory, 
     assert resp.status_code == 201
     assert resp.json()["estado"] == "completada"
     assert resp.json()["codigo"] == "VEN-000001"
-    productos = client.get("/api/v1/compras/productos", headers=headers).json()["items"]
-    assert productos[0]["stock"] == 7
+    assert stock_de(client, headers, producto["id"]) == 7
 
     # Anular devuelve el stock.
     resp = client.post(f"/api/v1/ventas/ventas/{resp.json()['id']}/anular", headers=headers)
     assert resp.status_code == 200
     assert resp.json()["estado"] == "anulada"
-    productos = client.get("/api/v1/compras/productos", headers=headers).json()["items"]
-    assert productos[0]["stock"] == 10
+    assert stock_de(client, headers, producto["id"]) == 10
 
 
 def test_pdf_de_venta(client, tenant_factory, usuario_factory, auth_headers_factory):
@@ -191,8 +183,7 @@ def test_confirmar_venta_descuenta_stock(client, tenant_factory, usuario_factory
     assert resp.status_code == 200
     assert resp.json()["estado"] == "completada"
 
-    productos = client.get("/api/v1/compras/productos", headers=headers).json()["items"]
-    assert productos[0]["stock"] == 6
+    assert stock_de(client, headers, producto["id"]) == 6
 
 
 def test_confirmar_venta_stock_insuficiente(client, tenant_factory, usuario_factory, auth_headers_factory):
@@ -214,10 +205,9 @@ def test_confirmar_venta_stock_insuficiente(client, tenant_factory, usuario_fact
     resp = client.post(f"/api/v1/ventas/ventas/{venta['id']}/confirmar", headers=headers)
 
     assert resp.status_code == 409
-    assert "solo tiene 2 unidades y se pidieron 5" in resp.json()["detail"]
+    assert "quedan 2 unidades de Base de Producto y la venta necesita 5 unidades" in resp.json()["detail"]
 
-    productos = client.get("/api/v1/compras/productos", headers=headers).json()["items"]
-    assert productos[0]["stock"] == 2
+    assert stock_de(client, headers, producto["id"]) == 2
 
 
 def test_cancelar_venta_completada_falla(client, tenant_factory, usuario_factory, auth_headers_factory):
@@ -323,7 +313,7 @@ def test_sobreventa_al_registrar_no_cita_un_numero_que_nunca_existio(client, ten
     )
     assert resp.status_code == 409
     detalle = resp.json()["detail"]
-    assert detalle == "No se pudo registrar la venta: el producto Producto solo tiene 17 unidades y se pidieron 1000."
+    assert detalle == "No se pudo registrar la venta: quedan 17 unidades de Base de Producto y la venta necesita 1000 unidades."
     assert "VEN-" not in detalle
     assert client.get("/api/v1/ventas/ventas", headers=headers).json()["total"] == 0
-    assert client.get(f"/api/v1/compras/productos/{producto['id']}", headers=headers).json()["stock"] == 17
+    assert stock_de(client, headers, producto["id"]) == 17

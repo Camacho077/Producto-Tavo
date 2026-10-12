@@ -6,7 +6,9 @@ from app.core.cors import configure_cors
 from app.core.error_handlers import CatchAllExceptionsMiddleware, register_exception_handlers
 from app.core.logging_config import configure_logging
 from app.modules.dashboard.router import router as dashboard_router
+from app.modules.catalogo.router import router as catalogo_router
 from app.modules.compras.router import router as compras_router
+from app.modules.inventario.router import router as inventario_router
 from app.modules.ventas.router import router as ventas_router
 from app.modules.seguridad.router import router as seguridad_router
 from app.modules.ia.router import router as ia_router
@@ -59,6 +61,8 @@ configure_cors(app, settings)
 # Así se pueden activar/desactivar por cliente sin tocar los demás.
 app.include_router(seguridad_router, prefix=settings.API_V1_PREFIX)
 app.include_router(dashboard_router, prefix=settings.API_V1_PREFIX)
+app.include_router(catalogo_router, prefix=settings.API_V1_PREFIX)
+app.include_router(inventario_router, prefix=settings.API_V1_PREFIX)
 app.include_router(compras_router, prefix=settings.API_V1_PREFIX)
 app.include_router(ventas_router, prefix=settings.API_V1_PREFIX)
 app.include_router(ia_router, prefix=settings.API_V1_PREFIX)

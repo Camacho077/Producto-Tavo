@@ -42,6 +42,12 @@ PRECIO_MAX = Decimal("999999999.99")
 MSG_ENTERO = "Debe ser un número entero entre {minimo} y {maximo}"
 MSG_PRECIO = "Debe ser un monto positivo con máximo 2 decimales (hasta $ 999.999.999,99)"
 MSG_PORCENTAJE = "Debe ser un porcentaje entre 0 y 100"
+# Cantidades de insumos (2026-10-12): admiten decimales (1,5 kg; 0,25 L).
+EXISTENCIA_MAX = Decimal("1000000")
+MSG_CANTIDAD_DECIMAL = "Debe ser una cantidad mayor que 0 con máximo 3 decimales (hasta 1.000.000)"
+MSG_CANTIDAD_DECIMAL_CERO = "Debe ser una cantidad de 0 o más con máximo 3 decimales (hasta 1.000.000)"
+COSTO_MAX = Decimal("999999999.9999")
+MSG_COSTO = "Debe ser un costo de 0 o más con máximo 4 decimales"
 
 # ---------- Contacto ----------
 # Celular colombiano: 10 dígitos empezando por 3. Fijo: indicativo nacional
@@ -172,6 +178,23 @@ def entero(valor: int, minimo: int, maximo: int) -> int:
     if not isinstance(valor, int) or valor < minimo or valor > maximo:
         raise ValueError(MSG_ENTERO.format(minimo=minimo, maximo=maximo))
     return valor
+
+
+def cantidad_decimal(valor: Decimal, permitir_cero: bool = False) -> Decimal:
+    """Cantidad de insumo: positiva (o cero si se permite), máximo 3 decimales."""
+    mensaje = MSG_CANTIDAD_DECIMAL_CERO if permitir_cero else MSG_CANTIDAD_DECIMAL
+    if valor is None or valor < 0 or (valor == 0 and not permitir_cero) or valor > EXISTENCIA_MAX:
+        raise ValueError(mensaje)
+    if valor != valor.quantize(Decimal("0.001")):
+        raise ValueError(mensaje)
+    return valor.quantize(Decimal("0.001"))
+
+
+def costo(valor: Decimal) -> Decimal:
+    """Costo unitario de un insumo (por kg, por g, por unidad): hasta 4 decimales."""
+    if valor is None or valor < 0 or valor > COSTO_MAX or valor != valor.quantize(Decimal("0.0001")):
+        raise ValueError(MSG_COSTO)
+    return valor.quantize(Decimal("0.0001"))
 
 
 def porcentaje(valor: Decimal) -> Decimal:

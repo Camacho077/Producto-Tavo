@@ -30,6 +30,6 @@ def sugerencias(
     usuario: Usuario = Depends(usuario_con_permiso("ia", "ver")),
 ):
     """Sugerencias de negocio con su porqué y sus datos. Costos, márgenes y
-    proveedores solo para quien puede ver compras (misma regla que el costo
-    del producto)."""
-    return analisis.calcular(db, usuario.tenant_id, ahora_utc(), ver_costos=tiene_permiso(usuario, "compras", "ver"))
+    proveedores solo para quien puede ver costos (misma regla que el costeo
+    de la carta)."""
+    return analisis.calcular(db, usuario.tenant_id, ahora_utc(), ver_costos=tiene_permiso(usuario, "costos", "ver"))

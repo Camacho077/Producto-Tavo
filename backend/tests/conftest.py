@@ -173,7 +173,13 @@ def auth_headers_factory():
     return _crear
 
 
-# ---------- Stock por la vía correcta: una compra confirmada ----------
+# ---------- Inventario por la vía correcta (2026-10-12) ----------
+# El inventario es de INSUMOS: un plato se vende si alcanzan los insumos de
+# su receta. Para las pruebas que solo necesitan "un producto que se pueda
+# vender", `crear_producto` arma un plato cuya receta gasta UNA unidad de un
+# insumo propio ("Base de <nombre>"), y `dar_stock` le compra existencias a
+# ese insumo: así "stock del producto" sigue teniendo sentido.
+API_V1 = "/api/v1"
 PROVEEDOR_PRUEBA = {
     "tipo_persona": "juridica",
     "nit": "890903938-8",
@@ -182,19 +188,64 @@ PROVEEDOR_PRUEBA = {
 }
 
 
-def dar_stock(client, headers, producto_id, cantidad, precio="100"):
-    """El stock ya no se escribe en el producto: nace en 0 y solo lo mueven
-    compras y ventas. Este helper registra una compra confirmada."""
-    proveedor = client.post("/api/v1/compras/proveedores", headers=headers, json=PROVEEDOR_PRUEBA).json()
-    resp = client.post(
-        "/api/v1/compras/compras",
-        headers=headers,
-        json={
-            "proveedor_id": proveedor["id"],
-            "fecha": "2026-01-01T09:00:00",
-            "confirmar": True,
-            "items": [{"producto_id": producto_id, "cantidad": cantidad, "precio_unitario": precio}],
-        },
-    )
+def crear_insumo(client, headers, nombre, unidad="unidad", minimo="0", costo="0", existencia="0", grupo=None):
+    resp = client.post(f"{API_V1}/inventario/insumos", headers=headers, json={
+        "nombre": nombre, "unidad": unidad, "minimo": minimo, "costo_unitario": costo,
+        "existencia_inicial": existencia, "grupo": grupo,
+    })
     assert resp.status_code == 201, resp.json()
     return resp.json()
+
+
+def crear_plato(client, headers, nombre, precio="1000", receta=(), **extra):
+    """`receta`: [(insumo_id, cantidad, unidad)] o [(insumo_id, cantidad, unidad, merma)]."""
+    lineas = [
+        {"insumo_id": l[0], "cantidad": str(l[1]), "unidad": l[2], **({"merma_porcentaje": str(l[3])} if len(l) > 3 else {})}
+        for l in receta
+    ]
+    resp = client.post(f"{API_V1}/catalogo/productos", headers=headers, json={"nombre": nombre, "precio": precio, "receta": lineas, **extra})
+    assert resp.status_code == 201, resp.json()
+    return resp.json()
+
+
+def crear_producto(client, headers, nombre, precio="1000", costo="0", **extra):
+    """Plato con receta de UNA unidad de su propio insumo."""
+    insumo = crear_insumo(client, headers, f"Base de {nombre}", costo=costo)
+    return crear_plato(client, headers, nombre, precio, receta=[(insumo["id"], "1", "unidad")], **extra)
+
+
+def proveedor_de_prueba(client, headers):
+    existentes = client.get(f"{API_V1}/compras/proveedores", headers=headers, params={"q": "890903938"}).json()["items"]
+    if existentes:
+        return existentes[0]
+    return client.post(f"{API_V1}/compras/proveedores", headers=headers, json=PROVEEDOR_PRUEBA).json()
+
+
+def comprar(client, headers, lineas, confirmar=True, fecha="2026-01-01T09:00:00"):
+    """`lineas`: [(insumo_id, cantidad, unidad, precio por esa unidad)]."""
+    proveedor = proveedor_de_prueba(client, headers)
+    resp = client.post(f"{API_V1}/compras/compras", headers=headers, json={
+        "proveedor_id": proveedor["id"], "fecha": fecha, "confirmar": confirmar,
+        "items": [{"insumo_id": i, "cantidad": str(c), "unidad": u, "precio_unitario": str(p)} for i, c, u, p in lineas],
+    })
+    assert resp.status_code == 201, resp.json()
+    return resp.json()
+
+
+def dar_stock(client, headers, producto_id, cantidad, precio="100"):
+    """Compra `cantidad` del insumo de un producto hecho con `crear_producto`."""
+    plato = client.get(f"{API_V1}/catalogo/productos/{producto_id}", headers=headers).json()
+    insumo_id = plato["receta"][0]["insumo_id"]
+    return comprar(client, headers, [(insumo_id, cantidad, "unidad", precio)])
+
+
+def existencia(client, headers, insumo_id):
+    from decimal import Decimal
+
+    return Decimal(client.get(f"{API_V1}/inventario/insumos/{insumo_id}", headers=headers).json()["existencia"])
+
+
+def stock_de(client, headers, producto_id):
+    """Existencia del insumo base de un producto de `crear_producto`."""
+    plato = client.get(f"{API_V1}/catalogo/productos/{producto_id}", headers=headers).json()
+    return existencia(client, headers, plato["receta"][0]["insumo_id"])

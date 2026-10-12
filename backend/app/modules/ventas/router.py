@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, Query, Response
 from sqlalchemy import String, case, func
 from sqlalchemy.orm import Session, joinedload
 
+from app.core.branding import NOMBRE_PRODUCTO
 from app.core.permisos import tenant_con_permiso, usuario_con_permiso
 from app.core.exportar import campo, humanizar, responder, resumen_items
 from app.core.paginacion import Pagina, ParametrosPagina, paginar
@@ -18,7 +19,15 @@ router = APIRouter(prefix="/ventas", tags=["Ventas"])
 
 def _nombre_empresa(db: Session, tenant_id: uuid.UUID) -> str:
     tenant = db.query(Tenant).filter(Tenant.id == tenant_id).first()
-    return tenant.nombre_empresa if tenant else "JS Company"
+    return tenant.nombre_empresa if tenant else NOMBRE_PRODUCTO
+
+
+def _items_pdf(items: list[dict]) -> list[dict]:
+    return [
+        {"descripcion": i["producto_nombre"], "detalle": i.get("producto_sku"), "cantidad": i["cantidad"],
+         "precio_unitario": i["precio_unitario"], "subtotal": i["subtotal"]}
+        for i in items
+    ]
 
 
 def _respuesta_pdf(pdf: bytes, codigo: str) -> Response:
@@ -118,7 +127,8 @@ def pdf_venta(
             ("Documento", venta.cliente_documento or "—"),
             ("Atendido por", usuario.nombre_completo),
         ],
-        items=datos["items"],
+        items=_items_pdf(datos["items"]),
+        columna_detalle="Código",
         total=venta.total,
         notas=venta.notas,
     )
@@ -236,7 +246,8 @@ def pdf_pedido(
             ("Entrega", pedido.fecha_entrega.strftime("%d/%m/%Y %H:%M") if pedido.fecha_entrega else "—"),
             ("Atendido por", usuario.nombre_completo),
         ],
-        items=datos["items"],
+        items=_items_pdf(datos["items"]),
+        columna_detalle="Código",
         total=pedido.total,
         notas=pedido.notas,
     )

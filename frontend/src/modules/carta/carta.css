@@ -1,0 +1,36 @@
+/* Carta: platos y combos (CSS de ruta: cada selector empieza por una clase
+   propia, ver css-por-ruta.test.js). */
+@layer components {
+  /* Costo y margen: el % de costo en grande y el desglose al lado. */
+  .carta-costeo {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 1.25rem;
+    align-items: center;
+  }
+  .carta-costeo__etiqueta {
+    margin: 0 0 4px;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--texto-secundario);
+  }
+  @media (max-width: 640px) {
+    .carta-costeo {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  /* Modificador como sale en la comanda: mayúsculas y peso. */
+  .carta-modificador {
+    font-weight: 600;
+    letter-spacing: 0.02em;
+  }
+
+  /* Días de la semana de un combo. */
+  .carta-dias {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+  }
+}

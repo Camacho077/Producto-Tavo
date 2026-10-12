@@ -36,16 +36,6 @@ def no_se_puede_eliminar(entidad: str, nombre: str, cantidad: int, dependencia: 
     )
 
 
-def stock_insuficiente(accion: str, producto: str, disponible: int, solicitado: int) -> str:
-    """"No se pudo completar la venta VEN-000012: el producto Iphone 18 Pro Max
-    solo tiene 2 unidades y se pidieron 5."."""
-    verbo = "se pidió" if solicitado == 1 else "se pidieron"
-    return (
-        f"No se pudo {accion}: el producto {producto} solo tiene {unidades(disponible)} "
-        f"y {verbo} {solicitado}."
-    )
-
-
 def estado_no_permite(accion: str, entidad: str, codigo: str, estado_actual: str, permitidos: tuple[str, ...]) -> str:
     """"No se puede confirmar la compra COM-000003: está en estado anulada y
     solo se puede confirmar una compra pendiente."."""

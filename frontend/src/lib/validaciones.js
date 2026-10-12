@@ -16,6 +16,10 @@ export const MSG = {
   nombreCarta: "Solo letras, números, espacios y los signos . , - + & / ( ) %; sin espacios al inicio o al final",
   mesa: "Solo letras, números, espacios y guion (entre 1 y 20 caracteres)",
   hora: "Debe ser una hora en formato 24 h, p. ej. 06:30",
+  cantidadDecimal: "Debe ser una cantidad mayor que 0 con máximo 3 decimales (hasta 1.000.000)",
+  cantidadDecimalCero: "Debe ser una cantidad de 0 o más con máximo 3 decimales (hasta 1.000.000)",
+  costo: "Debe ser un costo de 0 o más con máximo 4 decimales",
+  merma: "La merma debe ser un porcentaje entre 0 y 90 con máximo 2 decimales",
   precio: "Debe ser un monto positivo con máximo 2 decimales (hasta $ 999.999.999,99)",
   porcentaje: "Debe ser un porcentaje entre 0 y 100",
   telefono: "Debe ser un celular de 10 dígitos que empiece por 3 o un fijo con indicativo (60 + 8 dígitos)",
@@ -134,6 +138,29 @@ export const esquemas = {
       .refine((s) => s.length <= 20 && MESA_RE.test(s), MSG.mesa),
 
   hora: () => z.string().refine((s) => HORA_RE.test(s), MSG.hora),
+
+  /** Cantidad de insumo (kg, L, unidades): hasta 3 decimales. */
+  cantidad: ({ permitirCero = false, obligatorio = true } = {}) => {
+    const mensaje = permitirCero ? MSG.cantidadDecimalCero : MSG.cantidadDecimal;
+    return z
+      .string()
+      .refine((s) => !obligatorio || s.trim() !== "", MSG.obligatorio)
+      .refine((s) => {
+        if (s.trim() === "") return true;
+        if (!/^\d+(\.\d{1,3})?$/.test(s.trim())) return false;
+        const n = Number(s);
+        return n <= 1_000_000 && (permitirCero ? n >= 0 : n > 0);
+      }, mensaje);
+  },
+
+  costo: ({ obligatorio = true } = {}) =>
+    z
+      .string()
+      .refine((s) => !obligatorio || s.trim() !== "", MSG.obligatorio)
+      .refine((s) => s.trim() === "" || (/^\d+(\.\d{1,4})?$/.test(s.trim()) && Number(s) <= 999_999_999.9999), MSG.costo),
+
+  merma: () =>
+    z.string().refine((s) => s.trim() === "" || (/^\d+(\.\d{1,2})?$/.test(s.trim()) && Number(s) <= 90), MSG.merma),
 
   sku: () =>
     z

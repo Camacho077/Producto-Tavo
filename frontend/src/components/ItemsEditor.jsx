@@ -24,7 +24,6 @@ export default function ItemsEditor({
   onCambiar,
   productos,
   precioSugerido = (p) => p.precio,
-  mostrarStock = false,
   etiquetaPrecio = "Precio unitario",
   errorDe = () => undefined,
   alSalir = () => {},
@@ -68,7 +67,6 @@ export default function ItemsEditor({
                   {productos.map((p) => (
                     <option key={p.id} value={p.id}>
                       {p.nombre}
-                      {mostrarStock ? ` (stock: ${p.stock})` : ""}
                     </option>
                   ))}
                 </Select>

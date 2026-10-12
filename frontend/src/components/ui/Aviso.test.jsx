@@ -17,7 +17,7 @@ import Aviso from "@/components/ui/Aviso";
 import { AvisoProvider, DURACION_MS, SALIDA_MS, useAviso } from "@/context/AvisoContext";
 import { api } from "@/lib/api";
 import { mensajeDeError } from "@/lib/errores";
-import { CategoriasLista } from "@/modules/compras/CategoriasPage";
+import { CategoriasLista } from "@/modules/carta/CategoriasPage";
 import { ConSesion } from "@/test/sesion";
 
 const PAGINA = (items) => ({ data: { items, total: items.length, pagina: 1, por_pagina: 10, paginas: 1 } });
@@ -151,11 +151,11 @@ describe("Alertas de error — dicen el porqué que devuelve el backend", () => 
 describe("Alertas conectadas a una pantalla real", () => {
   function montarListado() {
     return render(
-      <MemoryRouter initialEntries={["/compras/categorias"]}><ConSesion>
+      <MemoryRouter initialEntries={["/carta/categorias"]}><ConSesion>
         <AvisoProvider>
           <Aviso />
           <Routes>
-            <Route path="/compras/categorias" element={<CategoriasLista />} />
+            <Route path="/carta/categorias" element={<CategoriasLista />} />
           </Routes>
         </AvisoProvider>
       </ConSesion></MemoryRouter>

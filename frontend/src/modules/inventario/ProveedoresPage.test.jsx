@@ -9,7 +9,7 @@ vi.mock("@/lib/api", () => ({
 
 import { AvisoProvider } from "@/context/AvisoContext";
 import { api } from "@/lib/api";
-import { ProveedorDetalle, ProveedorNuevo, ProveedoresLista } from "@/modules/compras/ProveedoresPage";
+import { ProveedorDetalle, ProveedorNuevo, ProveedoresLista } from "@/modules/inventario/ProveedoresPage";
 import { ConSesion } from "@/test/sesion";
 
 const PAGINA = (items) => ({ data: { items, total: items.length, pagina: 1, por_pagina: 10, paginas: 1 } });
@@ -24,9 +24,9 @@ function montar(ruta) {
     <MemoryRouter initialEntries={[ruta]}><ConSesion>
       <AvisoProvider>
         <Routes>
-          <Route path="/compras/proveedores" element={<ProveedoresLista />} />
-          <Route path="/compras/proveedores/nuevo" element={<ProveedorNuevo />} />
-          <Route path="/compras/proveedores/:id" element={<ProveedorDetalle />} />
+          <Route path="/inventario/proveedores" element={<ProveedoresLista />} />
+          <Route path="/inventario/proveedores/nuevo" element={<ProveedorNuevo />} />
+          <Route path="/inventario/proveedores/:id" element={<ProveedorDetalle />} />
         </Routes>
       </AvisoProvider>
     </ConSesion></MemoryRouter>
@@ -40,7 +40,7 @@ function montar(ruta) {
 const TECLEO = { delay: null };
 
 const abrirNuevo = () => {
-  montar("/compras/proveedores/nuevo");
+  montar("/inventario/proveedores/nuevo");
   return screen;
 };
 
@@ -101,7 +101,7 @@ describe("Proveedor nuevo — validación y formulario condicional", () => {
       nombres: "María José",
       apellidos: "Gómez Pérez",
       telefono: "3001234567",
-      producto_ids: [],
+      insumo_ids: [],
     });
     expect(cuerpo).not.toHaveProperty("razon_social");
     expect(cuerpo).not.toHaveProperty("nit");
@@ -143,18 +143,18 @@ describe("Proveedor nuevo — validación y formulario condicional", () => {
   });
 });
 
-describe("Proveedor nuevo — productos que surte (selector con búsqueda)", () => {
-  it("busca productos en vivo, agrega fichas removibles y envía producto_ids", async () => {
+describe("Proveedor nuevo — insumos que surte (selector con búsqueda)", () => {
+  it("busca insumos en vivo, agrega fichas removibles y envía insumo_ids", async () => {
     const usuario = userEvent.setup(TECLEO);
     const PRODUCTOS = [
-      { id: "p1", nombre: "Martillo", sku: "MAR-1", stock: 0 },
-      { id: "p2", nombre: "Taladro", sku: "TAL-1", stock: 0 },
+      { id: "p1", nombre: "Martillo", grupo: "Abarrotes", unidad: "kg", existencia: "0" },
+      { id: "p2", nombre: "Taladro", grupo: "Abarrotes", unidad: "kg", existencia: "0" },
     ];
-    api.get.mockImplementation((url) => (url === "/compras/productos" ? Promise.resolve(PAGINA(PRODUCTOS)) : Promise.resolve(PAGINA([]))));
+    api.get.mockImplementation((url) => (url === "/inventario/insumos" ? Promise.resolve(PAGINA(PRODUCTOS)) : Promise.resolve(PAGINA([]))));
     api.post.mockResolvedValue({ data: { id: "1" } });
     const d = abrirNuevo();
 
-    const buscador = d.getByLabelText("Buscar producto por nombre o SKU...");
+    const buscador = d.getByLabelText("Buscar insumo por nombre o grupo...");
     await usuario.click(buscador);
     expect(await d.findByRole("option", { name: /Martillo/ })).toBeInTheDocument();
     await usuario.click(d.getByRole("option", { name: /Martillo/ }));
@@ -176,12 +176,12 @@ describe("Proveedor nuevo — productos que surte (selector con búsqueda)", () 
     await usuario.click(d.getByRole("button", { name: "Guardar" }));
 
     await waitFor(() => expect(api.post).toHaveBeenCalledTimes(1));
-    expect(api.post.mock.calls[0][1].producto_ids).toEqual(["p1"]);
+    expect(api.post.mock.calls[0][1].insumo_ids).toEqual(["p1"]);
   });
 });
 
 describe("Proveedor — detalle", () => {
-  it("lista los productos que surte y enlaza a cada uno", async () => {
+  it("lista los insumos que surte y enlaza a cada uno", async () => {
     api.get.mockResolvedValue({
       data: {
         id: "1",
@@ -191,13 +191,14 @@ describe("Proveedor — detalle", () => {
         nit: "890903938-8",
         activo: true,
         compras_count: 2,
-        productos: [{ id: "p1", nombre: "Martillo", sku: "MAR-1", stock: 12 }],
+        insumos: [{ id: "p1", nombre: "Martillo", unidad: "kg", existencia: "12" }],
         created_at: "2026-01-01T00:00:00Z",
       },
     });
-    montar("/compras/proveedores/1");
+    montar("/inventario/proveedores/1");
     expect(await screen.findByRole("heading", { level: 1, name: "Distribuidora Andina" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Martillo" })).toHaveAttribute("href", "/compras/productos/p1");
+    expect(screen.getByRole("link", { name: "Martillo" })).toHaveAttribute("href", "/inventario/insumos/p1");
+    expect(screen.getByText("12 kg")).toBeInTheDocument();
     expect(screen.queryByRole("dialog")).toBeNull();
   });
 });

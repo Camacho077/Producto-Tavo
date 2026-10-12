@@ -26,13 +26,12 @@ def admin_con_plan(tenant_factory, usuario_factory, auth_headers_factory):
     return _crear
 
 
-def test_plan_basico_bloquea_compras_ventas_e_ia_con_la_causa(client, admin_con_plan):
+def test_plan_basico_bloquea_inventario_e_ia_con_la_causa(client, admin_con_plan):
     h = admin_con_plan("basico")
     for ruta, grupo in (
-        ("/api/v1/compras/compras", "Compras"),
-        ("/api/v1/compras/productos", "Compras"),
-        ("/api/v1/ventas/ventas", "Ventas"),
-        ("/api/v1/ventas/pedidos", "Ventas"),
+        ("/api/v1/compras/compras", "el Inventario"),
+        ("/api/v1/inventario/insumos", "el Inventario"),
+        ("/api/v1/compras/proveedores", "el Inventario"),
         ("/api/v1/ia/sugerencias", "las Sugerencias IA"),
     ):
         r = client.get(ruta, headers=h)
@@ -40,16 +39,19 @@ def test_plan_basico_bloquea_compras_ventas_e_ia_con_la_causa(client, admin_con_
         assert f"El plan Básico de tu empresa no incluye {grupo}" in r.json()["detail"], ruta
 
 
-def test_plan_basico_si_usa_dashboard_y_seguridad(client, admin_con_plan):
+def test_plan_basico_si_usa_carta_caja_dashboard_y_seguridad(client, admin_con_plan):
+    """Un restaurante no opera sin carta, órdenes y caja: van desde Básico."""
     h = admin_con_plan("basico")
+    assert client.get("/api/v1/catalogo/productos", headers=h).status_code == 200
+    assert client.get("/api/v1/ventas/ventas", headers=h).status_code == 200
     assert client.get("/api/v1/dashboard/panel?periodo=mes", headers=h).status_code == 200
     assert client.get("/api/v1/seguridad/usuarios", headers=h).status_code == 200
     assert client.get("/api/v1/seguridad/roles", headers=h).status_code == 200
 
 
-def test_plan_estandar_usa_compras_y_ventas_pero_no_la_ia(client, admin_con_plan):
+def test_plan_estandar_usa_inventario_pero_no_la_ia(client, admin_con_plan):
     h = admin_con_plan("estandar")
-    assert client.get("/api/v1/compras/productos", headers=h).status_code == 200
+    assert client.get("/api/v1/inventario/insumos", headers=h).status_code == 200
     assert client.get("/api/v1/ventas/ventas", headers=h).status_code == 200
     r = client.get("/api/v1/ia/sugerencias", headers=h)
     assert r.status_code == 403

@@ -100,7 +100,7 @@ def test_error_500_no_controlado_trae_header_cors(client):
     # verificación de permisos): forzar su fallo simula un error no controlado.
     app.dependency_overrides[get_current_usuario] = _dependencia_que_falla
     try:
-        resp = client.get("/api/v1/compras/categorias", headers={"Origin": ORIGIN})
+        resp = client.get("/api/v1/catalogo/categorias", headers={"Origin": ORIGIN})
     finally:
         app.dependency_overrides.pop(get_current_usuario, None)
 
