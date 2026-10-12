@@ -17,13 +17,28 @@ const DIGITO_RE = /[0-9]/;
 const ALFANUM_RE = /[A-Za-z0-9]/;
 const SKU_RE = /[A-Za-z0-9_-]/;
 const CORREO_RE = /[A-Za-z0-9@._%+-]/;
+const CARTA_RE = /[A-Za-zÁÉÍÓÚÜÑáéíóúüñ0-9' .,\-+&/()%]/;
+const MESA_RE = /[A-Za-zÁÉÍÓÚÜÑáéíóúüñ0-9 -]/;
 
 const soloDigitos = (t) => t.replace(/\D/g, "");
 
 export const FILTROS = {
-  // Nombres de persona, producto, categoría, marca, razón social, rol.
+  // Nombres de persona, categoría, razón social, rol.
   nombre: {
     admite: (c) => LETRA_RE.test(c),
+  },
+
+  // Nombres de la carta (platos, insumos, combos, zonas, negocio): letras,
+  // dígitos y los signos . , - + & / ( ) % — "Gaseosa 400 ml", "Pollo 1/4".
+  carta: {
+    admite: (c) => CARTA_RE.test(c),
+  },
+
+  // Mesas: "B2", "Terraza 3", en mayúsculas.
+  mesa: {
+    admite: (c) => MESA_RE.test(c),
+    normalizarCaracter: (c) => c.toUpperCase(),
+    maximo: 20,
   },
 
   // Stock, cantidades: dígitos, sin signo ni decimales.

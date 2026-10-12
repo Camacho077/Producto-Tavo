@@ -61,12 +61,88 @@ que una entrada nueva diga lo contrario.
   verdad: rutas, tablas con migración, tests, menú); Compras → compra de
   INSUMOS; Ventas → Caja; Pedidos → Órdenes de pedido con comanda;
   Proveedores, Usuarios, Roles, Dashboard e IA se adaptan.
-- **Plan por fases** (una rama por fase, tests + build al cerrar cada una):
-  0 duplicado y puertos · 1 catálogo, insumos y recetas (costo y margen) ·
-  2 inventario y carga inicial · 3 órdenes y comanda (impresión 80 mm detrás
-  de una interfaz; se pregunta impresora y equipo antes de cerrar) ·
-  4 pantalla de cocina · 5 caja · 6 vistas por rol · 7 dashboard y reportes ·
-  8 IA · 9 dictado por voz · 10 n8n · 11 datos de prueba · 12 pruebas.
+- **Plan por fases** (numeración del "super prompt" del usuario del
+  2026-10-12; una rama por fase, tests + build al cerrar cada una; las ramas
+  se apilan: cada una sale de la anterior y nada va a `main` sin aprobación):
+  0 verificar la base · 1 adaptar la base al restaurante (branding, sin
+  Marcas, Ajustes) · 2 catálogo, insumos y recetas (costo y margen) ·
+  3 inventario, compras de insumos y carga inicial · 4 órdenes y comanda
+  (impresión 80 mm detrás de una interfaz; se pregunta impresora y equipo
+  antes de cerrar) · 5 pantalla de cocina · 6 caja, ventas y gastos ·
+  7 vistas por rol y PWA · 8 dashboard y reportes · 9 IA · 10 dictado por
+  voz · 11 n8n · 12 datos de prueba · 13 pruebas y cierre.
+
+### 2026-10-12 — Fase 0 verificada (sesión del super prompt)
+
+Repositorio propio (`Camacho077/Producto-Tavo`, sin remoto compartido),
+puertos 5175/4175/8002/5433/5679, contenedores y volúmenes `tavo-*` con
+`infra-db-1` del Producto JS intacto, `strictPort`, `Settings.PORT = 8002`,
+`verificar-puertos.ps1` (detecta reserva de Windows, proceso y contenedor),
+CORS con `Access-Control-Allow-Origin` también en los 401, y login 200.
+Línea base: backend 499 pruebas, frontend 227. Para desarrollar se usan
+backend y Vite LOCALES (`.claude/launch.json`); los contenedores
+`tavo-backend`/`tavo-frontend` llevan el código del momento en que se
+construyó la imagen y se detienen mientras tanto (Postgres y n8n siguen en
+Docker).
+
+### 2026-10-12 — Fase 1: la base adaptada al restaurante
+
+**Hecho**
+- **Branding en un archivo**: `frontend/src/config/branding.jsx` (nombre
+  "JS Restaurante", lema y logo provisional: una campana de servicio en un
+  sello, monocromo, `currentColor`). Espejo del nombre en
+  `backend/app/core/branding.py` (PDF, título de la API) y
+  `tests/test_ajustes.py` exige que coincidan. Login, registro, sidebar,
+  barra y `<title>` ya dicen "JS Restaurante"; "JS Company" queda solo como
+  la empresa que presta el servicio (soporte, documentos legales).
+- **Marcas eliminada de verdad**: modelo, rutas, esquemas, pantalla, menú,
+  permiso, seed y pruebas; migración `c1f0a1b2c3d4` borra
+  `productos.marca_id`, la tabla `marcas` y el permiso guardado en los roles.
+- **Ajustes del restaurante** (módulo `ajustes`, backend y frontend):
+  datos del negocio (nombre, NIT con DV, dirección, ciudad, teléfono,
+  correo, logo), configuración operativa (tipos de orden, orígenes, medios
+  de pago, impuesto al consumo, propina sugerida, alerta y sonido de cocina,
+  jornada, impresoras) y mesas por zona. Pantallas: `/ajustes` (detalle),
+  `/ajustes/negocio/editar`, `/ajustes/operacion/editar`, `/ajustes/mesas`
+  (+ nuevo/detalle/editar) y `/ajustes/zonas` (+ nuevo/detalle/editar).
+- Menú: "Ventas" se presenta como **Caja** y "Pedidos" como **Órdenes**
+  (las rutas y permisos viejos siguen hasta que sus fases los reemplacen),
+  grupo nuevo **Ajustes**. Roles de ejemplo de una empresa nueva: Cajero,
+  Mesero y Cocinero (las empresas existentes conservan sus roles).
+
+**Decidido**
+- **Imágenes procesadas en el servidor y guardadas en la base**
+  (`imagenes`, `app/modules/imagenes`): JPG/PNG/WebP de hasta 5 MB y 40
+  megapíxeles, formato real comprobado con Pillow (no el Content-Type),
+  orientación EXIF, platos recortados al cuadrado a 640 px y logos dentro de
+  600 × 300, todo a WebP calidad 80 (medido: PNG 1200×500 de 32 KB → 3,3 KB).
+  Se suben como cuerpo CRUDO con su Content-Type (sin `python-multipart`).
+  Se sirven por `GET /imagenes/{id}` **sin sesión** (un `<img>` no manda el
+  token): son fotos de la carta y logos, el id es un UUID aleatorio y la
+  respuesta es inmutable (reemplazar crea otra imagen y borra la vieja).
+  `pillow==12.3.0` queda fijado (ya venía con reportlab).
+- **Configuración en `Tenant.configuracion` (JSON) leída SIEMPRE por su
+  esquema** (`ConfiguracionRestaurante`): cada campo tiene valor por
+  defecto, y si algo guardado deja de validar se descarta ESE campo, no
+  todo. `/seguridad/me` la entrega junto a los datos del negocio: la toma
+  de pedidos y la comanda la usan aunque el rol no pueda ver Ajustes.
+- **Jornada**: empieza a la hora de inicio EN COLOMBIA; antes de esa hora
+  sigue siendo la jornada del día anterior (un servicio que pasa de
+  medianoche no reinicia el consecutivo). `fecha_jornada` /
+  `limites_jornada` en `app/modules/ajustes/services.py`.
+- **Nombres de la carta** (platos, insumos, combos, zonas, impresoras,
+  negocio): letras, dígitos y `. , - + & / ( ) %` ("Gaseosa 400 ml",
+  "Pollo 1/4"); filtro de teclado `permitir="carta"`. Mesas: letras,
+  dígitos, espacio y guion, en mayúsculas (`permitir="mesa"`). Los nombres
+  de persona y de categoría siguen con la regla de solo letras.
+- **Impresoras**: conexión `navegador` (diálogo de impresión, CSS de 58/80
+  mm) o `ip` (ESC/POS directo, para el conector futuro). El valor es "ip" y
+  no "red": la guarda de paleta trata "red" como un color con nombre.
+- El mesero no edita ajustes pero ve mesas (`mesas.ver`).
+
+**Sigue (fase 2)**: catálogo de platos (sin stock: el inventario pasa a los
+INSUMOS), modificadores, combos, imágenes de plato, insumos con unidades y
+recetas con costo, margen y porcentaje de costo.
 
 ---
 
@@ -973,6 +1049,7 @@ skill (Impeccable desaconseja Inter; aquí no se cambia).
 
 | Fecha | Decisión / hito |
 |---|---|
+| 2026-10-12 | Fase 1: branding en un archivo ("JS Restaurante"), Marcas eliminada, Ajustes del restaurante (negocio, logo, operación, impresoras, jornada, zonas y mesas), imágenes WebP procesadas en el servidor (§0) |
 | 2026-10-12 | **Producto Tavo** nace como copia del Producto JS (`8146ea0`) en repo propio; mapa de puertos 5175/4175/8002/5433/5679, Docker aislado (`name: tavo`), scripts que no tocan al otro producto, `verificar-puertos.ps1`, guarda contra `uvicorn` a secas (§0, §1) |
 | 2026-09-15 | Fase 0: limpieza de código muerto y origen único de estilos |
 | 2026-09-18 | Movimiento: "solo cuatro animaciones" (sustituida) |

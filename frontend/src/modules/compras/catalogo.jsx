@@ -36,7 +36,7 @@ const ESQUEMA = z.object({
 const FORM_VACIO = { nombre: "", descripcion: "" };
 
 /**
- * Pantallas de un catálogo simple (Categorías y Marcas): listado, crear,
+ * Pantallas de un catálogo simple (Categorías): listado, crear,
  * detalle y editar, cada una con su ruta. Solo cambiar estado y eliminar
  * siguen siendo diálogos de confirmación.
  *

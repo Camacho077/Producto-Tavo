@@ -63,12 +63,6 @@ const CategoriaNueva = pantalla(modCategorias, "CategoriaNueva");
 const CategoriaDetalle = pantalla(modCategorias, "CategoriaDetalle");
 const CategoriaEditar = pantalla(modCategorias, "CategoriaEditar");
 
-const modMarcas = modulo(() => import("@/modules/compras/MarcasPage"));
-const MarcasLista = pantalla(modMarcas, "MarcasLista");
-const MarcaNueva = pantalla(modMarcas, "MarcaNueva");
-const MarcaDetalle = pantalla(modMarcas, "MarcaDetalle");
-const MarcaEditar = pantalla(modMarcas, "MarcaEditar");
-
 const modProveedores = modulo(() => import("@/modules/compras/ProveedoresPage"));
 const ProveedoresLista = pantalla(modProveedores, "ProveedoresLista");
 const ProveedorNuevo = pantalla(modProveedores, "ProveedorNuevo");
@@ -98,11 +92,25 @@ const RolNuevo = pantalla(modRoles, "RolNuevo");
 const RolDetalle = pantalla(modRoles, "RolDetalle");
 const RolEditar = pantalla(modRoles, "RolEditar");
 
+const modAjustes = modulo(() => import("@/modules/ajustes/AjustesPage"));
+const AjustesDetalle = pantalla(modAjustes, "AjustesDetalle");
+const NegocioEditar = pantalla(modAjustes, "NegocioEditar");
+const OperacionEditar = pantalla(modAjustes, "OperacionEditar");
+
+const modMesas = modulo(() => import("@/modules/ajustes/MesasPage"));
+const MesasLista = pantalla(modMesas, "MesasLista");
+const MesaNueva = pantalla(modMesas, "MesaNueva");
+const MesaDetalle = pantalla(modMesas, "MesaDetalle");
+const MesaEditar = pantalla(modMesas, "MesaEditar");
+const ZonasLista = pantalla(modMesas, "ZonasLista");
+const ZonaNueva = pantalla(modMesas, "ZonaNueva");
+const ZonaDetalle = pantalla(modMesas, "ZonaDetalle");
+const ZonaEditar = pantalla(modMesas, "ZonaEditar");
+
 /** Qué módulo pinta cada ruta, del prefijo más específico al más general. */
 const MODULO_POR_RUTA = [
   ["/compras/productos", modProductos],
   ["/compras/categorias", modCategorias],
-  ["/compras/marcas", modMarcas],
   ["/compras/proveedores", modProveedores],
   ["/compras", modComprasPage],
   ["/ventas/pedidos", modPedidos],
@@ -110,6 +118,9 @@ const MODULO_POR_RUTA = [
   ["/seguridad/roles", modRoles],
   ["/seguridad", modUsuarios],
   ["/ia", modIa],
+  ["/ajustes/mesas", modMesas],
+  ["/ajustes/zonas", modMesas],
+  ["/ajustes", modAjustes],
 ];
 
 /** Con sesión guardada, adelanta el marco y la pantalla de la ruta inicial. */
@@ -195,11 +206,6 @@ export default function App() {
                     <Route path="/compras/categorias/:id" element={<ConPermiso modulo="categorias" accion="ver"><CategoriaDetalle /></ConPermiso>} />
                     <Route path="/compras/categorias/:id/editar" element={<ConPermiso modulo="categorias" accion="editar"><CategoriaEditar /></ConPermiso>} />
 
-                    <Route path="/compras/marcas" element={<ConPermiso modulo="marcas" accion="ver"><MarcasLista /></ConPermiso>} />
-                    <Route path="/compras/marcas/nuevo" element={<ConPermiso modulo="marcas" accion="crear"><MarcaNueva /></ConPermiso>} />
-                    <Route path="/compras/marcas/:id" element={<ConPermiso modulo="marcas" accion="ver"><MarcaDetalle /></ConPermiso>} />
-                    <Route path="/compras/marcas/:id/editar" element={<ConPermiso modulo="marcas" accion="editar"><MarcaEditar /></ConPermiso>} />
-
                     <Route path="/compras/proveedores" element={<ConPermiso modulo="proveedores" accion="ver"><ProveedoresLista /></ConPermiso>} />
                     <Route path="/compras/proveedores/nuevo" element={<ConPermiso modulo="proveedores" accion="crear"><ProveedorNuevo /></ConPermiso>} />
                     <Route path="/compras/proveedores/:id" element={<ConPermiso modulo="proveedores" accion="ver"><ProveedorDetalle /></ConPermiso>} />
@@ -225,6 +231,20 @@ export default function App() {
                     <Route path="/seguridad/roles/:id/editar" element={<ConPermiso modulo="roles" accion="editar"><RolEditar /></ConPermiso>} />
 
                     <Route path="/ia" element={<ConPermiso modulo="ia" accion="ver"><IaPage /></ConPermiso>} />
+
+                    <Route path="/ajustes" element={<ConPermiso modulo="ajustes" accion="ver"><AjustesDetalle /></ConPermiso>} />
+                    <Route path="/ajustes/negocio" element={<Navigate to="/ajustes" replace />} />
+                    <Route path="/ajustes/negocio/editar" element={<ConPermiso modulo="ajustes" accion="editar"><NegocioEditar /></ConPermiso>} />
+                    <Route path="/ajustes/operacion" element={<Navigate to="/ajustes" replace />} />
+                    <Route path="/ajustes/operacion/editar" element={<ConPermiso modulo="ajustes" accion="editar"><OperacionEditar /></ConPermiso>} />
+                    <Route path="/ajustes/mesas" element={<ConPermiso modulo="mesas" accion="ver"><MesasLista /></ConPermiso>} />
+                    <Route path="/ajustes/mesas/nuevo" element={<ConPermiso modulo="mesas" accion="crear"><MesaNueva /></ConPermiso>} />
+                    <Route path="/ajustes/mesas/:id" element={<ConPermiso modulo="mesas" accion="ver"><MesaDetalle /></ConPermiso>} />
+                    <Route path="/ajustes/mesas/:id/editar" element={<ConPermiso modulo="mesas" accion="editar"><MesaEditar /></ConPermiso>} />
+                    <Route path="/ajustes/zonas" element={<ConPermiso modulo="mesas" accion="ver"><ZonasLista /></ConPermiso>} />
+                    <Route path="/ajustes/zonas/nuevo" element={<ConPermiso modulo="mesas" accion="crear"><ZonaNueva /></ConPermiso>} />
+                    <Route path="/ajustes/zonas/:id" element={<ConPermiso modulo="mesas" accion="ver"><ZonaDetalle /></ConPermiso>} />
+                    <Route path="/ajustes/zonas/:id/editar" element={<ConPermiso modulo="mesas" accion="editar"><ZonaEditar /></ConPermiso>} />
                     <Route path="*" element={<Navigate to="/" replace />} />
                   </Route>
                 </Route>

@@ -20,24 +20,28 @@ beforeEach(() => {
 });
 
 describe("Sidebar con grupos desplegables", () => {
-  it("muestra los grupos Compras, Ventas y Seguridad con sus submódulos", () => {
+  it("muestra los grupos Compras, Caja, Seguridad y Ajustes con sus submódulos", () => {
     renderizar();
     const grupo = screen.getByRole("button", { name: /compras/i });
     expect(grupo).toHaveAttribute("aria-expanded", "false");
 
     fireEvent.click(grupo);
     expect(grupo).toHaveAttribute("aria-expanded", "true");
-    for (const nombre of ["Productos", "Categorías", "Marcas", "Proveedores"]) {
+    for (const nombre of ["Productos", "Categorías", "Proveedores"]) {
       expect(screen.getByRole("link", { name: nombre })).toHaveAttribute("href", expect.stringContaining("/compras/"));
     }
 
-    fireEvent.click(screen.getByRole("button", { name: /ventas/i }));
-    expect(screen.getByRole("link", { name: "Pedidos" })).toHaveAttribute("href", "/ventas/pedidos");
+    fireEvent.click(screen.getByRole("button", { name: /caja/i }));
+    expect(screen.getByRole("link", { name: "Órdenes" })).toHaveAttribute("href", "/ventas/pedidos");
 
 
     fireEvent.click(screen.getByRole("button", { name: /seguridad/i }));
     expect(screen.getByRole("link", { name: "Usuarios" })).toHaveAttribute("href", "/seguridad/usuarios");
     expect(screen.getByRole("link", { name: "Roles" })).toHaveAttribute("href", "/seguridad/roles");
+
+    fireEvent.click(screen.getByRole("button", { name: /ajustes/i }));
+    expect(screen.getByRole("link", { name: "Restaurante" })).toHaveAttribute("href", "/ajustes");
+    expect(screen.getByRole("link", { name: "Mesas" })).toHaveAttribute("href", "/ajustes/mesas");
   });
 
   it("el chevron rota al abrir el grupo", () => {
@@ -50,26 +54,26 @@ describe("Sidebar con grupos desplegables", () => {
   });
 
   it("al cargar TODOS los grupos están cerrados, aunque la ruta sea de un grupo", () => {
-    renderizar("/compras/marcas");
-    for (const nombre of [/compras/i, /ventas/i, /seguridad/i]) {
+    renderizar("/compras/proveedores");
+    for (const nombre of [/compras/i, /caja/i, /seguridad/i, /ajustes/i]) {
       expect(screen.getByRole("button", { name: nombre })).toHaveAttribute("aria-expanded", "false");
     }
-    expect(screen.queryByRole("link", { name: "Marcas" })).toBeNull();
+    expect(screen.queryByRole("link", { name: "Proveedores" })).toBeNull();
   });
 
   it("no recuerda el grupo abierto entre recargas", () => {
     const { unmount } = renderizar();
-    fireEvent.click(screen.getByRole("button", { name: /ventas/i }));
+    fireEvent.click(screen.getByRole("button", { name: /caja/i }));
     unmount();
 
     renderizar();
-    expect(screen.getByRole("button", { name: /ventas/i })).toHaveAttribute("aria-expanded", "false");
+    expect(screen.getByRole("button", { name: /caja/i })).toHaveAttribute("aria-expanded", "false");
   });
 
   it("solo un grupo abierto a la vez: abrir uno cierra el anterior", () => {
     renderizar();
     const compras = screen.getByRole("button", { name: /compras/i });
-    const ventas = screen.getByRole("button", { name: /ventas/i });
+    const ventas = screen.getByRole("button", { name: /caja/i });
     fireEvent.click(compras);
     expect(compras).toHaveAttribute("aria-expanded", "true");
     fireEvent.click(ventas);
@@ -81,9 +85,9 @@ describe("Sidebar con grupos desplegables", () => {
   });
 
   it("al abrir el grupo de la ruta actual marca el submódulo activo", () => {
-    renderizar("/compras/marcas");
+    renderizar("/compras/proveedores");
     fireEvent.click(screen.getByRole("button", { name: /compras/i }));
-    expect(screen.getByRole("link", { name: "Marcas" })).toHaveClass("sidebar__activo");
+    expect(screen.getByRole("link", { name: "Proveedores" })).toHaveClass("sidebar__activo");
   });
 
   it("hay UN solo indicador del ítem activo (se desliza, no aparece en cada ítem)", () => {
@@ -97,7 +101,7 @@ describe("Sidebar con grupos desplegables", () => {
   });
 
   it("con la ruta dentro de un grupo cerrado, el indicador (cara sutil) va a la cabecera; abierto, al submódulo", () => {
-    const { container } = renderizar("/compras/marcas");
+    const { container } = renderizar("/compras/proveedores");
     const indicador = container.querySelector(".sidebar__indicador");
     expect(indicador.dataset.cara).toBe("sutil");
     fireEvent.click(screen.getByRole("button", { name: /compras/i }));
@@ -119,10 +123,10 @@ describe("Sidebar con grupos desplegables", () => {
     expect(screen.queryByRole("link", { name: "Productos" })).toBeNull();
   });
 
-  it("oculta Compras y Ventas en el plan básico", () => {
+  it("oculta Compras y Caja en el plan básico", () => {
     renderizar("/", "basico");
     expect(screen.queryByRole("button", { name: /compras/i })).toBeNull();
-    expect(screen.queryByRole("button", { name: /ventas/i })).toBeNull();
+    expect(screen.queryByRole("button", { name: /caja/i })).toBeNull();
     expect(screen.getByRole("button", { name: /seguridad/i })).toBeInTheDocument();
   });
 });

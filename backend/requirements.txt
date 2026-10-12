@@ -18,3 +18,6 @@ bcrypt==4.0.1
 python-dotenv==1.2.3
 email-validator==2.3.0
 reportlab==5.0.1
+# Imágenes de platos y logos: validar, recortar y comprimir a WebP en el
+# servidor (2026-10-12). Ya venía como dependencia de reportlab; se fija.
+pillow==12.3.0

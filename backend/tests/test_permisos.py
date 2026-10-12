@@ -42,11 +42,27 @@ ESPERADO = {
     ("GET", "/dashboard/avisos"): ("dashboard", "ver"),
     ("GET", "/ia/sugerencias"): ("ia", "ver"),
     ("GET", "/ia/status"): ("ia", "ver"),
+    ("GET", "/ajustes/negocio"): ("ajustes", "ver"),
+    ("PUT", "/ajustes/negocio"): ("ajustes", "editar"),
+    ("PUT", "/ajustes/negocio/logo"): ("ajustes", "editar"),
+    ("DELETE", "/ajustes/negocio/logo"): ("ajustes", "editar"),
+    ("GET", "/ajustes/restaurante"): ("ajustes", "ver"),
+    ("PUT", "/ajustes/restaurante"): ("ajustes", "editar"),
+    ("GET", "/ajustes/zonas"): ("mesas", "ver"),
+    ("GET", "/ajustes/zonas/{zona_id}"): ("mesas", "ver"),
+    ("POST", "/ajustes/zonas"): ("mesas", "crear"),
+    ("PUT", "/ajustes/zonas/{zona_id}"): ("mesas", "editar"),
+    ("DELETE", "/ajustes/zonas/{zona_id}"): ("mesas", "eliminar"),
+    ("GET", "/ajustes/mesas"): ("mesas", "ver"),
+    ("GET", "/ajustes/mesas/{mesa_id}"): ("mesas", "ver"),
+    ("POST", "/ajustes/mesas"): ("mesas", "crear"),
+    ("PUT", "/ajustes/mesas/{mesa_id}"): ("mesas", "editar"),
+    ("PATCH", "/ajustes/mesas/{mesa_id}/estado"): ("mesas", "cambiar_estado"),
+    ("DELETE", "/ajustes/mesas/{mesa_id}"): ("mesas", "eliminar"),
     **{
         (metodo, ruta.format(r=recurso, id=f"{{{singular}_id}}")): (modulo, accion)
         for recurso, singular, modulo in (
             ("categorias", "categoria", "categorias"),
-            ("marcas", "marca", "marcas"),
             ("proveedores", "proveedor", "proveedores"),
             ("productos", "producto", "productos"),
         )
@@ -87,11 +103,14 @@ SIN_PERMISO = {
     ("POST", "/seguridad/login"),  # público: es la puerta de entrada
     ("POST", "/seguridad/registro"),  # público: alta de una empresa nueva
     ("GET", "/seguridad/me"),  # todo usuario activo puede saber quién es
+    # Un <img> no manda el token; son fotos de la carta y logos, por UUID
+    # aleatorio (app/modules/imagenes/router.py).
+    ("GET", "/imagenes/{imagen_id}"),
 }
 
 
 def _rutas_de_negocio():
-    for modulo in ("seguridad", "dashboard", "compras", "ventas", "ia"):
+    for modulo in ("seguridad", "dashboard", "compras", "ventas", "ia", "ajustes", "imagenes"):
         router = importlib.import_module(f"app.modules.{modulo}.router").router
         for ruta in router.routes:
             for metodo in ruta.methods - {"HEAD", "OPTIONS"}:
@@ -133,7 +152,7 @@ def test_toda_ruta_de_negocio_exige_el_permiso_esperado():
 
 
 def test_el_catalogo_cubre_los_modulos_pedidos():
-    for modulo in ("compras", "productos", "categorias", "marcas", "proveedores", "ventas", "pedidos", "usuarios", "roles", "dashboard"):
+    for modulo in ("compras", "productos", "categorias", "proveedores", "ventas", "pedidos", "usuarios", "roles", "dashboard", "ajustes", "mesas"):
         assert modulo in CATALOGO
     # Cada par usado en ESPERADO existe en el catálogo.
     for modulo, accion in ESPERADO.values():
@@ -217,7 +236,8 @@ def dos_empresas(client, tenant_factory, usuario_factory, auth_headers_factory):
         return r.json()
 
     cat = crear("/compras/categorias", {"nombre": "Bebidas"})
-    marca = crear("/compras/marcas", {"nombre": "Marca Propia"})
+    zona = crear("/ajustes/zonas", {"nombre": "Terraza"})
+    mesa = crear("/ajustes/mesas", {"nombre": "B2", "zona_id": zona["id"]})
     prov = crear("/compras/proveedores", {"tipo_persona": "juridica", "nit": "890903938-8", "razon_social": "Proveedor de Pruebas", "representante_nombre": "Ana Prueba"})
     prod = crear("/compras/productos", {"nombre": "Gaseosa", "sku": "GAS-1", "precio": "3000", "precio_compra": "1800"})
     compra = crear("/compras/compras", {"proveedor_id": prov["id"], "fecha": "2026-01-01T09:00:00", "confirmar": True, "items": [{"producto_id": prod["id"], "cantidad": 10, "precio_unitario": "1800"}]})
@@ -227,7 +247,7 @@ def dos_empresas(client, tenant_factory, usuario_factory, auth_headers_factory):
     usuario = crear("/seguridad/usuarios", {"nombre_completo": "Pedro Pérez", "email": f"{uuid.uuid4().hex[:8]}@a.com", "password": "clave-segura-123", "rol_id": rol["id"]})
 
     ids = {
-        "categoria_id": cat["id"], "marca_id": marca["id"], "proveedor_id": prov["id"], "producto_id": prod["id"],
+        "categoria_id": cat["id"], "zona_id": zona["id"], "mesa_id": mesa["id"], "proveedor_id": prov["id"], "producto_id": prod["id"],
         "compra_id": compra["id"], "venta_id": venta["id"], "pedido_id": pedido["id"], "rol_id": rol["id"], "usuario_id": usuario["id"],
     }
     return ha, hb, ids
@@ -236,7 +256,8 @@ def dos_empresas(client, tenant_factory, usuario_factory, auth_headers_factory):
 # Cuerpos VÁLIDOS: si el cuerpo fuera inválido, un 422 escondería una fuga.
 CUERPOS = {
     ("PUT", "categoria_id"): {"nombre": "Robada"},
-    ("PUT", "marca_id"): {"nombre": "Robada"},
+    ("PUT", "zona_id"): {"nombre": "Robada"},
+    ("PUT", "mesa_id"): {"nombre": "ROBADA"},
     ("PUT", "proveedor_id"): {"razon_social": "Robada SAS"},
     ("PUT", "producto_id"): {"nombre": "Robado"},
     ("PUT", "pedido_id"): {"prioridad": "baja"},
@@ -269,12 +290,12 @@ def test_otra_empresa_recibe_404_y_nunca_datos_ajenos(metodo, path, param, clien
         base = path.split("/{")[0]
         dueno = client.get(f"{API}{base}/{ids[param]}", headers=ha)
         assert dueno.status_code == 200
-        assert "Robad" not in dueno.text
+        assert "robad" not in dueno.text.lower()
 
 
 def test_los_listados_de_otra_empresa_no_traen_nada_ajeno(client, dos_empresas):
     ha, hb, ids = dos_empresas
-    for ruta in ("/compras/categorias", "/compras/marcas", "/compras/proveedores", "/compras/productos",
+    for ruta in ("/compras/categorias", "/ajustes/zonas", "/ajustes/mesas", "/compras/proveedores", "/compras/productos",
                  "/compras/compras", "/ventas/ventas", "/ventas/pedidos", "/seguridad/usuarios", "/seguridad/roles"):
         texto = client.get(f"{API}{ruta}", headers=hb).text
         for valor in ids.values():
@@ -393,7 +414,7 @@ def test_el_registro_crea_administrador_y_roles_de_ejemplo(client, db_session):
     assert me["es_administrador"] is True
     assert me["permisos"] == todos_los_permisos()
     roles = {r.nombre: r for r in db_session.query(Rol).filter(Rol.tenant_id == me["tenant"]["id"]).all()}
-    assert set(roles) == {"Administrador", "Cajero", "Bodega"}
+    assert set(roles) == {"Administrador", "Cajero", "Mesero", "Cocinero"}
     assert roles["Administrador"].es_administrador and not roles["Cajero"].es_administrador
     assert roles["Cajero"].permisos == ROLES_DE_EJEMPLO["Cajero"][1]
 

@@ -1,0 +1,45 @@
+/* Ajustes del restaurante (CSS de ruta: cada selector empieza por una clase
+   propia, ver css-por-ruta.test.js). */
+@layer components {
+  .ajustes-logo {
+    display: block;
+    max-width: 100%;
+    max-height: 120px;
+    object-fit: contain;
+  }
+
+  /* Una impresora dentro del formulario de operación: bloque con borde. */
+  .ajustes-impresora {
+    display: grid;
+    gap: 1rem;
+    padding: 12px;
+    border: var(--borde-fino) solid var(--borde);
+    border-radius: 12px;
+  }
+  .ajustes-impresora__cabeza {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--texto-secundario);
+  }
+
+  /* Casilla en la misma fila que un campo con etiqueta: baja a su altura. */
+  .ajustes-casilla-alineada {
+    display: flex;
+    align-items: center;
+    min-height: 36px;
+    margin-top: 22px;
+  }
+  @media (max-width: 640px) {
+    .ajustes-casilla-alineada {
+      margin-top: 0;
+    }
+  }
+
+  /* Mesas: chip de zona en la tabla. */
+  .ajustes-zona {
+    color: var(--texto-secundario);
+  }
+}

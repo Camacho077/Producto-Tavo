@@ -57,9 +57,7 @@ def serializar_producto(p: models.Producto) -> dict:
         "stock_minimo": p.stock_minimo,
         "activo": p.activo,
         "categoria_id": p.categoria_id,
-        "marca_id": p.marca_id,
         "categoria_nombre": p.categoria.nombre if p.categoria else None,
-        "marca_nombre": p.marca.nombre if p.marca else None,
         "proveedores": [{"id": x.id, "nombre": x.nombre} for x in p.proveedores],
         "created_at": p.created_at,
         "updated_at": p.updated_at,
@@ -98,7 +96,7 @@ def serializar_compra(c: models.Compra) -> dict:
 
 
 def conteo_productos_por(db: Session, tenant_id: uuid.UUID, columna) -> dict:
-    """{categoria_id|marca_id: cantidad de productos} para el tenant."""
+    """{categoria_id: cantidad de productos} para el tenant."""
     filas = (
         db.query(columna, func.count(models.Producto.id))
         .filter(models.Producto.tenant_id == tenant_id, columna.isnot(None))
@@ -131,10 +129,6 @@ def obtener_proveedor_o_404(db: Session, tenant_id: uuid.UUID, proveedor_id: uui
 
 def obtener_categoria_o_404(db: Session, tenant_id: uuid.UUID, categoria_id: uuid.UUID) -> models.Categoria:
     return obtener_del_tenant(db, models.Categoria, tenant_id, categoria_id, "La categoría indicada")
-
-
-def obtener_marca_o_404(db: Session, tenant_id: uuid.UUID, marca_id: uuid.UUID) -> models.Marca:
-    return obtener_del_tenant(db, models.Marca, tenant_id, marca_id, "La marca indicada")
 
 
 def obtener_compra_o_404(db: Session, tenant_id: uuid.UUID, compra_id: uuid.UUID) -> models.Compra:

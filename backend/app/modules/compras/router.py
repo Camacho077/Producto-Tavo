@@ -67,7 +67,6 @@ def columnas_productos(ver_costos: bool):
         ("Nombre", campo("nombre")),
         ("SKU", campo("sku")),
         ("Categoría", campo("categoria_nombre")),
-        ("Marca", campo("marca_nombre")),
         ("Precio de venta", campo("precio")),
     ]
     if ver_costos:
@@ -181,110 +180,6 @@ def eliminar_categoria(
             )
         )
     db.delete(categoria)
-    db.commit()
-
-
-# =====================================================================
-# Marcas
-# =====================================================================
-@router.get("/marcas", response_model=Pagina[schemas.MarcaOut])
-def listar_marcas(
-    params: ParametrosPagina = Depends(),
-    activo: bool | None = Query(default=None),
-    db: Session = Depends(get_db),
-    tenant_id: uuid.UUID = Depends(tenant_con_permiso("marcas", "ver")),
-):
-    query = db.query(models.Marca).filter(models.Marca.tenant_id == tenant_id)
-    if activo is not None:
-        query = query.filter(models.Marca.activo == activo)
-    pagina = paginar(
-        query, params,
-        columnas_busqueda=(models.Marca.nombre, models.Marca.descripcion),
-        orden=models.Marca.nombre,
-    )
-    conteos = services.conteo_productos_por(db, tenant_id, models.Producto.marca_id)
-    pagina["items"] = [services.serializar_catalogo(m, conteos.get(m.id, 0)) for m in pagina["items"]]
-    return responder(pagina, params, schemas.MarcaOut, COLUMNAS_CATALOGO, "marcas")
-
-
-@router.get("/marcas/{marca_id}", response_model=schemas.MarcaOut)
-def obtener_marca(
-    marca_id: uuid.UUID,
-    db: Session = Depends(get_db),
-    tenant_id: uuid.UUID = Depends(tenant_con_permiso("marcas", "ver")),
-):
-    marca = services.obtener_marca_o_404(db, tenant_id, marca_id)
-    conteos = services.conteo_productos_por(db, tenant_id, models.Producto.marca_id)
-    return services.serializar_catalogo(marca, conteos.get(marca.id, 0))
-
-
-@router.post("/marcas", response_model=schemas.MarcaOut, status_code=status.HTTP_201_CREATED)
-def crear_marca(
-    payload: schemas.MarcaCreate,
-    db: Session = Depends(get_db),
-    tenant_id: uuid.UUID = Depends(tenant_con_permiso("marcas", "crear")),
-):
-    marca = models.Marca(tenant_id=tenant_id, **payload.model_dump())
-    db.add(marca)
-    try:
-        db.commit()
-    except IntegrityError:
-        db.rollback()
-        raise ConflictError(mensajes.ya_existe("una marca", "nombre", payload.nombre))
-    db.refresh(marca)
-    return services.serializar_catalogo(marca)
-
-
-@router.put("/marcas/{marca_id}", response_model=schemas.MarcaOut)
-def actualizar_marca(
-    marca_id: uuid.UUID,
-    payload: schemas.MarcaUpdate,
-    db: Session = Depends(get_db),
-    tenant_id: uuid.UUID = Depends(tenant_con_permiso("marcas", "editar")),
-):
-    marca = services.obtener_marca_o_404(db, tenant_id, marca_id)
-    _aplicar_cambios(marca, payload)
-    nombre = marca.nombre
-    try:
-        db.commit()
-    except IntegrityError:
-        db.rollback()
-        raise ConflictError(mensajes.ya_existe("una marca", "nombre", nombre))
-    db.refresh(marca)
-    conteos = services.conteo_productos_por(db, tenant_id, models.Producto.marca_id)
-    return services.serializar_catalogo(marca, conteos.get(marca.id, 0))
-
-
-@router.patch("/marcas/{marca_id}/estado", response_model=schemas.MarcaOut)
-def cambiar_estado_marca(
-    marca_id: uuid.UUID,
-    payload: schemas.CambioEstado,
-    db: Session = Depends(get_db),
-    tenant_id: uuid.UUID = Depends(tenant_con_permiso("marcas", "cambiar_estado")),
-):
-    marca = services.obtener_marca_o_404(db, tenant_id, marca_id)
-    marca.activo = payload.activo
-    db.commit()
-    db.refresh(marca)
-    return services.serializar_catalogo(marca)
-
-
-@router.delete("/marcas/{marca_id}", status_code=status.HTTP_204_NO_CONTENT)
-def eliminar_marca(
-    marca_id: uuid.UUID,
-    db: Session = Depends(get_db),
-    tenant_id: uuid.UUID = Depends(tenant_con_permiso("marcas", "eliminar")),
-):
-    marca = services.obtener_marca_o_404(db, tenant_id, marca_id)
-    asociados = db.query(func.count(models.Producto.id)).filter(models.Producto.marca_id == marca.id).scalar()
-    if asociados:
-        raise ConflictError(
-            mensajes.no_se_puede_eliminar(
-                "la marca", marca.nombre, asociados, "producto", "productos",
-                "Puedes desactivarla en su lugar para conservar el historial.",
-            )
-        )
-    db.delete(marca)
     db.commit()
 
 
@@ -426,8 +321,6 @@ def _validar_relaciones_producto(db: Session, tenant_id: uuid.UUID, payload) -> 
     datos = payload.model_dump(exclude_unset=True)
     if datos.get("categoria_id") is not None:
         services.obtener_categoria_o_404(db, tenant_id, datos["categoria_id"])
-    if datos.get("marca_id") is not None:
-        services.obtener_marca_o_404(db, tenant_id, datos["marca_id"])
 
 
 @router.get("/productos", response_model=Pagina[schemas.ProductoOut])
@@ -441,7 +334,7 @@ def listar_productos(
     tenant_id = usuario.tenant_id
     query = (
         db.query(models.Producto)
-        .options(joinedload(models.Producto.categoria), joinedload(models.Producto.marca), joinedload(models.Producto.proveedores))
+        .options(joinedload(models.Producto.categoria), joinedload(models.Producto.proveedores))
         .filter(models.Producto.tenant_id == tenant_id)
     )
     if activo is not None:

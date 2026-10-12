@@ -5,6 +5,7 @@ import PieLegal from "@/components/PieLegal";
 import { Button, Input } from "@/components/ui";
 import { RUTAS_LEGALES } from "@/config/legal";
 import { useAuth } from "@/context/AuthContext";
+import { BRANDING, LogoProducto } from "@/config/branding";
 
 const FALTA_ACEPTAR = "Para crear la cuenta debes aceptar la Política de tratamiento de datos y los Términos y condiciones.";
 
@@ -41,9 +42,12 @@ export default function RegistroPage() {
     // centrado y transparente, igual en móvil, tableta y escritorio.
     <div className="auth esquema-oscuro">
       <form onSubmit={handleSubmit} className="auth__panel">
-        <p className="auth__marca">JS Company</p>
+        <p className="auth__marca">
+          <LogoProducto tamano={26} />
+          {BRANDING.nombre}
+        </p>
         <h1 className="auth__titulo">Crea tu cuenta</h1>
-        <p className="auth__subtitulo">Registra tu empresa para empezar a usar JS Company</p>
+        <p className="auth__subtitulo">Registra tu restaurante para empezar a usar {BRANDING.nombre}</p>
 
         <div className="auth__campos">
           <Input

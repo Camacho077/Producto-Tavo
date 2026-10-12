@@ -8,7 +8,7 @@ from pydantic import BaseModel, EmailStr, Field, ConfigDict, field_validator, mo
 from app.core import validaciones as v
 
 
-# ---------- Catálogos simples (Categoría / Marca) ----------
+# ---------- Catálogo simple (Categoría) ----------
 class CatalogoBase(BaseModel):
     nombre: str = Field(min_length=2, max_length=100)
     descripcion: str | None = Field(default=None, max_length=255)
@@ -40,18 +40,6 @@ class CategoriaOut(CatalogoBase):
     activo: bool
     productos_count: int = 0
     created_at: datetime | None = None
-
-
-class MarcaCreate(CatalogoBase):
-    pass
-
-
-class MarcaUpdate(CategoriaUpdate):
-    pass
-
-
-class MarcaOut(CategoriaOut):
-    pass
 
 
 # ---------- Proveedor ----------
@@ -223,7 +211,6 @@ class ProductoBase(BaseModel):
     precio_compra: Decimal | None = None
     stock_minimo: int = 0
     categoria_id: uuid.UUID | None = None
-    marca_id: uuid.UUID | None = None
 
     @field_validator("nombre")
     @classmethod
@@ -263,7 +250,6 @@ class ProductoUpdate(BaseModel):
     precio_compra: Decimal | None = None
     stock_minimo: int | None = None
     categoria_id: uuid.UUID | None = None
-    marca_id: uuid.UUID | None = None
     activo: bool | None = None
 
     @field_validator("nombre")
@@ -306,11 +292,9 @@ class ProductoOut(BaseModel):
     precio_compra: Decimal | None = None
     stock_minimo: int = 0
     categoria_id: uuid.UUID | None = None
-    marca_id: uuid.UUID | None = None
     stock: int
     activo: bool
     categoria_nombre: str | None = None
-    marca_nombre: str | None = None
     proveedores: list[ProveedorResumen] = []
     created_at: datetime | None = None
     updated_at: datetime | None = None

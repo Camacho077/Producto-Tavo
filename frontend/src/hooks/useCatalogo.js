@@ -2,7 +2,7 @@ import { useApiResource } from "@/hooks/useApiResource";
 
 /**
  * Lista completa (hasta 100) de un catálogo para llenar <Select>: productos,
- * categorías, marcas, proveedores, roles. Devuelve siempre un arreglo.
+ * categorías, zonas, proveedores, roles. Devuelve siempre un arreglo.
  */
 export function useCatalogo(url, { soloActivos = true } = {}) {
   const separador = url.includes("?") ? "&" : "?";

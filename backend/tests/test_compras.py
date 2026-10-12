@@ -250,42 +250,6 @@ def test_cancelar_compra_confirmada_falla(client, tenant_factory, usuario_factor
     assert resp.status_code == 409
 
 
-def test_marcas_crud_y_bloqueo_por_productos(client, tenant_factory, usuario_factory, auth_headers_factory):
-    tenant = tenant_factory()
-    admin = usuario_factory(tenant)
-    headers = auth_headers_factory(admin)
-
-    resp = client.post("/api/v1/compras/marcas", headers=headers, json={"nombre": "Acme"})
-    assert resp.status_code == 201
-    marca_id = resp.json()["id"]
-
-    # Nombre duplicado en el mismo tenant.
-    assert client.post("/api/v1/compras/marcas", headers=headers, json={"nombre": "Acme"}).status_code == 409
-
-    # Un producto asociado bloquea la eliminación.
-    client.post(
-        "/api/v1/compras/productos",
-        headers=headers,
-        json={"nombre": "Martillo", "sku": "MAR-1", "precio": "1000", "marca_id": marca_id},
-    )
-    resp = client.delete(f"/api/v1/compras/marcas/{marca_id}", headers=headers)
-    assert resp.status_code == 409
-    # El mensaje nombra la marca y la causa concreta (ver app/core/mensajes.py).
-    assert resp.json()["detail"] == (
-        "No se puede eliminar la marca Acme: tiene 1 producto asociado. "
-        "Puedes desactivarla en su lugar para conservar el historial."
-    )
-
-    listado = client.get("/api/v1/compras/marcas", headers=headers, params={"q": "ac"}).json()
-    assert listado["total"] == 1
-    assert listado["items"][0]["productos_count"] == 1
-
-    # Cambiar estado.
-    resp = client.patch(f"/api/v1/compras/marcas/{marca_id}/estado", headers=headers, json={"activo": False})
-    assert resp.status_code == 200
-    assert resp.json()["activo"] is False
-
-
 def test_busqueda_y_paginacion_de_productos(client, tenant_factory, usuario_factory, auth_headers_factory):
     tenant = tenant_factory()
     admin = usuario_factory(tenant)

@@ -4,6 +4,7 @@ import { Link, Navigate } from "react-router-dom";
 import PieLegal from "@/components/PieLegal";
 import { Button, Checkbox, Input, Modal } from "@/components/ui";
 import { useAuth } from "@/context/AuthContext";
+import { BRANDING, LogoProducto } from "@/config/branding";
 
 export default function LoginPage() {
   const { login, token, error } = useAuth();
@@ -29,7 +30,10 @@ export default function LoginPage() {
     // centrado y transparente, igual en móvil, tableta y escritorio.
     <div className="auth esquema-oscuro">
       <form onSubmit={handleSubmit} className="auth__panel">
-        <p className="auth__marca">JS Company</p>
+        <p className="auth__marca">
+          <LogoProducto tamano={26} />
+          {BRANDING.nombre}
+        </p>
         <h1 className="auth__titulo">Bienvenido de nuevo</h1>
         <p className="auth__subtitulo">Ingresa con tu cuenta para continuar</p>
 
@@ -97,7 +101,7 @@ export default function LoginPage() {
           <strong className="text-[var(--texto)]">Seguridad → Usuarios</strong>.
         </p>
         <p className="text-[13px] text-[var(--texto-secundario)] leading-relaxed mt-3">
-          Si tú eres el administrador y perdiste el acceso, contacta al soporte de JS Company
+          Si tú eres el administrador y perdiste el acceso, contacta al soporte de {BRANDING.proveedor}
           para verificar tu identidad y recuperar la cuenta.
         </p>
       </Modal>

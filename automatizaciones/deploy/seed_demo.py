@@ -2,10 +2,10 @@
 Script: carga datos de ejemplo (demo) para un tenant ya existente.
 
 Qué deja cargado:
-    - 5 categorías y 5 marcas.
+    - 5 categorías.
     - 5 proveedores: 3 personas jurídicas (NIT con dígito de verificación
       DIAN correcto) y 2 naturales (cédula de ciudadanía y de extranjería).
-    - 5 productos, cada uno con categoría, marca y los proveedores que lo
+    - 5 productos, cada uno con categoría y los proveedores que lo
       surten (tabla proveedor_productos).
     - 8 compras CONFIRMADAS (3 de hace ~6 meses y 5 de las últimas semanas):
       el stock de cada producto sale de ellas, con su fila en
@@ -33,7 +33,7 @@ Cómo lo hace:
 
 Idempotente:
     Correrlo dos veces no duplica nada. Cada registro se busca antes por su
-    clave natural (nombre de categoría/marca, NIT o documento del proveedor,
+    clave natural (nombre de categoría, NIT o documento del proveedor,
     SKU del producto) y las compras, ventas y pedidos por su nota
     "Datos de demostración · ...".
 
@@ -62,7 +62,7 @@ from app.db.session import SessionLocal  # noqa: E402
 from app.db.models import Tenant  # noqa: E402
 from app.modules.seguridad.models import Usuario  # noqa: E402
 from app.modules.compras import schemas as sc, services as svc_compras  # noqa: E402
-from app.modules.compras.models import Categoria, Compra, Marca, MovimientoInventario, Producto, Proveedor  # noqa: E402
+from app.modules.compras.models import Categoria, Compra, MovimientoInventario, Producto, Proveedor  # noqa: E402
 from app.modules.ventas import schemas as sv, services as svc_ventas  # noqa: E402
 from app.modules.ventas.models import Pedido, Venta  # noqa: E402
 
@@ -77,27 +77,19 @@ CATEGORIAS = [
     ("Pasabocas", "Paquetes y snacks"),
 ]
 
-MARCAS = [
-    ("Sabana Fresca", "Bebidas y lácteos de la sabana"),
-    ("Granos del Valle", "Arroz y granos"),
-    ("Brillo Hogar", "Productos de aseo"),
-    ("Campo Verde", "Lácteos de finca"),
-    ("Crocante", "Pasabocas"),
-]
-
 # stock_minimo alto en la leche a propósito: tras las ventas queda por debajo
 # y dispara el aviso "stock bajo el mínimo" del dashboard.
 PRODUCTOS = [
     {"sku": "DEMO-GAS-001", "nombre": "Gaseosa Cola Familiar", "precio": "5500", "stock_minimo": 10,
-     "categoria": "Bebidas", "marca": "Sabana Fresca"},
+     "categoria": "Bebidas"},
     {"sku": "DEMO-ARR-001", "nombre": "Arroz Blanco Premium", "precio": "3200", "stock_minimo": 15,
-     "categoria": "Abarrotes", "marca": "Granos del Valle"},
+     "categoria": "Abarrotes"},
     {"sku": "DEMO-DET-001", "nombre": "Detergente en Polvo", "precio": "8900", "stock_minimo": 5,
-     "categoria": "Aseo", "marca": "Brillo Hogar"},
+     "categoria": "Aseo"},
     {"sku": "DEMO-LEC-001", "nombre": "Leche Entera en Bolsa", "precio": "4200", "stock_minimo": 20,
-     "categoria": "Lácteos", "marca": "Campo Verde"},
+     "categoria": "Lácteos"},
     {"sku": "DEMO-PAP-001", "nombre": "Papas Fritas Onduladas", "precio": "2500", "stock_minimo": 8,
-     "categoria": "Pasabocas", "marca": "Crocante"},
+     "categoria": "Pasabocas"},
 ]
 
 # NIT con dígito de verificación calculado con el algoritmo de la DIAN
@@ -227,7 +219,7 @@ def cargar_catalogo(db, tenant_id, modelo, filas, esquema):
     return por_nombre, creados
 
 
-def cargar_productos(db, tenant_id, categorias, marcas):
+def cargar_productos(db, tenant_id, categorias):
     por_sku = {}
     creados = 0
     for p in PRODUCTOS:
@@ -239,7 +231,6 @@ def cargar_productos(db, tenant_id, categorias, marcas):
                 precio=Decimal(p["precio"]),
                 stock_minimo=p["stock_minimo"],
                 categoria_id=categorias[p["categoria"]].id,
-                marca_id=marcas[p["marca"]].id,
             )
             # El stock nace en 0: solo lo mueven compras y ventas.
             producto = Producto(tenant_id=tenant_id, stock=0, **datos.model_dump())
@@ -444,14 +435,13 @@ def cargar_demo(db, tenant_id, ahora):
     """Carga lo que falte y lleva todas las fechas a "hoy". La usan main() y
     tests/test_seed_demo.py, para que la prueba corra EXACTAMENTE lo mismo."""
     categorias, n_cat = cargar_catalogo(db, tenant_id, Categoria, CATEGORIAS, sc.CategoriaCreate)
-    marcas, n_mar = cargar_catalogo(db, tenant_id, Marca, MARCAS, sc.MarcaCreate)
-    productos, n_prod = cargar_productos(db, tenant_id, categorias, marcas)
+    productos, n_prod = cargar_productos(db, tenant_id, categorias)
     proveedores, n_prov = cargar_proveedores(db, tenant_id, productos)
     n_com, n_ven = cargar_compras_y_ventas(db, tenant_id, proveedores, productos, ahora)
     n_ped = cargar_pedidos(db, tenant_id, productos, ahora)
     n_fechas = reanclar_fechas(db, tenant_id, ahora)
     return {
-        "productos": productos, "categorias": n_cat, "marcas": n_mar, "n_productos": n_prod,
+        "productos": productos, "categorias": n_cat, "n_productos": n_prod,
         "proveedores": n_prov, "compras": n_com, "ventas": n_ven, "pedidos": n_ped, "reanclados": n_fechas,
     }
 
@@ -473,19 +463,19 @@ def main():
 
         r = cargar_demo(db, tid, ahora)
         productos = r["productos"]
-        n_cat, n_mar, n_prod, n_prov = r["categorias"], r["marcas"], r["n_productos"], r["proveedores"]
+        n_cat, n_prod, n_prov = r["categorias"], r["n_productos"], r["proveedores"]
         n_com, n_ven, n_ped, n_fechas = r["compras"], r["ventas"], r["pedidos"], r["reanclados"]
 
         print(f"✔ Empresa '{tenant.nombre_empresa}' (id={tid})")
-        print(f"   Nuevos en esta corrida: {n_cat} categorías, {n_mar} marcas, {n_prod} productos, "
+        print(f"   Nuevos en esta corrida: {n_cat} categorías, {n_prod} productos, "
               f"{n_prov} proveedores, {n_com} compras, {n_ven} ventas, {n_ped} pedidos")
         print(f"   Fechas llevadas a hoy: {n_fechas} documentos (ventas hoy, esta semana, este mes y los últimos 6 meses)")
         print("   Stock resultante:")
         for p in PRODUCTOS:
             prod = productos[p["sku"]]
             db.refresh(prod)
-            marca = "  ← bajo el mínimo" if prod.stock < prod.stock_minimo else ""
-            print(f"     {prod.sku:<14} {prod.nombre:<26} {prod.stock:>4} (mínimo {prod.stock_minimo}){marca}")
+            aviso = "  ← bajo el mínimo" if prod.stock < prod.stock_minimo else ""
+            print(f"     {prod.sku:<14} {prod.nombre:<26} {prod.stock:>4} (mínimo {prod.stock_minimo}){aviso}")
     except Exception as e:
         db.rollback()
         print(f"✘ Error cargando datos de ejemplo: {e}")

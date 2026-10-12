@@ -45,7 +45,7 @@ def test_sin_frontend_env_dice_que_copiar(tmp_path, monkeypatch):
     (tmp_path / "frontend").mkdir()
     archivos = d.revisar_archivos_env()
     assert all(i["estado"] == d.ERROR for i in archivos)
-    assert "Copy-Item frontend\.env.example frontend\.env" in archivos[1]["arreglo"]
+    assert r"Copy-Item frontend\.env.example frontend\.env" in archivos[1]["arreglo"]
     assert d.revisar_frontend()[0]["estado"] == d.ERROR
 
 

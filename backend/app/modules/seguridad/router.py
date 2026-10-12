@@ -19,6 +19,7 @@ from app.core.permisos import es_administrador, permisos_efectivos, tenant_con_p
 from app.db.models import Tenant
 from app.db.session import get_db
 from app.core.security import hash_password, verify_password, create_access_token
+from app.modules.ajustes.schemas import configuracion_de
 from app.modules.seguridad import models, schemas
 
 router = APIRouter(prefix="/seguridad", tags=["Seguridad"])
@@ -101,9 +102,15 @@ def obtener_sesion_actual(
     tenant = db.query(Tenant).filter(Tenant.id == usuario.tenant_id).first()
     if tenant is None:
         raise NotFoundError("La empresa de tu usuario ya no existe: vuelve a iniciar sesión.")
+    # La configuración se lee SIEMPRE a través de su esquema (valores por
+    # defecto para lo que el restaurante no haya guardado).
+    campos = set(schemas.TenantOut.model_fields) - {"configuracion"}
+    datos_tenant = schemas.TenantOut(
+        **{c: getattr(tenant, c) for c in campos}, configuracion=configuracion_de(tenant)
+    )
     return schemas.MeResponse(
         usuario=_serializar_usuario(usuario),
-        tenant=tenant,
+        tenant=datos_tenant,
         permisos=permisos_efectivos(usuario),
         es_administrador=es_administrador(usuario),
     )

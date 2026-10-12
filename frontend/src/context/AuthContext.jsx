@@ -32,24 +32,33 @@ export function AuthProvider({ children }) {
     setLogoutHandler(logout);
   }, [logout]);
 
+  const hidratar = useCallback(
+    () =>
+      api.get("/seguridad/me").then((res) => {
+        setUsuario(res.data.usuario);
+        setTenant(res.data.tenant);
+        setPermisos(res.data.permisos ?? {});
+        setEsAdministrador(Boolean(res.data.es_administrador));
+      }),
+    []
+  );
+
   useEffect(() => {
     if (!token) {
       setCargando(false);
       return;
     }
-    api
-      .get("/seguridad/me")
-      .then((res) => {
-        setUsuario(res.data.usuario);
-        setTenant(res.data.tenant);
-        setPermisos(res.data.permisos ?? {});
-        setEsAdministrador(Boolean(res.data.es_administrador));
-      })
+    hidratar()
       .catch(() => {
         logout();
       })
       .finally(() => setCargando(false));
-  }, [token, logout]);
+  }, [token, logout, hidratar]);
+
+  /** Vuelve a pedir la sesión: tras editar los datos del negocio, el logo o
+   * la configuración, el marco (nombre, logo) y la toma de pedidos (tipos
+   * de orden, medios de pago) ven el cambio sin recargar la página. */
+  const refrescarSesion = useCallback(() => hidratar().catch(() => {}), [hidratar]);
 
   const login = useCallback(async (email, password, recordarme = false) => {
     setError(null);
@@ -93,8 +102,8 @@ export function AuthProvider({ children }) {
   const puede = useCallback((modulo, accion = "ver") => Boolean(permisos[modulo]?.includes(accion)), [permisos]);
 
   const value = useMemo(
-    () => ({ token, usuario, tenant, permisos, esAdministrador, puede, cargando, error, login, registro, logout }),
-    [token, usuario, tenant, permisos, esAdministrador, puede, cargando, error, login, registro, logout]
+    () => ({ token, usuario, tenant, permisos, esAdministrador, puede, cargando, error, login, registro, logout, refrescarSesion }),
+    [token, usuario, tenant, permisos, esAdministrador, puede, cargando, error, login, registro, logout, refrescarSesion]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

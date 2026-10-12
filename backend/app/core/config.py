@@ -38,7 +38,7 @@ OBLIGATORIAS = {
 
 class Settings(BaseSettings):
     # App
-    APP_NAME: str = "JS Company - ERP"
+    APP_NAME: str = "JS Restaurante"
     # development: CORS acepta además cualquier origen local (ver
     # app/core/cors.py). production: solo la lista explícita CORS_ORIGINS.
     # Se valida: un valor mal escrito ("dev", "develop") apagaba el regex de

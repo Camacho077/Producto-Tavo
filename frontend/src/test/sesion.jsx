@@ -14,13 +14,14 @@ export const PERMISOS_ADMIN = {
   compras: ["ver", "crear", "cambiar_estado", "anular"],
   productos: ["ver", "crear", "editar", "cambiar_estado", "eliminar"],
   categorias: ["ver", "crear", "editar", "cambiar_estado", "eliminar"],
-  marcas: ["ver", "crear", "editar", "cambiar_estado", "eliminar"],
   proveedores: ["ver", "crear", "editar", "cambiar_estado", "eliminar"],
   ventas: ["ver", "crear", "cambiar_estado", "anular"],
   pedidos: ["ver", "crear", "editar", "cambiar_estado"],
   usuarios: ["ver", "crear", "editar", "cambiar_estado", "eliminar"],
   roles: ["ver", "crear", "editar", "eliminar"],
   ia: ["ver"],
+  ajustes: ["ver", "editar"],
+  mesas: ["ver", "crear", "editar", "cambiar_estado", "eliminar"],
 };
 
 export function ConSesion({ permisos = PERMISOS_ADMIN, esAdministrador, usuario, tenant, children }) {
@@ -37,6 +38,7 @@ export function ConSesion({ permisos = PERMISOS_ADMIN, esAdministrador, usuario,
     login: async () => true,
     registro: async () => true,
     logout: () => {},
+    refrescarSesion: async () => {},
   };
   return <AuthContext.Provider value={valor}>{children}</AuthContext.Provider>;
 }

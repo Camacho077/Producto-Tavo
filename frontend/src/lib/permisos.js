@@ -8,13 +8,14 @@ const OBJETO = {
   compras: "compras",
   productos: "productos",
   categorias: "categorías",
-  marcas: "marcas",
   proveedores: "proveedores",
   ventas: "ventas",
   pedidos: "pedidos",
   usuarios: "usuarios",
   roles: "roles",
   ia: "las sugerencias de IA",
+  ajustes: "los ajustes del restaurante",
+  mesas: "mesas y zonas",
 };
 
 const VERBO = {

@@ -18,4 +18,7 @@ export const MIGAS = {
   pedidos: [{ etiqueta: "Ventas", a: "/ventas" }, { etiqueta: "Pedidos", a: "/ventas/pedidos" }],
   usuarios: [{ etiqueta: "Seguridad", a: "/seguridad/usuarios" }, { etiqueta: "Usuarios", a: "/seguridad/usuarios" }],
   roles: [{ etiqueta: "Seguridad", a: "/seguridad/usuarios" }, { etiqueta: "Roles", a: "/seguridad/roles" }],
+  ajustes: [{ etiqueta: "Ajustes", a: "/ajustes" }, { etiqueta: "Restaurante", a: "/ajustes" }],
+  mesas: [{ etiqueta: "Ajustes", a: "/ajustes" }, { etiqueta: "Mesas", a: "/ajustes/mesas" }],
+  zonas: [{ etiqueta: "Ajustes", a: "/ajustes" }, { etiqueta: "Mesas", a: "/ajustes/mesas" }, { etiqueta: "Zonas", a: "/ajustes/zonas" }],
 };

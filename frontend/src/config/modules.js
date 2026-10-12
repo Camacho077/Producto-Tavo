@@ -1,6 +1,6 @@
 import {
-  Award,
   ClipboardList,
+  LayoutGrid,
   KeyRound,
   LayoutDashboard,
   Package,
@@ -8,6 +8,7 @@ import {
   ShieldCheck,
   ShoppingCart,
   Sparkles,
+  Store,
   Tags,
   Truck,
   Users,
@@ -37,19 +38,21 @@ export const MODULES = [
       { key: "compras", label: "Compras", path: "/compras", icon: ShoppingCart },
       { key: "productos", label: "Productos", path: "/compras/productos", icon: Package },
       { key: "categorias", label: "Categorías", path: "/compras/categorias", icon: Tags },
-      { key: "marcas", label: "Marcas", path: "/compras/marcas", icon: Award },
       { key: "proveedores", label: "Proveedores", path: "/compras/proveedores", icon: Truck },
     ],
   },
   {
+    // Restaurante (2026-10-12): Ventas pasa a ser la CAJA y Pedidos, las
+    // ÓRDENES con comanda. Las rutas y las claves de permiso se quedan hasta
+    // que sus fases las reemplacen (docs/DECISIONES.md §0).
     key: "ventas",
-    label: "Ventas",
+    label: "Caja",
     path: "/ventas",
     icon: Receipt,
     plan: "estandar",
     hijos: [
-      { key: "ventas", label: "Ventas", path: "/ventas", icon: Receipt },
-      { key: "pedidos", label: "Pedidos", path: "/ventas/pedidos", icon: ClipboardList },
+      { key: "ventas", label: "Caja", path: "/ventas", icon: Receipt },
+      { key: "pedidos", label: "Órdenes", path: "/ventas/pedidos", icon: ClipboardList },
     ],
   },
   {
@@ -69,6 +72,20 @@ export const MODULES = [
     path: "/ia",
     icon: Sparkles,
     plan: "pro_ia",
+  },
+  {
+    // Ajustes del restaurante (2026-10-12): datos del negocio (comanda y
+    // factura), operación (tipos de orden, medios de pago, impuesto, propina,
+    // cocina, jornada, impresoras) y mesas por zona.
+    key: "ajustes",
+    label: "Ajustes",
+    path: "/ajustes",
+    icon: Store,
+    plan: "basico",
+    hijos: [
+      { key: "ajustes", label: "Restaurante", path: "/ajustes", icon: Store },
+      { key: "mesas", label: "Mesas", path: "/ajustes/mesas", icon: LayoutGrid },
+    ],
   },
 ];
 

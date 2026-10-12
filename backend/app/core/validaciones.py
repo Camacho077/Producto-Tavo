@@ -17,12 +17,23 @@ NOMBRE_PERSONA_RE = re.compile(r"^[A-Za-zÁÉÍÓÚÜÑáéíóúüñ' ]+$")
 # símbolos. Decisión del usuario del 2026-09-27; el bloqueo al teclear del
 # frontend (filtro "nombre") ya aplicaba esta regla.
 NOMBRE_ITEM_RE = re.compile(r"^[A-Za-zÁÉÍÓÚÜÑáéíóúüñ' ]+$")
+# Nombres de la CARTA y del restaurante (2026-10-12): platos, insumos,
+# combos, modificadores, zonas y el nombre del negocio. A diferencia de los
+# nombres de ítem del ERP, aquí los dígitos y unos pocos signos son parte
+# del nombre real: "Gaseosa 400 ml", "Combo 2x1", "Arroz (libra)",
+# "Pollo 1/4", "Leche 2%". Sin espacios al borde.
+NOMBRE_CARTA_RE = re.compile(r"^[A-Za-zÁÉÍÓÚÜÑáéíóúüñ0-9' .,\-+&/()%]+$")
+# Mesas: "B2", "Mesa 4", "Terraza-3".
+MESA_RE = re.compile(r"^[A-Za-zÁÉÍÓÚÜÑáéíóúüñ0-9 \-]+$")
 # SKU: letras, números, guion y guion bajo.
 SKU_RE = re.compile(r"^[A-Za-z0-9_-]+$")
 
 MSG_NOMBRE_PERSONA = "Solo letras, espacios, tildes y apóstrofes (entre 2 y 80 caracteres)"
 MSG_NOMBRE_ITEM = "Solo letras, espacios, tildes y apóstrofes; sin espacios al inicio o al final"
 MSG_SKU = "Solo letras, números, guion y guion bajo (entre 2 y 50 caracteres)"
+MSG_NOMBRE_CARTA = "Solo letras, números, espacios y los signos . , - + & / ( ) %; sin espacios al inicio o al final"
+MSG_MESA = "Solo letras, números, espacios y guion (entre 1 y 20 caracteres)"
+MSG_HORA = "Debe ser una hora en formato 24 h, p. ej. 06:30"
 
 # ---------- Números ----------
 STOCK_MAX = 1_000_000
@@ -102,6 +113,29 @@ def nombre_item(valor: str, maximo: int = 100) -> str:
     if texto != texto.strip() or not (2 <= len(texto) <= maximo) or not NOMBRE_ITEM_RE.match(texto):
         raise ValueError(MSG_NOMBRE_ITEM)
     return texto
+
+
+def nombre_carta(valor: str, maximo: int = 100) -> str:
+    texto = valor or ""
+    if texto != texto.strip() or not (2 <= len(texto) <= maximo) or not NOMBRE_CARTA_RE.match(texto):
+        raise ValueError(MSG_NOMBRE_CARTA)
+    return texto
+
+
+def nombre_mesa(valor: str) -> str:
+    texto = " ".join((valor or "").split()).upper()
+    if not (1 <= len(texto) <= 20) or not MESA_RE.match(texto):
+        raise ValueError(MSG_MESA)
+    return texto
+
+
+HORA_RE = re.compile(r"^([01]\d|2[0-3]):([0-5]\d)$")
+
+
+def hora(valor: str) -> str:
+    if not HORA_RE.match(valor or ""):
+        raise ValueError(MSG_HORA)
+    return valor
 
 
 def sku(valor: str) -> str:

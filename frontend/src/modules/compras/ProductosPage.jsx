@@ -47,7 +47,6 @@ const FORM_VACIO = {
   precio_compra: "",
   stock_minimo: "0",
   categoria_id: "",
-  marca_id: "",
 };
 
 // El stock NO se edita aquí: nace en 0 y solo se mueve con compras y ventas.
@@ -59,7 +58,6 @@ const ESQUEMA = z.object({
   precio_compra: esquemas.precio({ permitirCero: true, obligatorio: false }),
   stock_minimo: esquemas.entero(0, STOCK_MAX),
   categoria_id: z.string(),
-  marca_id: z.string(),
 });
 
 const TIPOS_MOVIMIENTO = {
@@ -81,7 +79,6 @@ function cuerpoDe(d) {
     precio_compra: d.precio_compra === "" ? null : d.precio_compra,
     stock_minimo: Number(d.stock_minimo || 0),
     categoria_id: d.categoria_id || null,
-    marca_id: d.marca_id || null,
   };
 }
 
@@ -146,11 +143,6 @@ export function ProductosLista() {
       render: (r) => r.categoria_nombre || "—",
     },
     {
-      clave: "marca_nombre",
-      titulo: "Marca",
-      render: (r) => r.marca_nombre || "—",
-    },
-    {
       clave: "precio",
       titulo: "Precio",
       cifra: true,
@@ -200,7 +192,7 @@ export function ProductosLista() {
     <div>
       <PageHeader
         titulo="Productos"
-        descripcion="Catálogo con precio, categoría y marca. El stock se mueve solo con compras y ventas."
+        descripcion="Catálogo con precio y categoría. El stock se mueve solo con compras y ventas."
         migas={migas()}
         acciones={
           puede("productos", "crear") && (
@@ -246,7 +238,7 @@ export function ProductosLista() {
   );
 }
 
-function CamposProducto({ f, categorias, marcas, stockActual }) {
+function CamposProducto({ f, categorias, stockActual }) {
   // El costo delata el margen: solo lo ve y lo escribe quien puede ver
   // compras (el backend lo oculta y lo ignora igual para los demás).
   const { puede } = useAuth();
@@ -264,7 +256,7 @@ function CamposProducto({ f, categorias, marcas, stockActual }) {
           maxLength={150}
           autoComplete="off"
         />
-        <div className="fila-campos fila-campos--tres">
+        <div className="fila-campos">
           <Input
             etiqueta="SKU"
             {...f.props("sku")}
@@ -281,17 +273,6 @@ function CamposProducto({ f, categorias, marcas, stockActual }) {
             {categorias.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.nombre}
-              </option>
-            ))}
-          </Select>
-          <Select
-            etiqueta="Marca"
-            {...f.props("marca_id", { requerido: false })}
-          >
-            <option value="">Sin marca</option>
-            {marcas.map((m) => (
-              <option key={m.id} value={m.id}>
-                {m.nombre}
               </option>
             ))}
           </Select>
@@ -351,7 +332,6 @@ function CamposProducto({ f, categorias, marcas, stockActual }) {
 
 export function ProductoNuevo() {
   const { items: categorias } = useCatalogo("/compras/categorias");
-  const { items: marcas } = useCatalogo("/compras/marcas");
   const esquema = useMemo(() => ESQUEMA, []);
   const f = useFormulario(esquema, FORM_VACIO);
   const { guardando, errorGeneral, guardar } = useGuardarPantalla(f, {
@@ -380,7 +360,6 @@ export function ProductoNuevo() {
         <CamposProducto
           f={f}
           categorias={categorias}
-          marcas={marcas}
           stockActual={0}
         />
       </FormularioPantalla>
@@ -392,7 +371,6 @@ export function ProductoEditar() {
   const { id } = useParams();
   const { data, error } = useApiResource(`${URL}/${id}`);
   const { items: categorias } = useCatalogo("/compras/categorias");
-  const { items: marcas } = useCatalogo("/compras/marcas");
   const esquema = useMemo(() => ESQUEMA, []);
   const f = useFormulario(esquema, FORM_VACIO);
   const { guardando, errorGeneral, guardar } = useGuardarPantalla(f, {
@@ -412,7 +390,6 @@ export function ProductoEditar() {
         data.precio_compra == null ? "" : String(data.precio_compra),
       stock_minimo: String(data.stock_minimo ?? 0),
       categoria_id: data.categoria_id ?? "",
-      marca_id: data.marca_id ?? "",
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data]);
@@ -444,7 +421,6 @@ export function ProductoEditar() {
         <CamposProducto
           f={f}
           categorias={categorias}
-          marcas={marcas}
           stockActual={data?.stock}
         />
       </FormularioPantalla>
@@ -571,7 +547,6 @@ export function ProductoDetalle() {
                       { etiqueta: "Nombre", valor: data.nombre },
                       { etiqueta: "SKU", valor: data.sku, cifra: true },
                       { etiqueta: "Categoría", valor: data.categoria_nombre },
-                      { etiqueta: "Marca", valor: data.marca_nombre },
                       {
                         etiqueta: "Precio de venta",
                         valor: formatearMoneda(data.precio),

@@ -41,18 +41,6 @@ class Categoria(Base, TenantMixin, TimestampMixin):
     productos = relationship("Producto", back_populates="categoria")
 
 
-class Marca(Base, TenantMixin, TimestampMixin):
-    __tablename__ = "marcas"
-    __table_args__ = (UniqueConstraint("tenant_id", "nombre", name="uq_marcas_tenant_nombre"),)
-
-    id = Column(UUID(as_uuid=True), primary_key=True, default=gen_uuid)
-    nombre = Column(String, nullable=False)
-    descripcion = Column(String, nullable=True)
-    activo = Column(Boolean, nullable=False, default=True, server_default="true")
-
-    productos = relationship("Producto", back_populates="marca")
-
-
 class Proveedor(Base, TenantMixin, TimestampMixin):
     __tablename__ = "proveedores"
     __table_args__ = (
@@ -96,10 +84,9 @@ class Producto(Base, TenantMixin, TimestampMixin):
         Index("ix_productos_tenant_activo_stock", "tenant_id", "activo", "stock"),
         # Orden alfabético del listado dentro de la empresa.
         Index("ix_productos_tenant_nombre", "tenant_id", "nombre"),
-        # Postgres NO indexa las claves foráneas solo: estas dos se usan en
-        # el conteo por categoría/marca y al bloquear su eliminación.
+        # Postgres NO indexa las claves foráneas solo: se usa en el conteo
+        # por categoría y al bloquear su eliminación.
         Index("ix_productos_categoria", "categoria_id"),
-        Index("ix_productos_marca", "marca_id"),
     )
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=gen_uuid)
@@ -113,10 +100,8 @@ class Producto(Base, TenantMixin, TimestampMixin):
     stock_minimo = Column(Integer, nullable=False, default=0, server_default="0")
     activo = Column(Boolean, nullable=False, default=True)
     categoria_id = Column(UUID(as_uuid=True), ForeignKey("categorias.id"), nullable=True)
-    marca_id = Column(UUID(as_uuid=True), ForeignKey("marcas.id"), nullable=True)
 
     categoria = relationship("Categoria", back_populates="productos")
-    marca = relationship("Marca", back_populates="productos")
     proveedores = relationship("Proveedor", secondary=proveedor_productos, back_populates="productos", viewonly=True)
     movimientos = relationship("MovimientoInventario", back_populates="producto", order_by="MovimientoInventario.created_at.desc()")
 

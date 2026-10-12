@@ -30,3 +30,20 @@ class Tenant(Base, TimestampMixin):
 
     # Módulos activos explícitamente (independiente del plan, para casos a medida)
     modulos_activos = Column(JSON, default=list, nullable=False)
+
+    # DATOS DEL NEGOCIO (2026-10-12): salen en la comanda, la factura interna
+    # y los PDF. Los edita el administrador en Ajustes.
+    direccion = Column(String, nullable=True)
+    ciudad = Column(String, nullable=True)
+    telefono = Column(String, nullable=True)
+    correo = Column(String, nullable=True)
+    # Logo para la comanda y la factura (tabla `imagenes`). Sin clave foránea a
+    # propósito: `imagenes` ya apunta a `tenants` y la referencia circular
+    # obligaría a crear las tablas en dos pasos. Lo valida el servicio.
+    logo_id = Column(UUID(as_uuid=True), nullable=True)
+
+    # CONFIGURACIÓN DEL RESTAURANTE (2026-10-12): tipos de orden, medios de
+    # pago, impuesto al consumo, propina, cocina, jornada e impresoras. El
+    # esquema (con sus valores por defecto) es `ConfiguracionRestaurante` en
+    # app/modules/ajustes/schemas.py: lo guardado siempre se lee a través de él.
+    configuracion = Column(JSON, default=dict, nullable=False, server_default="{}")

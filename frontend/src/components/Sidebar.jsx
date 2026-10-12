@@ -13,6 +13,8 @@ import {
   trasladoVisual,
 } from "@/lib/movimiento";
 import { useTheme } from "@/theme/ThemeContext";
+import { BRANDING } from "@/config/branding";
+import { urlImagen } from "@/lib/imagenes";
 
 // Lo que tardan los submódulos en irse al cerrar un grupo (CSS: 120 ms, con
 // un margen para que el último cuadro se pinte antes de desmontar).
@@ -224,7 +226,8 @@ function GrupoDesplegable({ modulo, abierto, onAlternar, onNavegar, orden, badge
 export default function Sidebar({
   plan = "basico",
   modulosActivos = [],
-  nombreEmpresa = "JS Company",
+  nombreEmpresa = BRANDING.nombre,
+  logoId = null,
   usuario,
   onLogout,
   abierto = false,
@@ -268,12 +271,12 @@ export default function Sidebar({
     >
       <div className="sidebar__interior">
         <div className="marca sidebar__cascada" style={{ "--i": 0 }}>
-          <span className="marca__sello" aria-hidden="true">
-            {inicial}
+          <span className={`marca__sello${logoId ? " marca__sello--logo" : ""}`} aria-hidden="true">
+            {logoId ? <img src={urlImagen(logoId)} alt="" width={34} height={34} /> : inicial}
           </span>
           <div className="min-w-0">
             <p className="marca__nombre truncate">{nombreEmpresa}</p>
-            <p className="marca__sub">Panel ERP</p>
+            <p className="marca__sub">{BRANDING.nombre}</p>
           </div>
           <button type="button" className="iconbtn menu-btn ml-auto" onClick={onCerrar} aria-label="Cerrar menú">
             <X size={15} aria-hidden="true" />

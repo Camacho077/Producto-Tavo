@@ -20,13 +20,14 @@ CATALOGO: dict[str, tuple[str, str, tuple[str, ...]]] = {
     "compras": ("Compras", "compras", ("ver", "crear", "cambiar_estado", "anular")),
     "productos": ("Productos", "productos", ("ver", "crear", "editar", "cambiar_estado", "eliminar")),
     "categorias": ("Categorías", "categorías", ("ver", "crear", "editar", "cambiar_estado", "eliminar")),
-    "marcas": ("Marcas", "marcas", ("ver", "crear", "editar", "cambiar_estado", "eliminar")),
     "proveedores": ("Proveedores", "proveedores", ("ver", "crear", "editar", "cambiar_estado", "eliminar")),
     "ventas": ("Ventas", "ventas", ("ver", "crear", "cambiar_estado", "anular")),
     "pedidos": ("Pedidos", "pedidos", ("ver", "crear", "editar", "cambiar_estado")),
     "usuarios": ("Usuarios", "usuarios", ("ver", "crear", "editar", "cambiar_estado", "eliminar")),
     "roles": ("Roles", "roles", ("ver", "crear", "editar", "eliminar")),
     "ia": ("Sugerencias IA", "las sugerencias de IA", ("ver",)),
+    "ajustes": ("Ajustes del restaurante", "los ajustes del restaurante", ("ver", "editar")),
+    "mesas": ("Mesas y zonas", "mesas y zonas", ("ver", "crear", "editar", "cambiar_estado", "eliminar")),
 }
 
 # PLANES (2026-10-01). Cada módulo pertenece a un GRUPO del catálogo comercial
@@ -42,13 +43,14 @@ GRUPO_DE_MODULO: dict[str, str] = {
     "compras": "compras",
     "productos": "compras",
     "categorias": "compras",
-    "marcas": "compras",
     "proveedores": "compras",
     "ventas": "ventas",
     "pedidos": "ventas",
     "usuarios": "seguridad",
     "roles": "seguridad",
     "ia": "ia",
+    "ajustes": "ajustes",
+    "mesas": "ajustes",
 }
 PLAN_MINIMO_DE_GRUPO: dict[str, str] = {
     "dashboard": "basico",
@@ -56,6 +58,7 @@ PLAN_MINIMO_DE_GRUPO: dict[str, str] = {
     "compras": "estandar",
     "ventas": "estandar",
     "ia": "pro_ia",
+    "ajustes": "basico",
 }
 NOMBRE_GRUPO: dict[str, str] = {
     "dashboard": "el Dashboard",
@@ -63,6 +66,7 @@ NOMBRE_GRUPO: dict[str, str] = {
     "compras": "Compras",
     "ventas": "Ventas",
     "ia": "las Sugerencias IA",
+    "ajustes": "los Ajustes",
 }
 
 
@@ -160,29 +164,34 @@ def permisos_de_rol(es_administrador: bool, permisos: dict | None) -> dict[str, 
     return efectivos
 
 
-# Roles de ejemplo que se crean con cada empresa nueva (y en las existentes,
-# por la migración de permisos). Permisos limitados y realistas; el
-# administrador puede ajustarlos desde Seguridad → Roles.
+# Roles de ejemplo que se crean con cada empresa nueva: los cuatro puestos de
+# un restaurante (2026-10-12). Permisos limitados y realistas; el
+# administrador puede ajustarlos desde Seguridad → Roles. Las empresas que ya
+# existían conservan sus roles (son datos del cliente).
 ROLES_DE_EJEMPLO: dict[str, tuple[str, dict[str, list[str]]]] = {
     "Cajero": (
-        "Registra ventas y atiende pedidos. No ve compras, costos ni márgenes.",
+        "Cobra las órdenes y cierra la caja del día. No ve compras, costos ni márgenes.",
         {
             "ventas": ["ver", "crear", "cambiar_estado"],
             "pedidos": ["ver", "crear", "editar", "cambiar_estado"],
             "productos": ["ver"],
             "categorias": ["ver"],
-            "marcas": ["ver"],
+            "mesas": ["ver"],
         },
     ),
-    "Bodega": (
-        "Recibe compras y mantiene el catálogo. No vende ni ve el dashboard.",
+    "Mesero": (
+        "Toma los pedidos en las mesas desde el celular y sigue sus órdenes.",
         {
-            "compras": ["ver", "crear", "cambiar_estado"],
-            "productos": ["ver", "crear", "editar", "cambiar_estado"],
-            "categorias": ["ver", "crear", "editar"],
-            "marcas": ["ver", "crear", "editar"],
-            "proveedores": ["ver"],
-            "pedidos": ["ver"],
+            "pedidos": ["ver", "crear", "editar"],
+            "productos": ["ver"],
+            "categorias": ["ver"],
+            "mesas": ["ver"],
+        },
+    ),
+    "Cocinero": (
+        "Ve las comandas que entran a cocina, las toma y las marca como listas.",
+        {
+            "pedidos": ["ver", "cambiar_estado"],
         },
     ),
 }

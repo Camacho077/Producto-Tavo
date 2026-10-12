@@ -50,7 +50,7 @@ export function etiquetaDeEstado(estado) {
 
 /**
  * Activo / Inactivo: el mismo badge en productos, proveedores, usuarios,
- * categorías y marcas. Antes cada módulo tenía su propia copia.
+ * categorías y mesas. Antes cada módulo tenía su propia copia.
  */
 export function EstadoBadge({ activo }) {
   return <Badge variante={activo ? "positivo" : "neutro"}>{activo ? "Activo" : "Inactivo"}</Badge>;

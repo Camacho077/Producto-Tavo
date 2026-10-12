@@ -27,7 +27,7 @@ const CAJERO = {
   pedidos: ["ver", "crear", "editar", "cambiar_estado"],
   productos: ["ver"],
   categorias: ["ver"],
-  marcas: ["ver"],
+  mesas: ["ver"],
 };
 const puedeCon = (permisos) => (m, a = "ver") => Boolean(permisos[m]?.includes(a));
 
@@ -39,19 +39,20 @@ beforeEach(() => {
 });
 
 describe("sidebar según el rol", () => {
-  it("el Cajero ve Ventas y Pedidos, el catálogo en solo lectura, y nada de dashboard, compras ni seguridad", () => {
+  it("el Cajero ve Caja y Órdenes, el catálogo y las mesas en solo lectura, y nada de dashboard, compras ni seguridad", () => {
     const modulos = modulosVisibles("pro_ia", [], puedeCon(CAJERO));
     const claves = modulos.map((m) => m.key);
-    expect(claves).toEqual(["compras", "ventas"]);
+    expect(claves).toEqual(["compras", "ventas", "ajustes"]);
     const compras = modulos.find((m) => m.key === "compras");
-    expect(compras.hijos.map((h) => h.key)).toEqual(["productos", "categorias", "marcas"]);
+    expect(compras.hijos.map((h) => h.key)).toEqual(["productos", "categorias"]);
+    expect(modulos.find((m) => m.key === "ajustes").hijos.map((h) => h.key)).toEqual(["mesas"]);
     // El grupo lleva a su primer submódulo visible, no a /compras (que no puede ver).
     expect(compras.path).toBe("/compras/productos");
     expect(primeraRutaPermitida(modulos)).toBe("/compras/productos");
   });
 
   it("sin `puede` (plan solamente) se ve todo lo del plan", () => {
-    expect(modulosVisibles("pro_ia", []).length).toBe(5);
+    expect(modulosVisibles("pro_ia", []).length).toBe(6);
   });
 });
 

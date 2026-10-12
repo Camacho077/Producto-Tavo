@@ -3,6 +3,7 @@ import { Link, useLocation } from "react-router-dom";
 
 import { avisosDeEstado } from "@/context/AvisosContext";
 import { enlaceDeAviso } from "@/modules/dashboard/avisos";
+import { BRANDING } from "@/config/branding";
 
 // Píldoras de estado que caben a la derecha: las demás viven en el panel de
 // avisos del dashboard.
@@ -53,7 +54,7 @@ export default function BarraSuperior({ modulos, avisos, menuAbierto, onAbrirMen
       </button>
 
       <p className="barra-superior__seccion">
-        <span className="barra-superior__empresa">{nombreEmpresa ?? "JS Company"}</span>
+        <span className="barra-superior__empresa">{nombreEmpresa ?? BRANDING.nombre}</span>
         {seccion.map((parte) => (
           <span key={parte} className="barra-superior__parte">
             {parte}

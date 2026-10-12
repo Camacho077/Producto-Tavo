@@ -1,8 +1,7 @@
 """
 COMPORTAMIENTO de los endpoints que solo cubría test_permisos.py (que
 comprueba el 403/acceso de las 65 rutas, pero no lo que hacen). Revisión del
-2026-10-02: detalle por id, cambio de estado, borrado con historial, edición
-de marca y PDF de compras y pedidos.
+2026-10-02: detalle por id, cambio de estado, borrado con historial y PDF de compras y pedidos.
 """
 import uuid
 
@@ -41,7 +40,7 @@ def compra(client, h, pid, confirmar=True):
 # ---------------------------------------------------------------- detalle por id
 @pytest.mark.parametrize("ruta,cuerpo,campo", [
     ("/compras/categorias", {"nombre": "Bebidas"}, "nombre"),
-    ("/compras/marcas", {"nombre": "Campo Verde"}, "nombre"),
+    ("/ajustes/zonas", {"nombre": "Terraza"}, "nombre"),
     ("/compras/proveedores", PROVEEDOR_PRUEBA, "razon_social"),
 ])
 def test_el_detalle_devuelve_el_registro_y_404_si_no_existe(s, ruta, cuerpo, campo):
@@ -85,15 +84,15 @@ def test_cambiar_estado_desactiva_y_reactiva_y_el_filtro_lo_refleja(s, ruta, cue
     assert r.json()["activo"] is True
 
 
-# ---------------------------------------------------------------- edición de marca
-def test_editar_marca_cambia_el_nombre_y_rechaza_duplicados(s):
+# ---------------------------------------------------------------- edición de zona
+def test_editar_zona_cambia_el_nombre_y_rechaza_duplicados(s):
     client, h = s
-    a = crear(client, h, "/compras/marcas", {"nombre": "Campo Verde"})
-    crear(client, h, "/compras/marcas", {"nombre": "Sabana Fresca"})
-    r = client.put(f"{API}/compras/marcas/{a['id']}", headers=h, json={"nombre": "Campo Nuevo"})
-    assert r.status_code == 200 and r.json()["nombre"] == "Campo Nuevo"
-    r = client.put(f"{API}/compras/marcas/{a['id']}", headers=h, json={"nombre": "Sabana Fresca"})
-    assert r.status_code == 409 and "Sabana Fresca" in r.json()["detail"]
+    a = crear(client, h, "/ajustes/zonas", {"nombre": "Salón"})
+    crear(client, h, "/ajustes/zonas", {"nombre": "Terraza"})
+    r = client.put(f"{API}/ajustes/zonas/{a['id']}", headers=h, json={"nombre": "Salón principal"})
+    assert r.status_code == 200 and r.json()["nombre"] == "Salón principal"
+    r = client.put(f"{API}/ajustes/zonas/{a['id']}", headers=h, json={"nombre": "Terraza"})
+    assert r.status_code == 409 and "Terraza" in r.json()["detail"]
 
 
 # ---------------------------------------------------------------- borrado con historial

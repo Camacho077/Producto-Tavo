@@ -372,4 +372,86 @@
     line-height: 1.1;
     color: var(--texto);
   }
+
+  /* Subir imagen (components/SubirImagen.jsx): vista previa + acciones. */
+  .subir-imagen {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+  .subir-imagen__vista {
+    flex: none;
+    display: grid;
+    place-items: center;
+    overflow: hidden;
+    border: var(--borde-fino) solid var(--borde);
+    border-radius: 12px;
+    background-color: var(--relleno);
+    color: var(--texto-terciario);
+  }
+  .subir-imagen__vista--cuadrada {
+    width: 88px;
+    height: 88px;
+  }
+  .subir-imagen__vista--ancha {
+    width: 160px;
+    height: 80px;
+  }
+  .subir-imagen__vista img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  .subir-imagen__vista--ancha img {
+    object-fit: contain;
+  }
+  .subir-imagen__acciones {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+    min-width: 0;
+  }
+  .subir-imagen__acciones .campo__ayuda,
+  .subir-imagen__acciones .campo__error {
+    flex-basis: 100%;
+  }
+
+  /* Grupo de casillas (ui/GrupoCasillas.jsx): opciones como fichas que se
+     tocan con el dedo (36 px), el elegido con borde pleno. */
+  .grupo-casillas {
+    display: grid;
+    gap: 5px;
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    border: 0;
+  }
+  .grupo-casillas legend {
+    padding: 0;
+    margin-bottom: 5px;
+  }
+  .grupo-casillas__opciones {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+  .grupo-casillas__opcion {
+    min-height: 36px;
+    padding: 6px 12px;
+    border: var(--borde-fino) solid var(--borde);
+    border-radius: var(--radio-control-grande);
+    background-color: var(--superficie);
+    color: var(--texto-secundario);
+    transition: border-color var(--transicion), color var(--transicion);
+  }
+  .grupo-casillas__opcion--elegida {
+    border-color: var(--texto);
+    color: var(--texto);
+  }
+  .grupo-casillas__ayuda {
+    display: block;
+    font-size: 11px;
+    color: var(--texto-terciario);
+  }
 }

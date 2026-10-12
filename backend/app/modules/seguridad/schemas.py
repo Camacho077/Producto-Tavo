@@ -4,6 +4,7 @@ from datetime import datetime
 from pydantic import BaseModel, EmailStr, Field, ConfigDict, field_validator
 
 from app.core import validaciones as v
+from app.modules.ajustes.schemas import ConfiguracionRestaurante
 from app.core.catalogo_permisos import validar_permisos as _validar_permisos
 
 # El catálogo de módulos y acciones vive en app/core/catalogo_permisos.py; el
@@ -161,6 +162,16 @@ class TenantOut(BaseModel):
     plan: str
     theme_config: dict
     modulos_activos: list
+    # Datos del negocio y configuración operativa (2026-10-12): la comanda,
+    # la factura y la toma de pedidos los necesitan aunque el rol no pueda
+    # VER Ajustes (un mesero no edita la configuración, pero la usa).
+    nit: str | None = None
+    direccion: str | None = None
+    ciudad: str | None = None
+    telefono: str | None = None
+    correo: str | None = None
+    logo_id: uuid.UUID | None = None
+    configuracion: ConfiguracionRestaurante | None = None
 
 
 class MeResponse(BaseModel):

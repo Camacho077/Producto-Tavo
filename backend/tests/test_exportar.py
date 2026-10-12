@@ -18,7 +18,7 @@ API = "/api/v1"
 
 LISTADOS = [
     "/compras/categorias",
-    "/compras/marcas",
+    "/ajustes/mesas",
     "/compras/proveedores",
     "/compras/productos",
     "/compras/compras",
@@ -70,10 +70,10 @@ def test_respeta_la_busqueda_y_trae_todas_las_paginas(empresa):
 
 def test_respeta_los_filtros(empresa):
     client, h, _ = empresa
-    a = client.post(f"{API}/compras/marcas", headers=h, json={"nombre": "Activa"}).json()
-    b = client.post(f"{API}/compras/marcas", headers=h, json={"nombre": "Pausada"}).json()
-    assert client.patch(f"{API}/compras/marcas/{b['id']}/estado", headers=h, json={"activo": False}).status_code == 200
-    filas = leer_csv(client.get(f"{API}/compras/marcas?formato=csv&activo=true", headers=h))
+    a = client.post(f"{API}/compras/categorias", headers=h, json={"nombre": "Activa"}).json()
+    b = client.post(f"{API}/compras/categorias", headers=h, json={"nombre": "Pausada"}).json()
+    assert client.patch(f"{API}/compras/categorias/{b['id']}/estado", headers=h, json={"activo": False}).status_code == 200
+    filas = leer_csv(client.get(f"{API}/compras/categorias?formato=csv&activo=true", headers=h))
     assert [f[0] for f in filas[1:]] == [a["nombre"]]
 
 
@@ -134,12 +134,12 @@ def test_nunca_exporta_datos_de_otra_empresa(client, tenant_factory, usuario_fac
 
 def test_formato_desconocido_es_422(empresa):
     client, h, _ = empresa
-    assert client.get(f"{API}/compras/marcas?formato=xlsx", headers=h).status_code == 422
+    assert client.get(f"{API}/compras/categorias?formato=xlsx", headers=h).status_code == 422
 
 
 def test_sin_formato_el_listado_sigue_siendo_json_paginado(empresa):
     client, h, _ = empresa
-    cuerpo = client.get(f"{API}/compras/marcas", headers=h).json()
+    cuerpo = client.get(f"{API}/compras/categorias", headers=h).json()
     assert set(cuerpo) == {"items", "total", "pagina", "por_pagina", "paginas"}
 
 

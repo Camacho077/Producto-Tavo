@@ -13,6 +13,9 @@ export const MSG = {
   nombrePersona: "Solo letras, espacios, tildes y apóstrofes (entre 2 y 80 caracteres)",
   nombreItem: "Solo letras, espacios, tildes y apóstrofes; sin espacios al inicio o al final",
   sku: "Solo letras, números, guion y guion bajo (entre 2 y 50 caracteres)",
+  nombreCarta: "Solo letras, números, espacios y los signos . , - + & / ( ) %; sin espacios al inicio o al final",
+  mesa: "Solo letras, números, espacios y guion (entre 1 y 20 caracteres)",
+  hora: "Debe ser una hora en formato 24 h, p. ej. 06:30",
   precio: "Debe ser un monto positivo con máximo 2 decimales (hasta $ 999.999.999,99)",
   porcentaje: "Debe ser un porcentaje entre 0 y 100",
   telefono: "Debe ser un celular de 10 dígitos que empiece por 3 o un fijo con indicativo (60 + 8 dígitos)",
@@ -32,6 +35,12 @@ export const PRECIO_MAX = 999_999_999.99;
 const NOMBRE_PERSONA_RE = /^[A-Za-zÁÉÍÓÚÜÑáéíóúüñ' ]+$/;
 const NOMBRE_ITEM_RE = /^[A-Za-zÁÉÍÓÚÜÑáéíóúüñ' ]+$/;
 const SKU_RE = /^[A-Za-z0-9_-]+$/;
+// Nombres de la carta y del restaurante (2026-10-12): platos, insumos,
+// combos, zonas y el nombre del negocio llevan dígitos y algunos signos
+// ("Gaseosa 400 ml", "Pollo 1/4"). Espejo de NOMBRE_CARTA_RE del backend.
+const NOMBRE_CARTA_RE = /^[A-Za-zÁÉÍÓÚÜÑáéíóúüñ0-9' .,\-+&/()%]+$/;
+const MESA_RE = /^[A-Za-zÁÉÍÓÚÜÑáéíóúüñ0-9 -]+$/;
+const HORA_RE = /^([01]\d|2[0-3]):([0-5]\d)$/;
 const TELEFONO_RE = /^(3\d{9}|60\d{8})$/;
 // Correo "de verdad": parte local sin espacios ni puntos dobles, dominio con TLD de 2+ letras.
 const EMAIL_RE = /^(?!\.)(?!.*\.\.)[A-Za-z0-9._%+-]+(?<!\.)@[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}$/;
@@ -110,6 +119,21 @@ export const esquemas = {
       .string()
       .refine((s) => s.trim().length > 0, MSG.obligatorio)
       .refine((s) => s === s.trim() && s.length >= 2 && s.length <= max && NOMBRE_ITEM_RE.test(s), MSG.nombreItem),
+
+  nombreCarta: (max = 100) =>
+    z
+      .string()
+      .refine((s) => s.trim().length > 0, MSG.obligatorio)
+      .refine((s) => s === s.trim() && s.length >= 2 && s.length <= max && NOMBRE_CARTA_RE.test(s), MSG.nombreCarta),
+
+  mesa: () =>
+    z
+      .string()
+      .transform((s) => s.replace(/\s+/g, " ").trim().toUpperCase())
+      .refine((s) => s.length > 0, MSG.obligatorio)
+      .refine((s) => s.length <= 20 && MESA_RE.test(s), MSG.mesa),
+
+  hora: () => z.string().refine((s) => HORA_RE.test(s), MSG.hora),
 
   sku: () =>
     z

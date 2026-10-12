@@ -162,6 +162,7 @@ function Marco() {
             plan={tenant?.plan}
             modulosActivos={tenant?.modulos_activos}
             nombreEmpresa={tenant?.nombre_empresa}
+            logoId={tenant?.logo_id}
             usuario={usuario}
             onLogout={logout}
             abierto={menuAbierto}

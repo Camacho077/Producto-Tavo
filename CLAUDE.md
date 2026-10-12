@@ -29,7 +29,13 @@ código. Nombre provisional del producto: "JS Restaurante".
   adaptan. Quitar un módulo es borrarlo de verdad (rutas, tablas con su
   migración, tests, menú): nada de código muerto.
 - Mientras no avance la fase correspondiente, el código y el texto de abajo
-  todavía hablan del ERP (Marcas, Ventas, Pedidos…): es lo heredado.
+  todavía hablan del ERP (Ventas, Pedidos…): es lo heredado.
+- **Avance** (detalle en `docs/DECISIONES.md` §0): fase 0 verificada; fase 1
+  (branding en `frontend/src/config/branding.jsx` + espejo
+  `backend/app/core/branding.py`, Marcas eliminada, módulo `ajustes`:
+  negocio, logo, operación en `Tenant.configuracion` leída por
+  `ConfiguracionRestaurante`, impresoras, jornada, zonas y mesas; imágenes
+  WebP en `app/modules/imagenes`, públicas por UUID).
 
 ## Mapa de puertos — CONFIGURACIÓN CRÍTICA (no se borra en limpiezas)
 Los dos productos corren AL MISMO TIEMPO en la misma máquina. Ningún puerto,

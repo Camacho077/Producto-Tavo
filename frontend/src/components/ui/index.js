@@ -20,3 +20,4 @@ export { default as TablaRecurso } from "@/components/ui/TablaRecurso";
 export { default as Detalle } from "@/components/ui/Detalle";
 export { default as Aviso } from "@/components/ui/Aviso";
 export { default as PantallaCarga } from "@/components/ui/PantallaCarga";
+export { default as GrupoCasillas } from "@/components/ui/GrupoCasillas";

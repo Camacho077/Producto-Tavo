@@ -15,13 +15,15 @@ const INPUTMODE = {
   telefono: "tel",
   documento_nit: "numeric",
   correo: "email",
+  carta: "text",
+  mesa: "text",
 };
 
 /**
  * Campo de texto del sistema.
  *  - `permitir`: filtro de entrada (ver lib/entrada.js): "nombre", "entero",
  *    "decimal", "digitos", "alfanumerico", "sku", "nit", "telefono",
- *    "correo". La tecla inválida no produce nada; el pegado se filtra; las
+ *    "correo", "carta" (nombres de la carta), "mesa". La tecla inválida no produce nada; el pegado se filtra; las
  *    máscaras (teléfono, NIT) se formatean solas sin mover el cursor.
  *    Con `permitir` el input es siempre type="text" (los type number/email
  *    no permiten controlar la posición del cursor).
