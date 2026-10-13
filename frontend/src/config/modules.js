@@ -1,4 +1,5 @@
 import {
+  Banknote,
   ChefHat,
   ClipboardCheck,
   ClipboardList,
@@ -7,6 +8,7 @@ import {
   History,
   Layers,
   LayoutGrid,
+  Lock,
   KeyRound,
   LayoutDashboard,
   Package,
@@ -19,6 +21,7 @@ import {
   Truck,
   Users,
   UtensilsCrossed,
+  Wallet,
 } from "lucide-react";
 
 // Cada módulo del catálogo (brief sección 2) mapeado a su ruta de frontend.
@@ -89,12 +92,18 @@ export const MODULES = [
     ],
   },
   {
-    // Restaurante (2026-10-12): Ventas pasa a ser la CAJA (fase 6).
+    // Caja (fase 6, 2026-10-12): cobrar, comprobantes, cierres y gastos.
     key: "ventas",
     label: "Caja",
-    path: "/ventas",
+    path: "/caja",
     icon: Receipt,
     plan: "basico",
+    hijos: [
+      { key: "caja", label: "Caja", path: "/caja", icon: Wallet },
+      { key: "ventas", label: "Comprobantes", path: "/caja/ventas", icon: Receipt },
+      { key: "cierres", permiso: "caja", label: "Cierres", path: "/caja/cierres", icon: Lock },
+      { key: "gastos", label: "Gastos", path: "/gastos", icon: Banknote },
+    ],
   },
   {
     key: "seguridad",

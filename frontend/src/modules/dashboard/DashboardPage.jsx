@@ -525,7 +525,7 @@ export default function DashboardPage() {
                         ? `${formatearNumero(t.numero_ventas)} ventas en el periodo, con un saldo de ${formatearCompacto(t.saldo)} frente a compras.`
                         : "Registra tu primera venta y aquí verás el saldo del periodo frente a las compras."}
                     </p>
-                    <Link to="/ventas" className="boton-claro">
+                    <Link to="/caja/ventas" className="boton-claro">
                       Ver ventas
                       <ArrowRight size={13} aria-hidden="true" />
                     </Link>

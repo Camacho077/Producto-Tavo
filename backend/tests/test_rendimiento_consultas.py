@@ -14,7 +14,7 @@ from tests.nombres import letras
 from sqlalchemy import event
 
 from app.core.validaciones import digito_verificacion_nit
-from tests.conftest import PROVEEDOR_PRUEBA
+from tests.conftest import PROVEEDOR_PRUEBA, vender
 
 # Nombres sin dígitos: el validador de nombre de persona solo admite letras.
 ORDINALES = ["Uno", "Dos", "Tres", "Cuatro", "Cinco", "Seis", "Siete", "Ocho", "Nueve", "Diez", "Once", "Doce"]
@@ -99,16 +99,7 @@ def _compra(client, headers, proveedor_id, producto):
 
 
 def _venta(client, headers, producto_id):
-    return client.post(
-        "/api/v1/ventas/ventas",
-        headers=headers,
-        json={
-            "cliente_nombre": "Carlos Cliente",
-            "fecha": "2026-01-02T09:00:00",
-            "confirmar": True,
-            "items": [{"producto_id": producto_id, "cantidad": 1, "precio_unitario": "1000"}],
-        },
-    ).json()
+    return vender(client, headers, [producto_id])
 
 
 def _orden(client, headers, producto_id):
@@ -160,7 +151,7 @@ def test_listado_de_ventas_cuesta_lo_mismo_con_1_que_con_10(sesion, db_session):
     proveedor = _proveedor(client, headers, 0)
     for p in productos:
         _compra(client, headers, proveedor["id"], p)
-    _comparar(client, db_session, headers, "/api/v1/ventas/ventas", lambda i: _venta(client, headers, productos[i]["id"]))
+    _comparar(client, db_session, headers, "/api/v1/caja/ventas", lambda i: _venta(client, headers, productos[i]["id"]))
 
 
 def test_tablero_de_ordenes_cuesta_lo_mismo_con_1_que_con_10(sesion, db_session):

@@ -29,7 +29,7 @@ from app.modules.inventario.unidades import legible
 from app.db.models import Tenant
 from app.modules.ajustes.schemas import configuracion_de
 from app.modules.ordenes.models import Comanda, Orden
-from app.modules.ventas.models import Venta, VentaItem
+from app.modules.caja.models import Venta, VentaItem
 
 # Umbrales de las reglas. Viven aquí, con nombre, para que cambiarlos sea
 # un solo sitio y los tests puedan apoyarse en ellos.
@@ -177,7 +177,7 @@ def comandas_demoradas(db: Session, tenant_id: uuid.UUID, ahora: datetime) -> di
         .filter(
             Comanda.tenant_id == tenant_id,
             Comanda.estado.in_(("entrante", "en_preparacion")),
-            Orden.estado == "abierta",
+            Orden.estado != "anulada",
             Comanda.created_at <= ahora - timedelta(minutes=minutos),
         )
         .order_by(Comanda.created_at)

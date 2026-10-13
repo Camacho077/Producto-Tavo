@@ -13,9 +13,20 @@ from app.core.tiempo import ahora_utc
 from app.core.validaciones import digito_verificacion_nit
 from app.modules.ia import analisis
 from app.modules.inventario.models import Insumo
+from tests.conftest import vender as vender_orden
 
 URL = "/api/v1/ia/sugerencias"
 API = "/api/v1"
+
+
+# La sesión de la base de la prueba en curso: `vender` la usa para llevar la
+# venta a su fecha.
+_DB = {}
+
+
+@pytest.fixture(autouse=True)
+def _sesion_db(db_session):
+    _DB["db"] = db_session
 
 
 @pytest.fixture()
@@ -56,12 +67,8 @@ def comprar(client, h, prov, insumo_id, cantidad, costo, fecha, unidad="unidad")
     assert r.status_code == 201, r.json()
 
 
-def vender(client, h, pid, cantidad, fecha, precio="1000"):
-    r = client.post(f"{API}/ventas/ventas", headers=h, json={
-        "cliente_nombre": "Carlos Cliente", "fecha": fecha.isoformat(timespec="seconds"), "confirmar": True,
-        "items": [{"producto_id": pid, "cantidad": cantidad, "precio_unitario": precio}],
-    })
-    assert r.status_code == 201, r.json()
+def vender(client, h, pid, cantidad, fecha):
+    vender_orden(client, h, [(pid, cantidad)], fecha=fecha, db=_DB["db"])
 
 
 def seccion(cuerpo, clave):
@@ -187,7 +194,7 @@ def test_insumo_quieto_con_capital_inmovilizado(sesion, db_session):
     base_de_ventas(client, h, ahora, prov)
     pid, harina = plato(client, h, "Harina", precio="20000")
     comprar(client, h, prov, harina, 100, 8000, ahora - timedelta(days=90))
-    vender(client, h, pid, 2, ahora - timedelta(days=20), precio="20000")
+    vender(client, h, pid, 2, ahora - timedelta(days=20))
     db_session.query(Insumo).filter(Insumo.id == harina).update({"created_at": ahora - timedelta(days=90)})
     db_session.flush()
 
@@ -318,7 +325,7 @@ def test_nunca_mezcla_datos_de_otra_empresa(client, tenant_factory, usuario_fact
     pid, secreto = plato(client, h_a, "Secreto", precio="10000")
     comprar(client, h_a, prov, secreto, 10, 9500, ahora - timedelta(days=10))
     for d in range(6):
-        vender(client, h_a, pid, 1, ahora - timedelta(days=d + 1), precio="10000")
+        vender(client, h_a, pid, 1, ahora - timedelta(days=d + 1))
 
     r = client.get(URL, headers=h_b)
     assert r.status_code == 200

@@ -26,7 +26,6 @@ export const MSG = {
   email: "Debe ser un correo electrónico válido",
   nitFormato: "El NIT debe tener el formato 900123456-7 (número y dígito de verificación)",
   fechaFutura: "La fecha no puede ser futura",
-  entregaPasada: "La fecha de entrega no puede ser anterior a hoy",
   entero: (min, max) => `Debe ser un número entero entre ${min} y ${max}`,
   maximo: (n) => `Máximo ${n} caracteres`,
 };
@@ -227,22 +226,4 @@ export const esquemas = {
 
   fechaNoFutura: () =>
     z.string().refine((s) => s === "" || new Date(s).getTime() <= Date.now() + 5 * 60 * 1000, MSG.fechaFutura),
-
-  fechaNoPasada: () =>
-    z.string().refine((s) => {
-      if (s === "") return true;
-      const fecha = new Date(s);
-      return !Number.isNaN(fecha.getTime()) && diaNegocio(fecha) >= diaNegocio(new Date());
-    }, MSG.entregaPasada),
 };
-
-/** Ítems de compra/venta/pedido: cada línea con producto, cantidad y precio válidos. */
-export const esquemaItems = z
-  .array(
-    z.object({
-      producto_id: z.string().min(1, "Selecciona un producto"),
-      cantidad: esquemas.entero(1, CANTIDAD_MAX),
-      precio_unitario: esquemas.precio({ permitirCero: true }),
-    })
-  )
-  .min(1, "Agrega al menos un producto");

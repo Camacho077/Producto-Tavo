@@ -28,7 +28,7 @@ from app.modules.dashboard.periodos import (
     ventana_de_periodo,
 )
 from app.modules.ordenes.models import Orden
-from app.modules.ventas.models import Venta, VentaItem
+from app.modules.caja.models import Venta, VentaItem
 
 router = APIRouter(prefix="/dashboard", tags=["Dashboard"])
 

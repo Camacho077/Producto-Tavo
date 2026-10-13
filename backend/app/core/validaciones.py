@@ -221,11 +221,3 @@ def fecha_no_futura(fecha: datetime) -> datetime:
 # lo trae). Espejo: ZONA_NEGOCIO en frontend/src/lib/validaciones.js.
 ZONA_NEGOCIO = timezone(timedelta(hours=-5), "America/Bogota")
 
-
-def fecha_no_pasada(fecha: datetime | None) -> datetime | None:
-    if fecha is None:
-        return None
-    hoy = datetime.now(ZONA_NEGOCIO).date()
-    if _a_utc(fecha).astimezone(ZONA_NEGOCIO).date() < hoy:
-        raise ValueError("La fecha de entrega no puede ser anterior a hoy")
-    return fecha

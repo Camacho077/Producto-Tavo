@@ -59,7 +59,7 @@ def comandas_vivas(o: models.Orden) -> list[models.Comanda]:
 def estado_cocina(o: models.Orden) -> str | None:
     """El de la comanda más atrasada: con una comanda entregada y otra
     entrando, la orden está "entrante" (todavía falta algo)."""
-    if o.estado != "abierta":
+    if o.estado == "anulada":
         return None
     vivas = comandas_vivas(o)
     if not vivas:
@@ -68,7 +68,8 @@ def estado_cocina(o: models.Orden) -> str | None:
 
 
 def filtro_activa():
-    """SQL: orden abierta con alguna comanda que todavía no se entregó."""
+    """SQL: orden con alguna comanda que todavía no se entregó (una orden
+    para llevar puede estar cobrada y seguir en cocina)."""
     return exists().where(
         models.Comanda.orden_id == models.Orden.id,
         models.Comanda.estado.in_(("entrante", "en_preparacion", "lista")),
@@ -94,6 +95,7 @@ def _serializar_item(it: models.OrdenItem, numeros: dict, ver_costos: bool) -> d
         "va_a_cocina": it.va_a_cocina,
         "anulado": it.anulado,
         "anulado_motivo": it.anulado_motivo,
+        "venta_id": it.venta_id,
     }
 
 
@@ -361,6 +363,8 @@ def anular_item(
         raise NotFoundError("El plato indicado no está en esta orden: recarga la pantalla.")
     if item.anulado:
         raise ConflictError(f"{item.nombre} ya estaba anulado en la orden #{orden.numero}.")
+    if item.venta_id:
+        raise ConflictError(f"{item.nombre} ya se cobró: para quitarlo, anula primero ese cobro en Caja.")
     if not [i for i in orden.items if not i.anulado and i.id != item.id]:
         raise ConflictError(f"{item.nombre} es lo único que queda en la orden #{orden.numero}: anula la orden completa.")
     _devolver_items(db, orden, [item], usuario.nombre_completo, motivo, ahora)
@@ -382,6 +386,8 @@ def anular_orden(db: Session, usuario: Usuario, orden_id: uuid.UUID, motivo: str
     ahora = ahora or ahora_utc()
     orden = obtener_orden_o_404(db, usuario.tenant_id, orden_id)
     _exigir_abierta(orden, "anular")
+    if any(i.venta_id for i in orden.items):
+        raise ConflictError(f"La orden #{orden.numero} ya tiene platos cobrados: anula primero esos cobros en Caja.")
     _devolver_items(db, orden, [i for i in orden.items if not i.anulado], usuario.nombre_completo, motivo, ahora)
     for c in orden.comandas:
         if c.estado != "entregada":
@@ -399,7 +405,8 @@ def entregar(db: Session, usuario: Usuario, orden_id: uuid.UUID, ahora: datetime
     """El mesero entrega lo que la cocina dejó listo."""
     ahora = ahora or ahora_utc()
     orden = obtener_orden_o_404(db, usuario.tenant_id, orden_id)
-    _exigir_abierta(orden, "entregar")
+    if orden.estado == "anulada":
+        raise ConflictError(f"No se puede entregar la orden #{orden.numero}: está anulada.")
     listas = [c for c in orden.comandas if c.estado == "lista"]
     if not listas:
         pendientes = [c for c in comandas_vivas(orden) if c.estado in ("entrante", "en_preparacion")]
@@ -471,6 +478,6 @@ def _clave_natural(nombre: str) -> tuple:
 
 def resumen_jornada(db: Session, tenant_id: uuid.UUID, jornada: date) -> dict:
     base = db.query(models.Orden).filter(models.Orden.tenant_id == tenant_id, models.Orden.jornada == jornada)
-    en_curso = base.filter(models.Orden.estado == "abierta", filtro_activa()).count()
+    en_curso = base.filter(models.Orden.estado != "anulada", filtro_activa()).count()
     total = base.filter(models.Orden.estado != "anulada").count()
     return {"jornada": jornada, "en_curso": en_curso, "ordenes": total}

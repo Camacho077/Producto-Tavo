@@ -13,7 +13,7 @@ from tests.nombres import letras
 
 from app.core.tiempo import ahora_utc
 from app.modules.dashboard import avisos as reglas
-from tests.conftest import comprar, crear_insumo, crear_plato
+from tests.conftest import comprar, crear_insumo, crear_plato, vender as vender_orden
 
 URL = "/api/v1/dashboard/avisos"
 
@@ -38,19 +38,8 @@ def dar_stock(client, headers, producto_id, cantidad, fecha="2026-01-01T09:00:00
     comprar(client, headers, [(plato["receta"][0]["insumo_id"], cantidad, "unidad", "500")], fecha=fecha)
 
 
-def vender(client, headers, producto_id, cantidad, fecha, precio="1000"):
-    resp = client.post(
-        "/api/v1/ventas/ventas",
-        headers=headers,
-        json={
-            "cliente_nombre": "Carlos Cliente",
-            "fecha": fecha,
-            "confirmar": True,
-            "items": [{"producto_id": producto_id, "cantidad": cantidad, "precio_unitario": precio}],
-        },
-    )
-    assert resp.status_code == 201, resp.json()
-    return resp.json()
+def vender(client, headers, producto_id, cantidad, fecha, db):
+    return vender_orden(client, headers, [(producto_id, cantidad)], fecha=fecha, db=db)
 
 
 def claves(cuerpo):
@@ -139,8 +128,8 @@ def test_caida_notable_de_ventas_frente_a_la_semana_anterior(sesion, db_session)
     producto = crear_producto(client, headers, "Diadema", "DIA-1")
     dar_stock(client, headers, producto["id"], 1000)
     # Semana anterior: 10 unidades. Semana actual: 2.
-    vender(client, headers, producto["id"], 10, (ahora - timedelta(days=10)).isoformat())
-    vender(client, headers, producto["id"], 2, (ahora - timedelta(days=2)).isoformat())
+    vender(client, headers, producto["id"], 10, (ahora - timedelta(days=10)).isoformat(), db_session)
+    vender(client, headers, producto["id"], 2, (ahora - timedelta(days=2)).isoformat(), db_session)
 
     cuerpo = reglas.calcular(db_session, tenant.id, ahora)
     a = next(x for x in cuerpo["avisos"] if x["clave"] == "ventas_caida")
@@ -155,8 +144,8 @@ def test_subida_notable_de_ventas_es_un_aviso_positivo(sesion, db_session):
     ahora = ahora_utc()
     producto = crear_producto(client, headers, "Diadema", "DIA-1")
     dar_stock(client, headers, producto["id"], 1000)
-    vender(client, headers, producto["id"], 2, (ahora - timedelta(days=10)).isoformat())
-    vender(client, headers, producto["id"], 10, (ahora - timedelta(days=2)).isoformat())
+    vender(client, headers, producto["id"], 2, (ahora - timedelta(days=10)).isoformat(), db_session)
+    vender(client, headers, producto["id"], 10, (ahora - timedelta(days=2)).isoformat(), db_session)
 
     cuerpo = reglas.calcular(db_session, tenant.id, ahora)
     a = next(x for x in cuerpo["avisos"] if x["clave"] == "ventas_subida")
@@ -171,8 +160,8 @@ def test_una_variacion_pequena_no_se_reporta(sesion, db_session):
     ahora = ahora_utc()
     producto = crear_producto(client, headers, "Diadema", "DIA-1")
     dar_stock(client, headers, producto["id"], 1000)
-    vender(client, headers, producto["id"], 10, (ahora - timedelta(days=10)).isoformat())
-    vender(client, headers, producto["id"], 11, (ahora - timedelta(days=2)).isoformat())
+    vender(client, headers, producto["id"], 10, (ahora - timedelta(days=10)).isoformat(), db_session)
+    vender(client, headers, producto["id"], 11, (ahora - timedelta(days=2)).isoformat(), db_session)
 
     cuerpo = reglas.calcular(db_session, tenant.id, ahora)
     assert not [a for a in cuerpo["avisos"] if a["clave"].startswith("ventas_")]
@@ -183,7 +172,7 @@ def test_sin_semana_anterior_no_se_calcula_un_porcentaje_sin_sentido(sesion, db_
     ahora = ahora_utc()
     producto = crear_producto(client, headers, "Diadema", "DIA-1")
     dar_stock(client, headers, producto["id"], 1000)
-    vender(client, headers, producto["id"], 5, (ahora - timedelta(days=1)).isoformat())
+    vender(client, headers, producto["id"], 5, (ahora - timedelta(days=1)).isoformat(), db_session)
 
     cuerpo = reglas.calcular(db_session, tenant.id, ahora)
     assert not [a for a in cuerpo["avisos"] if a["clave"].startswith("ventas_")]
@@ -196,8 +185,8 @@ def test_el_mas_vendido_de_la_semana_enlaza_al_producto(sesion, db_session):
     otro = crear_producto(client, headers, "Cargador", "CAR-1")
     dar_stock(client, headers, top["id"], 1000)
     dar_stock(client, headers, otro["id"], 1000)
-    vender(client, headers, top["id"], 9, (ahora - timedelta(days=1)).isoformat())
-    vender(client, headers, otro["id"], 4, (ahora - timedelta(days=1)).isoformat())
+    vender(client, headers, top["id"], 9, (ahora - timedelta(days=1)).isoformat(), db_session)
+    vender(client, headers, otro["id"], 4, (ahora - timedelta(days=1)).isoformat(), db_session)
 
     a = next(x for x in reglas.calcular(db_session, tenant.id, ahora)["avisos"] if x["clave"] == "mas_vendido")
     assert a["titulo"] == "Lo más vendido de la semana: Plato de Diadema"

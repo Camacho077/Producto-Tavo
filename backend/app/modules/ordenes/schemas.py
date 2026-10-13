@@ -112,6 +112,7 @@ class ItemOut(BaseModel):
     va_a_cocina: bool
     anulado: bool
     anulado_motivo: str | None = None
+    venta_id: uuid.UUID | None = None  # None = por cobrar
 
 
 class ComandaOut(BaseModel):

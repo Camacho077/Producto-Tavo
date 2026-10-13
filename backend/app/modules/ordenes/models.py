@@ -94,6 +94,7 @@ class OrdenItem(Base, TenantMixin):
         Index("ix_orden_items_orden", "orden_id"),
         Index("ix_orden_items_comanda", "comanda_id"),
         Index("ix_orden_items_producto", "producto_id"),
+        Index("ix_orden_items_venta", "venta_id"),
     )
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=gen_uuid)
@@ -113,6 +114,8 @@ class OrdenItem(Base, TenantMixin):
     consumo = Column(JSON, nullable=False, default=dict)
     anulado = Column(Boolean, nullable=False, default=False)
     anulado_motivo = Column(String(200), nullable=True)
+    # La venta (comprobante) que lo cobró; None = por cobrar.
+    venta_id = Column(UUID(as_uuid=True), ForeignKey("ventas.id", use_alter=True, name="fk_orden_items_venta"), nullable=True)
     posicion = Column(Integer, nullable=False, default=0)
 
     orden = relationship("Orden", back_populates="items")

@@ -46,7 +46,7 @@ from app.modules.compras.models import Compra, CompraItem, Proveedor
 from app.modules.dashboard.periodos import DESFASE_NEGOCIO
 from app.modules.inventario.models import Insumo, MovimientoInsumo
 from app.modules.inventario.unidades import convertir, legible
-from app.modules.ventas.models import Venta, VentaItem
+from app.modules.caja.models import Venta, VentaItem
 
 # ---------------------------------------------------------------------------
 # Umbrales con nombre: cambiarlos es un solo sitio y los tests se apoyan aquí.

@@ -43,7 +43,7 @@ def test_plan_basico_si_usa_carta_caja_dashboard_y_seguridad(client, admin_con_p
     """Un restaurante no opera sin carta, órdenes y caja: van desde Básico."""
     h = admin_con_plan("basico")
     assert client.get("/api/v1/catalogo/productos", headers=h).status_code == 200
-    assert client.get("/api/v1/ventas/ventas", headers=h).status_code == 200
+    assert client.get("/api/v1/caja/ventas", headers=h).status_code == 200
     assert client.get("/api/v1/dashboard/panel?periodo=mes", headers=h).status_code == 200
     assert client.get("/api/v1/seguridad/usuarios", headers=h).status_code == 200
     assert client.get("/api/v1/seguridad/roles", headers=h).status_code == 200
@@ -52,7 +52,7 @@ def test_plan_basico_si_usa_carta_caja_dashboard_y_seguridad(client, admin_con_p
 def test_plan_estandar_usa_inventario_pero_no_la_ia(client, admin_con_plan):
     h = admin_con_plan("estandar")
     assert client.get("/api/v1/inventario/insumos", headers=h).status_code == 200
-    assert client.get("/api/v1/ventas/ventas", headers=h).status_code == 200
+    assert client.get("/api/v1/caja/ventas", headers=h).status_code == 200
     r = client.get("/api/v1/ia/sugerencias", headers=h)
     assert r.status_code == 403
     assert "desde el plan Pro + IA o como módulo adicional" in r.json()["detail"]

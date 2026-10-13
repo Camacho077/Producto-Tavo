@@ -57,8 +57,13 @@ from app.modules.compras.models import Compra, Proveedor  # noqa: E402
 from app.modules.inventario import schemas as si  # noqa: E402
 from app.modules.inventario.models import Insumo, MovimientoInsumo  # noqa: E402
 from app.modules.inventario.unidades import legible  # noqa: E402
-from app.modules.ventas import schemas as sv, services as svc_ventas  # noqa: E402
-from app.modules.ventas.models import Venta  # noqa: E402
+from app.modules.ajustes.schemas import configuracion_de  # noqa: E402
+from app.modules.caja import schemas as scaja, services as svc_caja  # noqa: E402
+from app.modules.caja.models import Venta  # noqa: E402
+from app.modules.catalogo.services import vigente  # noqa: E402
+from app.modules.ordenes import schemas as so, services as svc_ordenes  # noqa: E402
+from app.modules.ordenes.models import Orden  # noqa: E402
+from app.modules.seguridad.models import Usuario  # noqa: E402
 
 USUARIO = "Carga de demostración"
 # "restaurante" en la nota: la demo del ERP heredado usaba las mismas notas
@@ -405,23 +410,39 @@ def cargar_compras_y_ventas(db, tenant_id, proveedores, insumos, productos, ahor
             svc_compras.crear_compra(db, tenant_id, payload, USUARIO)
             compras += 1
         else:
-            if existe(db, Venta, tenant_id, texto):
+            if db.query(Orden.id).filter(Orden.tenant_id == tenant_id, Orden.nota == texto).first():
                 continue
-            cliente, documento, factor = datos
-            payload = sv.VentaCreate(
-                cliente_nombre=cliente,
-                cliente_documento=documento,
-                fecha=hace(dias, ahora),
-                notas=texto,
-                confirmar=True,
-                items=[
-                    sv.ItemCreate(producto_id=productos[n].id, cantidad=c, precio_unitario=productos[n].precio)
-                    for n, c in lineas_de_venta(factor)
-                ],
-            )
-            svc_ventas.crear_venta(db, tenant_id, payload, USUARIO)
+            cliente, _, factor = datos
+            vender_demo(db, tenant_id, cliente, texto, [(productos[n].id, c) for n, c in lineas_de_venta(factor)], hace(dias, ahora))
             ventas += 1
     return compras, ventas
+
+
+def vendedor_demo(db, tenant_id) -> Usuario:
+    """Las órdenes y los cobros de la demo los registra el primer usuario
+    de la empresa (la API siempre sabe quién atiende)."""
+    usuario = db.query(Usuario).filter(Usuario.tenant_id == tenant_id).order_by(Usuario.created_at).first()
+    if usuario is None:
+        salir("La empresa no tiene usuarios: crea primero su administrador.")
+    return usuario
+
+
+def vender_demo(db, tenant_id, cliente, texto, lineas, fecha):
+    """Una venta de la demo por la vía real: orden para llevar (descuenta
+    insumos) y cobro en efectivo en la caja abierta."""
+    usuario = vendedor_demo(db, tenant_id)
+    # Un combo solo se vende en sus días de vigencia.
+    dia = (fecha - timedelta(hours=5)).date()
+    lineas = [(pid, c) for pid, c in lineas if vigente(db.get(Producto, pid), dia)]
+    orden = svc_ordenes.crear_orden(
+        db, usuario,
+        so.OrdenCreate(tipo="llevar", cliente_nombre=cliente, nota=texto, items=[so.ItemPedido(producto_id=pid, cantidad=c) for pid, c in lineas]),
+        ahora=fecha,
+    )
+    if svc_caja.caja_abierta(db, tenant_id) is None:
+        svc_caja.abrir(db, usuario, Decimal("0"), ahora=fecha)
+    total = svc_caja.desglose(orden.total, configuracion_de(db.get(Tenant, tenant_id)))["total"]
+    svc_caja.cobrar(db, usuario, scaja.CobroCreate(orden_id=orden.id, pagos=[scaja.PagoIn(medio="efectivo", monto=total)]), ahora=fecha)
 
 
 def reanclar_fechas(db, tenant_id, ahora):
@@ -429,12 +450,18 @@ def reanclar_fechas(db, tenant_id, ahora):
     "días atrás" contado desde HOY, en cada corrida (2026-09-30)."""
     movidos = 0
     for dias, tipo, texto, _ in linea_de_tiempo():
-        modelo = Compra if tipo == "compra" else Venta
-        doc = db.query(modelo).filter(modelo.tenant_id == tenant_id, modelo.notas == texto).first()
-        if doc is None:
-            continue
         fecha = hace(dias, ahora)
-        doc.fecha = fecha
+        if tipo == "compra":
+            doc = db.query(Compra).filter(Compra.tenant_id == tenant_id, Compra.notas == texto).first()
+            if doc is None:
+                continue
+            doc.fecha = fecha
+        else:
+            doc = db.query(Orden).filter(Orden.tenant_id == tenant_id, Orden.nota == texto).first()
+            if doc is None:
+                continue
+            for venta in db.query(Venta).filter(Venta.orden_id == doc.id):
+                venta.fecha = fecha
         doc.created_at = fecha
         for mov in db.query(MovimientoInsumo).filter(MovimientoInsumo.tenant_id == tenant_id, MovimientoInsumo.documento_id == doc.id):
             mov.created_at = fecha

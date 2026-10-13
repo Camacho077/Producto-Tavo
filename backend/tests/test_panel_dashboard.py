@@ -23,10 +23,20 @@ from app.modules.dashboard.periodos import (
     variacion,
     ventana_de_periodo,
 )
-from tests.conftest import comprar as comprar_insumos, crear_insumo, crear_plato
+from tests.conftest import comprar as comprar_insumos, crear_insumo, crear_plato, vender as vender_orden
 
 URL_PANEL = "/api/v1/dashboard/panel"
 URL_SERIE = "/api/v1/dashboard/serie"
+
+
+# La sesión de la base de la prueba en curso: `vender` la usa para llevar la
+# venta a su fecha.
+_DB = {}
+
+
+@pytest.fixture(autouse=True)
+def _sesion_db(db_session):
+    _DB["db"] = db_session
 
 
 @pytest.fixture()
@@ -59,18 +69,9 @@ def comprar(client, headers, producto_id, cantidad, precio="500", fecha=None):
 
 
 def vender(client, headers, producto_id, cantidad, precio="1000", fecha=None, cliente="Cliente Uno"):
-    venta = client.post(
-        "/api/v1/ventas/ventas",
-        headers=headers,
-        json={
-            "cliente_nombre": cliente,
-            "fecha": (fecha or ahora_utc()).isoformat(timespec="seconds"),
-            "items": [{"producto_id": producto_id, "cantidad": cantidad, "precio_unitario": precio}],
-        },
-    ).json()
-    resp = client.post(f"/api/v1/ventas/ventas/{venta['id']}/confirmar", headers=headers)
-    assert resp.status_code == 200, resp.json()
-    return resp.json()
+    """Toma la orden y la cobra; `precio` es el del plato (las ventas ya no
+    llevan precio libre: se cobra lo que dice la carta)."""
+    return vender_orden(client, headers, [(producto_id, cantidad)], fecha=fecha, db=_DB["db"] if fecha else None, cliente=cliente)
 
 
 # =====================================================================

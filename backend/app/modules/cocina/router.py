@@ -78,7 +78,7 @@ def comandas(db: Session = Depends(get_db), usuario: Usuario = Depends(usuario_c
             models.Comanda.tenant_id == tenant_id,
             models.Comanda.va_a_cocina.is_(True),
             models.Comanda.estado.in_(ESTADOS_EN_COCINA),
-            models.Orden.estado == "abierta",
+            models.Orden.estado != "anulada",
         )
         .order_by(models.Comanda.created_at)
         .all()
@@ -117,8 +117,8 @@ def _cambiar(db: Session, usuario: Usuario, comanda_id: uuid.UUID, desde: str, h
     comanda = obtener_del_tenant(db, models.Comanda, usuario.tenant_id, comanda_id, "La comanda indicada")
     orden = comanda.orden
     nombre = f"la comanda {comanda.numero} de la orden #{orden.numero}"
-    if orden.estado != "abierta" or comanda.estado == "anulada":
-        raise ConflictError(f"No se puede {accion} {nombre}: la orden fue {orden.estado if orden.estado != 'abierta' else 'modificada'} y ya no va.")
+    if orden.estado == "anulada" or comanda.estado == "anulada":
+        raise ConflictError(f"No se puede {accion} {nombre}: la orden fue {'anulada' if orden.estado == 'anulada' else 'modificada'} y ya no va.")
     if comanda.estado != desde:
         legible = {"entrante": "por empezar", "en_preparacion": "en preparación", "lista": "lista", "entregada": "entregada"}[comanda.estado]
         raise ConflictError(f"No se puede {accion} {nombre}: ya está {legible} (quizá otra persona la movió).")

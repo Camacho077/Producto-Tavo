@@ -21,11 +21,9 @@ def _movimientos(client, h, insumo_id):
     return client.get(f"{API}/inventario/insumos/{insumo_id}/movimientos", headers=h).json()["items"]
 
 
-def _vender(client, h, plato_id, cantidad, precio="1000"):
-    return client.post(f"{API}/ventas/ventas", headers=h, json={
-        "cliente_nombre": "Cliente Final", "fecha": "2026-01-02T10:00:00", "confirmar": True,
-        "items": [{"producto_id": plato_id, "cantidad": cantidad, "precio_unitario": precio}],
-    })
+def _vender(client, h, plato_id, cantidad):
+    """Enviar la orden es lo que saca los insumos de la bodega."""
+    return client.post(f"{API}/ordenes", headers=h, json={"tipo": "llevar", "items": [{"producto_id": plato_id, "cantidad": cantidad}]})
 
 
 def test_el_insumo_nace_en_cero_y_la_existencia_no_se_edita(s):
@@ -95,10 +93,10 @@ def test_la_venta_descuenta_por_receta_con_merma_y_anular_devuelve(s):
     assert movs[0]["tipo"] == "venta" and Decimal(movs[0]["cantidad"]) == Decimal("-1.1")
     assert Decimal(movs[0]["valor"]) == Decimal("-2200")  # costo de lo vendido: 1,1 kg × $2.000
 
-    assert client.post(f"{API}/ventas/ventas/{venta.json()['id']}/anular", headers=h).status_code == 200
+    assert client.post(f"{API}/ordenes/{venta.json()['id']}/anular", headers=h, json={"motivo": "Prueba"}).status_code == 200
     assert existencia(client, h, papa["id"]) == Decimal("10") and existencia(client, h, aceite["id"]) == Decimal("2")
     tipos = [m["tipo"] for m in _movimientos(client, h, papa["id"])]
-    assert tipos == ["anulacion_venta", "venta", "compra"]
+    assert tipos == ["anulacion_orden", "venta", "compra"]
     assert sum(Decimal(m["cantidad"]) for m in _movimientos(client, h, papa["id"])) == existencia(client, h, papa["id"])
 
 
@@ -111,10 +109,10 @@ def test_si_un_insumo_no_alcanza_no_se_descuenta_nada_y_dice_cuanto_queda(s):
 
     r = _vender(client, h, hamburguesa["id"], 3)
     assert r.status_code == 409
-    assert r.json()["detail"] == "No se pudo registrar la venta: quedan 200 g de Queso y la venta necesita 300 g."
+    assert r.json()["detail"] == "No se pudo enviar la orden: quedan 200 g de Queso y la orden necesita 300 g."
     assert r.json()["datos"]["faltantes"][0]["insumo"] == "Queso"
     assert existencia(client, h, pan["id"]) == 10  # tampoco se tocó el pan
-    assert client.get(f"{API}/ventas/ventas", headers=h).json()["total"] == 0
+    assert client.get(f"{API}/ordenes", headers=h, params={"vista": "todas"}).json()["total"] == 0
 
 
 def test_vender_sin_existencias_si_el_restaurante_lo_permite(s):

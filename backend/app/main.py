@@ -9,7 +9,8 @@ from app.modules.dashboard.router import router as dashboard_router
 from app.modules.catalogo.router import router as catalogo_router
 from app.modules.compras.router import router as compras_router
 from app.modules.inventario.router import router as inventario_router
-from app.modules.ventas.router import router as ventas_router
+from app.modules.caja.router import router as caja_router
+from app.modules.gastos.router import router as gastos_router
 from app.modules.ordenes.router import router as ordenes_router
 from app.modules.cocina.router import router as cocina_router
 from app.modules.seguridad.router import router as seguridad_router
@@ -66,7 +67,8 @@ app.include_router(dashboard_router, prefix=settings.API_V1_PREFIX)
 app.include_router(catalogo_router, prefix=settings.API_V1_PREFIX)
 app.include_router(inventario_router, prefix=settings.API_V1_PREFIX)
 app.include_router(compras_router, prefix=settings.API_V1_PREFIX)
-app.include_router(ventas_router, prefix=settings.API_V1_PREFIX)
+app.include_router(caja_router, prefix=settings.API_V1_PREFIX)
+app.include_router(gastos_router, prefix=settings.API_V1_PREFIX)
 app.include_router(ordenes_router, prefix=settings.API_V1_PREFIX)
 app.include_router(cocina_router, prefix=settings.API_V1_PREFIX)
 app.include_router(ia_router, prefix=settings.API_V1_PREFIX)

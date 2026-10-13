@@ -23,7 +23,8 @@ import { ConSesion } from "@/test/sesion";
 
 // El rol de ejemplo Cajero (backend/app/core/catalogo_permisos.py).
 const CAJERO = {
-  ventas: ["ver", "crear", "cambiar_estado"],
+  ventas: ["ver", "crear"],
+  caja: ["ver", "cambiar_estado"],
   ordenes: ["ver", "crear", "editar", "cambiar_estado"],
   productos: ["ver"],
   categorias: ["ver"],

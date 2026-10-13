@@ -354,6 +354,65 @@ desde plantilla Excel/CSV con validación fila por fila.
 
 **Sigue (fase 6)**: caja, ventas y gastos.
 
+### 2026-10-12 — Fase 6: caja, cobros, cierres y gastos
+
+- **Módulo `caja`** (reemplaza a `ventas`, que se borra): cobrar una orden
+  la convierte en VENTA con **comprobante interno** consecutivo
+  (`CI-000001`). Se puede cobrar toda la orden o parte (**dividir la
+  cuenta** por platos o dentro de una línea: 1 de 2 sándwiches; la línea se
+  parte y el resto queda por cobrar). Varios medios de pago por cuenta; en
+  efectivo se guarda lo recibido y las devueltas. Los pagos deben sumar
+  EXACTO el total más la propina (409 "faltan $ 800").
+- **Propina**: voluntaria, nunca automática (botón con el % sugerido de
+  Ajustes); no es ingreso del restaurante y va aparte en el cuadre.
+- **Impuesto al consumo** según Ajustes: incluido en el precio (se
+  desglosa: base + impuesto = precio de carta), sumado, o no aplica.
+  `total` de la venta = lo consumido con impuesto; la propina aparte.
+- **Caja del día** (`cajas`): se abre con una base; el cuadre se calcula
+  SIEMPRE desde los pagos y gastos guardados: efectivo esperado = base +
+  cobros en efectivo − gastos pagados desde la caja. Al cerrar se cuenta
+  por medio de pago; si algo no cuadra el MOTIVO es obligatorio (422 con
+  el detalle por medio) y queda en el reporte del cierre. Una sola caja
+  abierta por empresa. Cobrar exige caja abierta.
+- **Anular un cobro** (con motivo) solo mientras su caja siga abierta: los
+  platos vuelven a quedar por cobrar; los insumos NO vuelven (la comida se
+  sirvió — para eso se anula la orden, que ya no se puede si tiene cobros).
+- **Gastos** (módulo `gastos`): arriendo, servicios, nómina, gas, aseo,
+  mantenimiento, impuestos, otros; fecha (día de Colombia, no futura),
+  valor y medio. Un gasto en efectivo puede salir de la caja abierta y
+  cuenta en su cuadre; si esa caja ya se cerró, el gasto no se edita ni se
+  borra.
+- **Permisos**: `ventas` (ver, crear = cobrar, anular), `caja` (ver,
+  cambiar_estado = abrir y cerrar), `gastos` (CRUD). Migración
+  `a6d4e5f6a7b8`: `ventas.cambiar_estado` de los roles guardados pasa a
+  `caja`. El Cajero de ejemplo cobra y cierra, no anula ni ve gastos.
+- **Una orden para llevar puede cobrarse antes de entregarse**: sigue en
+  cocina y en "Activas" hasta que se entrega (las vistas de cocina y del
+  tablero ya no exigen orden "abierta", sino "no anulada").
+- Comprobante imprimible en 80 mm (`htmlComprobante` en
+  `lib/impresion.js`, impresora de facturas o la del navegador) y en PDF.
+- Las ventas de demostración anteriores se perdieron con la migración (el
+  producto aún no tiene datos reales); sus movimientos de inventario se
+  conservan para que la existencia no cambie. El seed vende ahora por la
+  vía real (orden + cobro).
+- Se borraron `VentasPage.jsx`, `ItemsEditor.jsx`, `esquemaItems` y la
+  validación de "fecha de entrega" (solo la usaban ventas y pedidos del
+  ERP). El CSV de un listado sin esquema exporta las filas ya
+  serializadas (`app/core/exportar.py`).
+
+**PREGUNTA AL USUARIO (tema legal), resuelta según el plan**: en Colombia
+muchos restaurantes están obligados a emitir **factura electrónica** ante la
+DIAN según su régimen tributario. Por eso el sistema entrega un
+**"Comprobante interno, no válido como factura electrónica."** (texto en el
+PDF, en el comprobante de 80 mm y en el detalle). **Hay que confirmar con el
+contador de cada restaurante si está obligado**; si lo está, la facturación
+electrónica se integra después con un proveedor tecnológico autorizado por la
+DIAN. La venta ya guarda lo que esa integración necesita (tipo y número de
+documento y correo del cliente, base, impuesto y tasa, y los campos
+`fe_estado` / `fe_cufe` vacíos), pero NO se construyó la integración.
+
+**Sigue (fase 7)**: vistas por rol y PWA.
+
 ---
 
 ## 1. Configuración crítica que NO se borra
@@ -1259,6 +1318,7 @@ skill (Impeccable desaconseja Inter; aquí no se cambia).
 
 | Fecha | Decisión / hito |
 |---|---|
+| 2026-10-12 | Fase 6: caja (cobro con comprobante interno, varios medios, propina voluntaria, impuesto desglosado, dividir la cuenta, apertura y cierre con cuadre y motivo) y gastos; nota legal de factura electrónica (§0) |
 | 2026-10-12 | Fase 5: pantalla de cocina (comandas en vivo, Tomar/Finalizar con quién y cuándo, demora marcada, sonido opcional, avisos de anulaciones) (§0) |
 | 2026-10-12 | Fase 4: órdenes con comanda (consecutivo por jornada, descuento de insumos en una transacción, comandas por envío, anular con motivo devolviendo lo que salió, tablero, mesas, impresión detrás de una interfaz) reemplazan a los Pedidos (§0) |
 | 2026-10-12 | Fase 3: mermas con motivo, conteos físicos con ajuste valorizado, historial general de movimientos, carga inicial desde plantilla Excel/CSV revisada fila por fila (§0) |

@@ -102,12 +102,6 @@ describe("Esquemas espejo del backend", () => {
       expect(mensaje(esquemas.fechaNoFutura(), "2026-09-29T09:00:00-05:00")).toBe(MSG.fechaFutura);
       expect(ok(esquemas.fechaNoFutura(), "2026-09-28T07:00:00-05:00")).toBe(true);
 
-      // Ayer en Colombia: rechazada aunque en UTC ya sea el 28.
-      expect(mensaje(esquemas.fechaNoPasada(), "2026-09-27T21:00:00-05:00")).toBe(MSG.entregaPasada);
-      // Hoy a primera hora: aceptada aunque en UTC (de noche) ya sea el 29.
-      expect(ok(esquemas.fechaNoPasada(), "2026-09-28T00:00:00-05:00")).toBe(true);
-      expect(ok(esquemas.fechaNoPasada(), "2026-09-29T09:00:00-05:00")).toBe(true);
-      expect(mensaje(esquemas.fechaNoPasada(), "no es fecha")).toBe(MSG.entregaPasada);
     });
   });
 });

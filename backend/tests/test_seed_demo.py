@@ -14,7 +14,7 @@ import pytest
 
 from app.modules.compras.models import Compra
 from app.modules.inventario.models import MovimientoInsumo
-from app.modules.ventas.models import Venta
+from app.modules.caja.models import Venta
 
 RUTA_SEED = Path(__file__).resolve().parents[2] / "automatizaciones" / "deploy" / "seed_demo.py"
 

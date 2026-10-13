@@ -81,7 +81,8 @@ def responder(pagina: dict, params, esquema, columnas: list[Columna], nombre: st
     TODAS las filas que cumplen los filtros (paginar ya no recortó)."""
     if getattr(params, "formato", None) != "csv":
         return pagina
-    filas = [esquema.model_validate(item, from_attributes=True).model_dump() for item in pagina["items"]]
+    # Sin esquema, las filas ya son diccionarios serializados.
+    filas = pagina["items"] if esquema is None else [esquema.model_validate(item, from_attributes=True).model_dump() for item in pagina["items"]]
     return respuesta_csv(nombre, columnas, filas)
 
 

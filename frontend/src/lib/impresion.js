@@ -59,6 +59,45 @@ export function htmlComanda(orden, comandaNumero, { tipo, destino, empresa }) {
   };
 }
 
+const pesos = (v) => new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 }).format(Number(v));
+const MEDIOS = { efectivo: "Efectivo", transferencia: "Transferencia", nequi: "Nequi", daviplata: "Daviplata", tarjeta: "Tarjeta" };
+
+/** Leyenda obligatoria (fase 6): espejo de LEYENDA_COMPROBANTE del backend. */
+export const LEYENDA_COMPROBANTE = "Comprobante interno, no válido como factura electrónica.";
+
+/** HTML del comprobante interno de un cobro, para papel térmico. */
+export function htmlComprobante(venta, negocio) {
+  const fecha = new Date(`${venta.fecha}Z`).toLocaleString("es-CO", { timeZone: "America/Bogota", dateStyle: "short", timeStyle: "short" });
+  const filas = venta.items
+    .map((i) => `<div class="fila"><span>${i.cantidad}× ${escapar(i.nombre)}</span><span>${pesos(i.subtotal)}</span></div>`)
+    .join("");
+  const pagos = venta.pagos
+    .map((p) => `<div class="fila"><span>${MEDIOS[p.medio] ?? p.medio}</span><span>${pesos(p.monto)}</span></div>${p.cambio ? `<div class="fila"><span>Recibido / devueltas</span><span>${pesos(p.recibido)} / ${pesos(p.cambio)}</span></div>` : ""}`)
+    .join("");
+  return {
+    titulo: `Comprobante ${venta.codigo}`,
+    cuerpo: `
+      <div class="grande">${escapar(negocio?.nombre_empresa ?? "")}</div>
+      ${negocio?.nit ? `<div>NIT ${escapar(negocio.nit)}</div>` : ""}
+      ${negocio?.direccion ? `<div>${escapar(negocio.direccion)}</div>` : ""}
+      <div class="linea"></div>
+      <div class="fila"><span class="grande">${venta.codigo}</span><span>${fecha}</span></div>
+      <div>Orden #${venta.orden_numero}${venta.mesa_nombre ? ` · Mesa ${escapar(venta.mesa_nombre)}` : ""}</div>
+      ${venta.cliente_nombre ? `<div>Cliente: ${escapar(venta.cliente_nombre)}${venta.cliente_documento ? ` · ${venta.cliente_documento_tipo} ${escapar(venta.cliente_documento)}` : ""}</div>` : ""}
+      <div class="linea"></div>
+      ${filas}
+      <div class="linea"></div>
+      <div class="fila"><span>Base</span><span>${pesos(venta.subtotal)}</span></div>
+      ${Number(venta.impuesto) ? `<div class="fila"><span>Impoconsumo ${Number(venta.impuesto_tasa)} %</span><span>${pesos(venta.impuesto)}</span></div>` : ""}
+      <div class="fila grande"><span>Total</span><span>${pesos(venta.total)}</span></div>
+      ${Number(venta.propina) ? `<div class="fila"><span>Propina voluntaria</span><span>${pesos(venta.propina)}</span></div><div class="fila grande"><span>A pagar</span><span>${pesos(venta.total_pagado)}</span></div>` : ""}
+      <div class="linea"></div>
+      ${pagos}
+      <div class="linea"></div>
+      <div class="pie">${LEYENDA_COMPROBANTE}<br>Atendió: ${escapar(venta.cajero_nombre ?? "")}</div>`,
+  };
+}
+
 const CONECTORES = {
   navegador: (documento, impresora) =>
     new Promise((resolver) => {
@@ -94,4 +133,10 @@ export function impresoraPara(configuracion, uso) {
 export function imprimir(documento, impresora) {
   const conector = CONECTORES[impresora?.conexion ?? "navegador"];
   return conector(documento, impresora);
+}
+
+/** Imprime el comprobante de un cobro en la impresora de facturas (o la del navegador). */
+export function imprimirComprobante(venta, tenant) {
+  const impresora = impresoraPara(tenant?.configuracion, "factura") ?? { conexion: "navegador", ancho_mm: 80 };
+  return imprimir(htmlComprobante(venta, tenant), impresora);
 }

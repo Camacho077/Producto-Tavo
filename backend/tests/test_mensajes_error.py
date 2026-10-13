@@ -153,18 +153,9 @@ def test_venta_sin_existencias_dice_insumo_cuanto_queda_y_cuanto_necesita(sesion
             "items": [_linea(insumo, 2, "4000")],
         },
     )
-    resp = client.post(
-        "/api/v1/ventas/ventas",
-        headers=headers,
-        json={
-            "cliente_nombre": "Carlos Cliente",
-            "fecha": "2026-01-02T09:00:00",
-            "confirmar": True,
-            "items": [{"producto_id": producto["id"], "cantidad": 5, "precio_unitario": "5000"}],
-        },
-    )
+    resp = client.post("/api/v1/ordenes", headers=headers, json={"tipo": "llevar", "items": [{"producto_id": producto["id"], "cantidad": 5}]})
     assert resp.status_code == 409
-    assert resp.json()["detail"] == "No se pudo registrar la venta: quedan 2 unidades de Queso y la venta necesita 5 unidades."
+    assert resp.json()["detail"] == "No se pudo enviar la orden: quedan 2 unidades de Queso y la orden necesita 5 unidades."
 
 
 def test_anular_compra_cuyo_stock_ya_se_vendio_explica_el_negativo(sesion):
@@ -180,15 +171,7 @@ def test_anular_compra_cuyo_stock_ya_se_vendio_explica_el_negativo(sesion):
             "items": [_linea(insumo, 4, "200")],
         },
     )
-    _crear(
-        client, headers, "ventas/ventas",
-        {
-            "cliente_nombre": "Carlos Cliente",
-            "fecha": "2026-01-02T09:00:00",
-            "confirmar": True,
-            "items": [{"producto_id": producto["id"], "cantidad": 3, "precio_unitario": "300"}],
-        },
-    )
+    _crear(client, headers, "ordenes", {"tipo": "llevar", "items": [{"producto_id": producto["id"], "cantidad": 3}]})
     resp = client.post(f"/api/v1/compras/compras/{compra['id']}/anular", headers=headers)
     assert resp.status_code == 409
     assert_util(resp.json()["detail"], compra["codigo"], "Diadema", "quedan 1 unidad", "negativo")

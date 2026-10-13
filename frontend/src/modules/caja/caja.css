@@ -1,0 +1,190 @@
+/* Caja: apertura, cobro y cierre (CSS de ruta: cada selector empieza por
+   una clase propia, ver css-por-ruta.test.js). */
+@layer components {
+  .caja-cifras {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: var(--hueco);
+    margin-bottom: var(--hueco);
+  }
+  .caja-cifra__etiqueta {
+    margin: 0;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--texto-secundario);
+  }
+  .caja-cifra__valor {
+    margin: 4px 0 2px;
+    font-size: 26px;
+    font-weight: 600;
+  }
+  .caja-cifra__detalle {
+    margin: 0;
+    font-size: 12px;
+    color: var(--texto-secundario);
+  }
+  .caja-medios {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 10px;
+  }
+  .caja-medios > div {
+    display: grid;
+    gap: 2px;
+    padding: 10px 12px;
+    border: var(--borde-fino) solid var(--borde);
+    border-radius: var(--radio-bloque);
+    font-size: 13px;
+  }
+
+  /* Cobro: platos a la izquierda, cuenta y pagos a la derecha. */
+  .caja-cobro {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(300px, 400px);
+    gap: var(--hueco);
+    align-items: start;
+  }
+  @media (max-width: 1023px) {
+    .caja-cobro {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+  .caja-platos {
+    display: grid;
+    gap: 8px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .caja-platos li {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    align-items: center;
+    gap: 10px;
+    padding-bottom: 8px;
+    border-bottom: var(--borde-fino) solid var(--borde);
+  }
+  .caja-cantidad {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .caja-cantidad button {
+    display: grid;
+    place-items: center;
+    width: 36px;
+    height: 36px;
+    border: var(--borde-fino) solid var(--borde);
+    border-radius: var(--radio-pastilla);
+    background: var(--superficie);
+    color: var(--texto);
+    cursor: pointer;
+  }
+  .caja-cantidad button:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+  .caja-cuenta {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 6px 12px;
+    margin: 0;
+    font-size: 14px;
+  }
+  .caja-cuenta dd {
+    margin: 0;
+    text-align: right;
+  }
+  .caja-cuenta__total {
+    font-weight: 700;
+    font-size: 16px;
+  }
+  .caja-propina {
+    margin-top: 12px;
+  }
+  .caja-propina__botones {
+    display: flex;
+    gap: 6px;
+    margin-top: 6px;
+  }
+  .caja-apagar {
+    display: flex;
+    justify-content: space-between;
+    margin: 14px 0 0;
+    padding-top: 10px;
+    border-top: var(--borde-fino) solid var(--borde);
+    font-size: 15px;
+  }
+  .caja-apagar strong {
+    font-size: 22px;
+  }
+  .caja-pagos {
+    display: grid;
+    gap: 12px;
+    margin: 0 0 10px;
+    padding: 0;
+    list-style: none;
+  }
+  .caja-pagos > li {
+    display: grid;
+    gap: 10px;
+    padding-bottom: 10px;
+    border-bottom: var(--borde-fino) solid var(--borde);
+  }
+  .caja-pago__acciones {
+    display: flex;
+    justify-content: flex-end;
+    gap: 6px;
+  }
+  .caja-devueltas {
+    align-self: end;
+    margin: 0 0 10px;
+    font-size: 14px;
+  }
+  .caja-falta {
+    margin: 10px 0;
+    font-size: 13px;
+    font-weight: 600;
+  }
+  .caja-falta--ok {
+    font-weight: 400;
+    color: var(--texto-secundario);
+  }
+
+  /* Cierre */
+  .caja-conteo {
+    display: grid;
+    gap: 10px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .caja-conteo li {
+    display: grid;
+    grid-template-columns: 8rem minmax(0, 1fr) minmax(0, 10rem) 8.5rem;
+    align-items: center;
+    gap: 10px;
+  }
+  @media (max-width: 640px) {
+    .caja-conteo li {
+      grid-template-columns: 1fr 1fr;
+    }
+  }
+  .caja-conteo__medio {
+    font-weight: 600;
+  }
+  .caja-conteo__esperado,
+  .caja-conteo__diferencia {
+    font-size: 13px;
+    color: var(--texto-secundario);
+  }
+  .caja-leyenda {
+    margin: 0;
+    padding: 8px 12px;
+    border: var(--borde-fino) dashed var(--borde-fuerte);
+    border-radius: var(--radio-bloque);
+    font-size: 13px;
+    color: var(--texto-secundario);
+  }
+}

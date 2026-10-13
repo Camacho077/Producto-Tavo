@@ -152,10 +152,7 @@ def test_vender_un_combo_descuenta_los_insumos_de_sus_platos(s):
     combo = client.post(f"{API}/catalogo/productos", headers=h, json={
         "tipo": "combo", "nombre": "Combo doble", "precio": "30000", "componentes": [{"producto_id": hamburguesa["id"], "cantidad": 2}],
     }).json()
-    r = client.post(f"{API}/ventas/ventas", headers=h, json={
-        "cliente_nombre": "Cliente Final", "fecha": "2026-01-02T10:00:00", "confirmar": True,
-        "items": [{"producto_id": combo["id"], "cantidad": 1, "precio_unitario": "30000"}],
-    })
+    r = client.post(f"{API}/ordenes", headers=h, json={"tipo": "llevar", "items": [{"producto_id": combo["id"]}]})
     assert r.status_code == 201, r.json()
     pan = client.get(f"{API}/inventario/insumos/{i['pan']['id']}", headers=h).json()
     assert D(pan["existencia"]) == 8

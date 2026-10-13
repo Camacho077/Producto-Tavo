@@ -7,14 +7,14 @@ export const TIPOS_MOVIMIENTO = {
   compra: { etiqueta: "Compra", variante: "positivo" },
   anulacion_compra: { etiqueta: "Anulación de compra", variante: "neutro" },
   venta: { etiqueta: "Venta", variante: "neutro" },
-  anulacion_venta: { etiqueta: "Anulación de venta", variante: "neutro" },
+  anulacion_orden: { etiqueta: "Anulación de orden", variante: "neutro" },
   merma: { etiqueta: "Merma", variante: "negativo" },
   ajuste: { etiqueta: "Ajuste", variante: "neutro" },
 };
 
 export function enlaceDeDocumento(m) {
   if (m.documento_tipo === "compra") return `/inventario/compras/${m.documento_id}`;
-  if (m.documento_tipo === "venta") return `/ventas/${m.documento_id}`;
+  if (m.documento_tipo === "orden") return `/ordenes/${m.documento_id}`;
   if (m.documento_tipo === "conteo") return `/inventario/conteos/${m.documento_id}`;
   return null;
 }

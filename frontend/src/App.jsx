@@ -91,10 +91,22 @@ const ProveedorNuevo = pantalla(modProveedores, "ProveedorNuevo");
 const ProveedorDetalle = pantalla(modProveedores, "ProveedorDetalle");
 const ProveedorEditar = pantalla(modProveedores, "ProveedorEditar");
 
-const modVentas = modulo(() => import("@/modules/ventas/VentasPage"));
-const VentasLista = pantalla(modVentas, "VentasLista");
-const VentaNueva = pantalla(modVentas, "VentaNueva");
-const VentaDetalle = pantalla(modVentas, "VentaDetalle");
+const modCaja = modulo(() => import("@/modules/caja/CajaPage"));
+const CajaInicio = pantalla(modCaja, "CajaInicio");
+const Cobrar = pantalla(modCaja, "Cobrar");
+const CierreCaja = pantalla(modCaja, "CierreCaja");
+
+const modComprobantes = modulo(() => import("@/modules/caja/ComprobantesPage"));
+const VentasLista = pantalla(modComprobantes, "VentasLista");
+const VentaDetalle = pantalla(modComprobantes, "VentaDetalle");
+const CierresLista = pantalla(modComprobantes, "CierresLista");
+const CierreDetalle = pantalla(modComprobantes, "CierreDetalle");
+
+const modGastos = modulo(() => import("@/modules/gastos/GastosPage"));
+const GastosLista = pantalla(modGastos, "GastosLista");
+const GastoNuevo = pantalla(modGastos, "GastoNuevo");
+const GastoDetalle = pantalla(modGastos, "GastoDetalle");
+const GastoEditar = pantalla(modGastos, "GastoEditar");
 
 const modOrdenes = modulo(() => import("@/modules/ordenes/OrdenesPage"));
 const OrdenesLista = pantalla(modOrdenes, "OrdenesLista");
@@ -150,7 +162,10 @@ const MODULO_POR_RUTA = [
   ["/cocina", modCocina],
   ["/ordenes/nueva", modTomarPedido],
   ["/ordenes", modOrdenes],
-  ["/ventas", modVentas],
+  ["/caja/ventas", modComprobantes],
+  ["/caja/cierres", modComprobantes],
+  ["/caja", modCaja],
+  ["/gastos", modGastos],
   ["/seguridad/roles", modRoles],
   ["/seguridad", modUsuarios],
   ["/ia", modIa],
@@ -267,9 +282,17 @@ export default function App() {
                     <Route path="/ordenes/:id" element={<ConPermiso modulo="ordenes" accion="ver"><OrdenDetalle /></ConPermiso>} />
                     <Route path="/ordenes/:id/editar" element={<ConPermiso modulo="ordenes" accion="editar"><OrdenEditar /></ConPermiso>} />
                     <Route path="/ordenes/:id/agregar" element={<ConPermiso modulo="ordenes" accion="editar"><OrdenAgregar /></ConPermiso>} />
-                    <Route path="/ventas" element={<ConPermiso modulo="ventas" accion="ver"><VentasLista /></ConPermiso>} />
-                    <Route path="/ventas/nuevo" element={<ConPermiso modulo="ventas" accion="crear"><VentaNueva /></ConPermiso>} />
-                    <Route path="/ventas/:id" element={<ConPermiso modulo="ventas" accion="ver"><VentaDetalle /></ConPermiso>} />
+                    <Route path="/caja" element={<ConPermiso modulo="caja" accion="ver"><CajaInicio /></ConPermiso>} />
+                    <Route path="/caja/cobrar/:id" element={<ConPermiso modulo="ventas" accion="crear"><Cobrar /></ConPermiso>} />
+                    <Route path="/caja/cierre" element={<ConPermiso modulo="caja" accion="cambiar_estado"><CierreCaja /></ConPermiso>} />
+                    <Route path="/caja/ventas" element={<ConPermiso modulo="ventas" accion="ver"><VentasLista /></ConPermiso>} />
+                    <Route path="/caja/ventas/:id" element={<ConPermiso modulo="ventas" accion="ver"><VentaDetalle /></ConPermiso>} />
+                    <Route path="/caja/cierres" element={<ConPermiso modulo="caja" accion="ver"><CierresLista /></ConPermiso>} />
+                    <Route path="/caja/cierres/:id" element={<ConPermiso modulo="caja" accion="ver"><CierreDetalle /></ConPermiso>} />
+                    <Route path="/gastos" element={<ConPermiso modulo="gastos" accion="ver"><GastosLista /></ConPermiso>} />
+                    <Route path="/gastos/nuevo" element={<ConPermiso modulo="gastos" accion="crear"><GastoNuevo /></ConPermiso>} />
+                    <Route path="/gastos/:id" element={<ConPermiso modulo="gastos" accion="ver"><GastoDetalle /></ConPermiso>} />
+                    <Route path="/gastos/:id/editar" element={<ConPermiso modulo="gastos" accion="editar"><GastoEditar /></ConPermiso>} />
 
 
                     <Route path="/seguridad" element={<Navigate to="/seguridad/usuarios" replace />} />

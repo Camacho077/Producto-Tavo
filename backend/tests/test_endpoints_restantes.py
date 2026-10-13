@@ -126,10 +126,7 @@ def test_plato_sin_ventas_se_elimina_y_con_ventas_no(s):
 
     usado = producto(client, h)
     compra(client, h, usado["id"])
-    crear(client, h, "/ventas/ventas", {
-        "cliente_nombre": "Carlos Cliente", "fecha": "2026-03-11T09:00:00", "confirmar": True,
-        "items": [{"producto_id": usado["id"], "cantidad": 1, "precio_unitario": "1000"}],
-    })
+    crear(client, h, "/ordenes", {"tipo": "llevar", "items": [{"producto_id": usado["id"]}]})
     r = client.delete(f"{API}/catalogo/productos/{usado['id']}", headers=h)
     assert r.status_code == 409
     assert "Desactívalo en su lugar" in r.json()["detail"]

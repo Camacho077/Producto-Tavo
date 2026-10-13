@@ -207,15 +207,9 @@ def _como_llega(dia: int, hora: int) -> datetime:
         datetime(2026, 9, 28, 8, 0, tzinfo=BOGOTA),  # mañana del mismo día
     ],
 )
-def test_entrega_compara_contra_hoy_en_colombia_no_en_utc(monkeypatch, ahora):
+def test_fecha_futura_compara_contra_hoy_en_colombia_no_en_utc(monkeypatch, ahora):
     """Mismos casos que validaciones.test.js del frontend: 'hoy' es el día de Bogotá."""
     _reloj_fijo(monkeypatch, ahora)
-    # Hoy a primera hora: aceptada aunque en UTC (de noche) ya sea el 29.
-    assert v.fecha_no_pasada(_como_llega(28, 0))
-    assert v.fecha_no_pasada(_como_llega(29, 9))
-    # Ayer en Colombia: rechazada aunque en UTC (02:00 del 28) ya sea hoy.
-    with pytest.raises(ValueError, match="La fecha de entrega no puede ser anterior a hoy"):
-        v.fecha_no_pasada(_como_llega(27, 21))
     with pytest.raises(ValueError, match="La fecha no puede ser futura"):
         v.fecha_no_futura(_como_llega(29, 9))
     assert v.fecha_no_futura(_como_llega(28, 7))

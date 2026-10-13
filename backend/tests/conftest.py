@@ -10,6 +10,8 @@ Requiere tener el contenedor de Postgres corriendo:
 """
 import os
 import uuid
+from datetime import datetime, timezone
+from decimal import Decimal
 from pathlib import Path
 
 import pytest
@@ -24,6 +26,9 @@ from app.core.security import create_access_token, hash_password
 from app.db.models import Tenant
 from app.db.session import get_db
 from app.main import app
+from app.modules.caja.models import Venta
+from app.modules.inventario.models import MovimientoInsumo
+from app.modules.ordenes.models import Orden
 from app.modules.seguridad.models import Rol, Usuario
 
 BACKEND_DIR = Path(__file__).resolve().parents[1]
@@ -240,8 +245,6 @@ def dar_stock(client, headers, producto_id, cantidad, precio="100"):
 
 
 def existencia(client, headers, insumo_id):
-    from decimal import Decimal
-
     return Decimal(client.get(f"{API_V1}/inventario/insumos/{insumo_id}", headers=headers).json()["existencia"])
 
 
@@ -249,3 +252,58 @@ def stock_de(client, headers, producto_id):
     """Existencia del insumo base de un producto de `crear_producto`."""
     plato = client.get(f"{API_V1}/catalogo/productos/{producto_id}", headers=headers).json()
     return existencia(client, headers, plato["receta"][0]["insumo_id"])
+
+
+# ---------- Vender por la vía real (fase 6, 2026-10-12) ----------
+# Una venta ya no se escribe suelta: es el COBRO de una orden. `vender` toma
+# la orden (para llevar), abre la caja si hace falta y la cobra en un solo
+# medio. Con `fecha` (y la sesión de la base) la lleva a ese instante —
+# venta, orden y movimientos de inventario—, para probar el dashboard y la IA
+# con historia: la API siempre registra la hora real del servidor.
+def abrir_caja(client, headers, base="0"):
+    actual = client.get(f"{API_V1}/caja/actual", headers=headers).json()["caja"]
+    if actual:
+        return actual
+    resp = client.post(f"{API_V1}/caja/abrir", headers=headers, json={"base_inicial": base})
+    assert resp.status_code == 201, resp.json()
+    return resp.json()
+
+
+def tomar_orden(client, headers, items, **datos):
+    """`items`: [(producto_id, cantidad)] o [producto_id]."""
+    lineas = [{"producto_id": i[0], "cantidad": i[1]} if isinstance(i, tuple) else {"producto_id": i} for i in items]
+    resp = client.post(f"{API_V1}/ordenes", headers=headers, json={"tipo": "llevar", **datos, "items": lineas})
+    assert resp.status_code == 201, resp.json()
+    return resp.json()
+
+
+def cobrar_orden(client, headers, orden, medio="efectivo", propina="0"):
+    abrir_caja(client, headers)
+    pendiente = next(o for o in client.get(f"{API_V1}/caja/por-cobrar", headers=headers).json() if o["id"] == orden["id"])
+    total = str(Decimal(pendiente["por_cobrar"]) + Decimal(propina))
+    resp = client.post(f"{API_V1}/caja/cobros", headers=headers, json={
+        "orden_id": orden["id"], "propina": propina, "pagos": [{"medio": medio, "monto": total}],
+    })
+    assert resp.status_code == 201, resp.json()
+    return resp.json()
+
+
+def vender(client, headers, items, *, fecha=None, db=None, medio="efectivo", cliente=None):
+    datos = {"cliente_nombre": cliente} if cliente else {}
+    venta = cobrar_orden(client, headers, tomar_orden(client, headers, items, **datos), medio)
+    if fecha is not None:
+        llevar_a_fecha(db, venta, fecha)
+    return venta
+
+
+def llevar_a_fecha(db, venta, fecha):
+    instante = datetime.fromisoformat(fecha) if isinstance(fecha, str) else fecha
+    if instante.tzinfo is not None:
+        instante = instante.astimezone(timezone.utc).replace(tzinfo=None)
+    v = db.get(Venta, venta["id"])
+    v.fecha = instante
+    orden = db.get(Orden, v.orden_id)
+    orden.created_at = instante
+    for mov in db.query(MovimientoInsumo).filter(MovimientoInsumo.documento_id == orden.id):
+        mov.created_at = instante
+    db.commit()

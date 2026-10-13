@@ -48,7 +48,10 @@ código. Nombre provisional del producto: "JS Restaurante".
   anular con motivo devolviendo el `consumo` guardado, tablero, mesas y
   `lib/impresion.js` con el conector del navegador; los Pedidos del ERP se
   borraron); fase 5 (módulo `cocina`: comandas en vivo por consulta corta,
-  Tomar/Finalizar, permiso `cocina` aparte). Lo de "Stock = suma de movimientos" y "Proveedores ↔
+  Tomar/Finalizar, permiso `cocina` aparte); fase 6 (módulo `caja` reemplaza a
+  `ventas`: cobro = venta con comprobante INTERNO, varios medios, propina,
+  impuesto desglosado, dividir cuenta, apertura/cierre con cuadre; módulo
+  `gastos`). Lo de "Stock = suma de movimientos" y "Proveedores ↔
   Productos" de abajo es HISTÓRICO: hoy aplica a los insumos.
 
 ## Mapa de puertos — CONFIGURACIÓN CRÍTICA (no se borra en limpiezas)
@@ -195,7 +198,7 @@ contenedor, volumen ni base se comparte:
   `marcas_pedidos_permisos`, `proveedor_tipo_persona`,
   `proveedor_productos_movimientos`, `indices_de_listados`,
   `permisos_por_rol`, `aceptaciones_legales`, `fase1_restaurante`,
-  `fase2_carta_insumos_recetas`, `fase3_conteos`, `fase4_ordenes`. Correr
+  `fase2_carta_insumos_recetas`, `fase3_conteos`, `fase4_ordenes`, `fase6_caja`. Correr
   `alembic upgrade head` tras hacer pull. Cada cambio de modelo lleva su
   migración.
 - **Legal (2026-09-30, BORRADORES pendientes de abogado)**: Política de

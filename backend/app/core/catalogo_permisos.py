@@ -29,7 +29,11 @@ CATALOGO: dict[str, tuple[str, str, tuple[str, ...]]] = {
     # el negocio, así que es un permiso aparte (un cajero no lo tiene).
     "costos": ("Costos y márgenes", "costos y márgenes", ("ver",)),
     "proveedores": ("Proveedores", "proveedores", ("ver", "crear", "editar", "cambiar_estado", "eliminar")),
-    "ventas": ("Ventas", "ventas", ("ver", "crear", "cambiar_estado", "anular")),
+    # Caja (fase 6): ventas = cobrar (crear), ver los comprobantes y anular un
+    # cobro; caja = abrirla y cerrarla con su cuadre; gastos del negocio.
+    "ventas": ("Cobros y comprobantes", "cobros", ("ver", "crear", "anular")),
+    "caja": ("Apertura y cierre de caja", "la caja", ("ver", "cambiar_estado")),
+    "gastos": ("Gastos", "gastos", ("ver", "crear", "editar", "eliminar")),
     # Órdenes de pedido con comanda (fase 4): crear = tomar pedidos; editar =
     # agregar o quitar platos y cambiar datos; cambiar_estado = entregar;
     # anular = anular la orden completa (con motivo).
@@ -62,6 +66,8 @@ GRUPO_DE_MODULO: dict[str, str] = {
     "compras": "inventario",
     "proveedores": "inventario",
     "ventas": "ventas",
+    "caja": "ventas",
+    "gastos": "ventas",
     "ordenes": "ordenes",
     "cocina": "cocina",
     "usuarios": "seguridad",
@@ -199,7 +205,8 @@ ROLES_DE_EJEMPLO: dict[str, tuple[str, dict[str, list[str]]]] = {
     "Cajero": (
         "Cobra las órdenes y cierra la caja del día. No ve compras, costos ni márgenes.",
         {
-            "ventas": ["ver", "crear", "cambiar_estado"],
+            "ventas": ["ver", "crear"],
+            "caja": ["ver", "cambiar_estado"],
             "ordenes": ["ver", "crear", "editar", "cambiar_estado"],
             "productos": ["ver"],
             "categorias": ["ver"],

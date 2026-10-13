@@ -96,13 +96,22 @@ ESPERADO = {
     ("POST", "/compras/compras/{compra_id}/confirmar"): ("compras", "cambiar_estado"),
     ("POST", "/compras/compras/{compra_id}/cancelar"): ("compras", "cambiar_estado"),
     ("POST", "/compras/compras/{compra_id}/anular"): ("compras", "anular"),
-    ("GET", "/ventas/ventas"): ("ventas", "ver"),
-    ("GET", "/ventas/ventas/{venta_id}"): ("ventas", "ver"),
-    ("GET", "/ventas/ventas/{venta_id}/pdf"): ("ventas", "ver"),
-    ("POST", "/ventas/ventas"): ("ventas", "crear"),
-    ("POST", "/ventas/ventas/{venta_id}/confirmar"): ("ventas", "cambiar_estado"),
-    ("POST", "/ventas/ventas/{venta_id}/cancelar"): ("ventas", "cambiar_estado"),
-    ("POST", "/ventas/ventas/{venta_id}/anular"): ("ventas", "anular"),
+    ("GET", "/caja/actual"): ("caja", "ver"),
+    ("POST", "/caja/abrir"): ("caja", "cambiar_estado"),
+    ("POST", "/caja/cerrar"): ("caja", "cambiar_estado"),
+    ("GET", "/caja/cierres"): ("caja", "ver"),
+    ("GET", "/caja/cierres/{caja_id}"): ("caja", "ver"),
+    ("GET", "/caja/por-cobrar"): ("ventas", "crear"),
+    ("POST", "/caja/cobros"): ("ventas", "crear"),
+    ("GET", "/caja/ventas"): ("ventas", "ver"),
+    ("GET", "/caja/ventas/{venta_id}"): ("ventas", "ver"),
+    ("GET", "/caja/ventas/{venta_id}/pdf"): ("ventas", "ver"),
+    ("POST", "/caja/ventas/{venta_id}/anular"): ("ventas", "anular"),
+    ("GET", "/gastos"): ("gastos", "ver"),
+    ("GET", "/gastos/{gasto_id}"): ("gastos", "ver"),
+    ("POST", "/gastos"): ("gastos", "crear"),
+    ("PUT", "/gastos/{gasto_id}"): ("gastos", "editar"),
+    ("DELETE", "/gastos/{gasto_id}"): ("gastos", "eliminar"),
     ("GET", "/ordenes/carta"): ("ordenes", "crear"),
     ("GET", "/ordenes/mesas"): ("ordenes", "ver"),
     ("GET", "/ordenes/jornada"): ("ordenes", "ver"),
@@ -132,7 +141,7 @@ SIN_PERMISO = {
 
 
 def _rutas_de_negocio():
-    for modulo in ("seguridad", "dashboard", "catalogo", "inventario", "compras", "ventas", "ordenes", "cocina", "ia", "ajustes", "imagenes"):
+    for modulo in ("seguridad", "dashboard", "catalogo", "inventario", "compras", "caja", "gastos", "ordenes", "cocina", "ia", "ajustes", "imagenes"):
         router = importlib.import_module(f"app.modules.{modulo}.router").router
         for ruta in router.routes:
             for metodo in ruta.methods - {"HEAD", "OPTIONS"}:
@@ -174,7 +183,7 @@ def test_toda_ruta_de_negocio_exige_el_permiso_esperado():
 
 
 def test_el_catalogo_cubre_los_modulos_pedidos():
-    for modulo in ("compras", "productos", "categorias", "insumos", "movimientos", "costos", "proveedores", "ventas", "ordenes", "usuarios", "roles", "dashboard", "ajustes", "mesas"):
+    for modulo in ("compras", "productos", "categorias", "insumos", "movimientos", "costos", "proveedores", "ventas", "caja", "gastos", "ordenes", "usuarios", "roles", "dashboard", "ajustes", "mesas"):
         assert modulo in CATALOGO
     # Cada par usado en ESPERADO existe en el catálogo.
     for modulo, accion in ESPERADO.values():
@@ -264,7 +273,10 @@ def dos_empresas(client, tenant_factory, usuario_factory, auth_headers_factory):
     insumo = crear("/inventario/insumos", {"nombre": "Gaseosa fría", "unidad": "unidad"})
     prod = crear("/catalogo/productos", {"nombre": "Gaseosa", "precio": "3000", "receta": [{"insumo_id": insumo["id"], "cantidad": "1", "unidad": "unidad"}]})
     compra = crear("/compras/compras", {"proveedor_id": prov["id"], "fecha": "2026-01-01T09:00:00", "confirmar": True, "items": [{"insumo_id": insumo["id"], "cantidad": "10", "unidad": "unidad", "precio_unitario": "1800"}]})
-    venta = crear("/ventas/ventas", {"cliente_nombre": "Cliente Uno", "fecha": "2026-01-02T09:00:00", "confirmar": True, "items": [{"producto_id": prod["id"], "cantidad": 1, "precio_unitario": "3000"}]})
+    caja = crear("/caja/abrir", {"base_inicial": "50000"})
+    cobrada = crear("/ordenes", {"tipo": "llevar", "items": [{"producto_id": prod["id"]}]})
+    venta = crear("/caja/cobros", {"orden_id": cobrada["id"], "pagos": [{"medio": "efectivo", "monto": "3000"}]})
+    gasto = crear("/gastos", {"fecha": "2026-01-02", "categoria": "gas", "descripcion": "Pipeta de gas", "valor": "90000"})
     orden = crear("/ordenes", {"tipo": "llevar", "cliente_nombre": "Cliente Dos", "items": [{"producto_id": prod["id"]}, {"producto_id": prod["id"]}]})
     conteo = crear("/inventario/conteos", {"lineas": [{"insumo_id": insumo["id"], "contado": "8"}]})
     rol = crear("/seguridad/roles", {"nombre": "Vendedor", "permisos": {"ventas": ["ver"]}})
@@ -272,7 +284,7 @@ def dos_empresas(client, tenant_factory, usuario_factory, auth_headers_factory):
 
     ids = {
         "categoria_id": cat["id"], "zona_id": zona["id"], "mesa_id": mesa["id"], "proveedor_id": prov["id"], "producto_id": prod["id"], "insumo_id": insumo["id"], "conteo_id": conteo["id"],
-        "compra_id": compra["id"], "venta_id": venta["id"], "orden_id": orden["id"], "item_id": orden["items"][0]["id"], "comanda_id": orden["comandas"][0]["id"], "rol_id": rol["id"], "usuario_id": usuario["id"],
+        "compra_id": compra["id"], "venta_id": venta["id"], "caja_id": caja["id"], "gasto_id": gasto["id"], "orden_id": orden["id"], "item_id": orden["items"][0]["id"], "comanda_id": orden["comandas"][0]["id"], "rol_id": rol["id"], "usuario_id": usuario["id"],
     }
     return ha, hb, ids
 
@@ -293,6 +305,8 @@ CUERPOS = {
     ("PUT", "rol_id"): {"descripcion": "robado"},
     ("PATCH", None): {"activo": False},
     ("POST", "insumo_id"): {"cantidad": "1", "unidad": "unidad", "motivo": "vencido"},
+    ("POST", "venta_id"): {"motivo": "Robado por otra empresa"},
+    ("PUT", "gasto_id"): {"fecha": "2026-01-02", "categoria": "otros", "descripcion": "Robado", "valor": "1"},
 }
 
 
@@ -326,7 +340,7 @@ def test_otra_empresa_recibe_404_y_nunca_datos_ajenos(metodo, path, param, clien
 def test_los_listados_de_otra_empresa_no_traen_nada_ajeno(client, dos_empresas):
     ha, hb, ids = dos_empresas
     for ruta in ("/catalogo/categorias", "/ajustes/zonas", "/ajustes/mesas", "/compras/proveedores", "/catalogo/productos", "/inventario/insumos",
-                 "/inventario/movimientos", "/inventario/conteos", "/compras/compras", "/ventas/ventas", "/ordenes", "/seguridad/usuarios", "/seguridad/roles"):
+                 "/inventario/movimientos", "/inventario/conteos", "/compras/compras", "/caja/ventas", "/caja/cierres", "/gastos", "/ordenes", "/seguridad/usuarios", "/seguridad/roles"):
         texto = client.get(f"{API}{ruta}", headers=hb).text
         for valor in ids.values():
             assert valor not in texto, (ruta, valor)

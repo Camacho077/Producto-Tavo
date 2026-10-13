@@ -121,7 +121,7 @@ def listar(
         .filter(models.Orden.tenant_id == tenant_id, models.Orden.jornada == (jornada or _jornada_actual(db, tenant_id)))
     )
     if vista == "activas":
-        query = query.filter(models.Orden.estado == "abierta", services.filtro_activa())
+        query = query.filter(models.Orden.estado != "anulada", services.filtro_activa())
     elif vista == "entregadas":
         query = query.filter(models.Orden.estado != "anulada", not_(services.filtro_activa()))
     elif vista == "anuladas":

@@ -3,6 +3,7 @@ import { Ban, CheckCheck, Eye, Pencil, Plus, Printer, X } from "lucide-react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { z } from "zod";
 
+import DialogoMotivo from "@/components/DialogoMotivo";
 import FormularioPantalla, { Seccion } from "@/components/FormularioPantalla";
 import PantallaDetalle from "@/components/PantallaDetalle";
 import {
@@ -13,7 +14,6 @@ import {
   Card,
   Detalle,
   Input,
-  ModalConfirmar,
   PageHeader,
   Pildoras,
   Select,
@@ -197,28 +197,6 @@ const NOMBRE_EVENTO = {
 };
 const ESTADO_COMANDA = { ...ESTADOS, anulada: { etiqueta: "Anulada", variante: "negativo" } };
 
-function DialogoMotivo({ abierto, onCerrar, titulo, mensaje, textoConfirmar, mensajeExito, accion, onConfirmar }) {
-  // Quien lo usa le pone `key` por diálogo: cada apertura empieza vacía.
-  const [motivo, setMotivo] = useState("");
-  const valido = motivo.trim().length >= 3;
-  return (
-    <ModalConfirmar
-      abierto={abierto}
-      onCerrar={onCerrar}
-      destructivo
-      titulo={titulo}
-      mensaje={mensaje}
-      textoConfirmar={textoConfirmar}
-      mensajeExito={mensajeExito}
-      accion={accion}
-      deshabilitado={!valido}
-      onConfirmar={() => onConfirmar(motivo.trim())}
-    >
-      <Textarea etiqueta="Motivo" value={motivo} onChange={(e) => setMotivo(e.target.value)} maxLength={200} required ayuda="Queda en el historial y le llega a cocina" />
-    </ModalConfirmar>
-  );
-}
-
 export function OrdenDetalle() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -396,6 +374,7 @@ export function OrdenDetalle() {
         textoConfirmar="Anular orden"
         mensajeExito={o ? `Orden #${o.numero} anulada` : "Orden anulada"}
         accion="anular la orden"
+        ayuda="Queda en el historial y le llega a cocina"
         onConfirmar={async (motivo) => {
           await api.post(`${RUTA}/${id}/anular`, { motivo });
           recargar();
@@ -410,6 +389,7 @@ export function OrdenDetalle() {
         textoConfirmar="Quitar plato"
         mensajeExito={dialogo?.item ? `${dialogo.item.nombre} quitado de la orden` : "Plato quitado"}
         accion="quitar el plato"
+        ayuda="Queda en el historial y le llega a cocina"
         onConfirmar={async (motivo) => {
           await api.post(`${RUTA}/${id}/items/${dialogo.item.id}/anular`, { motivo });
           recargar();

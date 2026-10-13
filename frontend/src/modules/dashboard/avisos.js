@@ -17,8 +17,8 @@ const RUTAS = {
   insumos: () => "/inventario/insumos?bajo_minimo=1",
   orden: (id) => `/ordenes/${id}`,
   ordenes: () => "/ordenes",
-  venta: (id) => `/ventas/${id}`,
-  ventas: () => "/ventas",
+  venta: (id) => `/caja/ventas/${id}`,
+  ventas: () => "/caja/ventas",
   proveedor: (id) => `/inventario/proveedores/${id}`,
 };
 

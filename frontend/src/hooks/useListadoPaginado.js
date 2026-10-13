@@ -99,5 +99,7 @@ export function useListadoPaginado(url, { porPagina = 10, filtros = {}, busqueda
     setPagina,
     recargar,
     exportar,
+    // El sobre completo, por si el endpoint suma algo más (p. ej. `suma` en gastos).
+    datos,
   };
 }
