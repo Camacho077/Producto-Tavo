@@ -20,6 +20,7 @@ export const PERMISOS_ADMIN = {
   costos: ["ver"],
   ventas: ["ver", "crear", "cambiar_estado", "anular"],
   ordenes: ["ver", "crear", "editar", "cambiar_estado", "anular"],
+  cocina: ["ver", "cambiar_estado"],
   usuarios: ["ver", "crear", "editar", "cambiar_estado", "eliminar"],
   roles: ["ver", "crear", "editar", "eliminar"],
   ia: ["ver"],

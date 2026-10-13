@@ -242,7 +242,7 @@ def _recalcular_total(orden: models.Orden) -> None:
     orden.total = sum((Decimal(i.precio_unitario) * i.cantidad for i in orden.items if not i.anulado), Decimal("0"))
 
 
-def _evento(orden: models.Orden, tipo: str, nota: str | None, usuario_nombre: str | None, ahora: datetime) -> None:
+def registrar_evento(orden: models.Orden, tipo: str, nota: str | None, usuario_nombre: str | None, ahora: datetime) -> None:
     orden.eventos.append(models.OrdenEvento(
         tenant_id=orden.tenant_id, tipo=tipo, nota=nota, usuario_nombre=usuario_nombre, created_at=ahora, updated_at=ahora,
     ))
@@ -287,7 +287,7 @@ def crear_orden(
     except ConflictError:
         db.rollback()
         raise
-    _evento(orden, "creada", f"Orden {NOMBRE_TIPO[orden.tipo]}, {NOMBRE_ORIGEN[orden.origen]}", usuario.nombre_completo, ahora)
+    registrar_evento(orden, "creada", f"Orden {NOMBRE_TIPO[orden.tipo]}, {NOMBRE_ORIGEN[orden.origen]}", usuario.nombre_completo, ahora)
     db.commit()
     db.refresh(orden)
     return orden
@@ -315,7 +315,7 @@ def agregar_items(
         db.rollback()
         raise
     agregados = ", ".join(f"{i.cantidad}× {p.nombre}" for p, i, _ in preparados)
-    _evento(orden, "agregado", f"Comanda {comanda.numero}: {agregados}", usuario.nombre_completo, ahora)
+    registrar_evento(orden, "agregado", f"Comanda {comanda.numero}: {agregados}", usuario.nombre_completo, ahora)
     db.commit()
     db.refresh(orden)
     return orden, comanda
@@ -328,7 +328,7 @@ def editar_encabezado(db: Session, usuario: Usuario, orden_id: uuid.UUID, payloa
     _validar_encabezado(db, tenant_id, payload, _config(db, tenant_id))
     for campo in ("tipo", "origen", "mesa_id", "cliente_nombre", "cliente_telefono", "cliente_direccion", "nota"):
         setattr(orden, campo, getattr(payload, campo))
-    _evento(orden, "editada", "Datos de la orden actualizados", usuario.nombre_completo, ahora_utc())
+    registrar_evento(orden, "editada", "Datos de la orden actualizados", usuario.nombre_completo, ahora_utc())
     db.commit()
     db.refresh(orden)
     return orden
@@ -370,7 +370,7 @@ def anular_item(
     if all(i.anulado for i in comanda.items) and comanda.estado != "entregada":
         comanda.estado = "anulada"
     _recalcular_total(orden)
-    _evento(orden, "item_anulado", f"{item.cantidad}× {item.nombre}: {motivo}", usuario.nombre_completo, ahora)
+    registrar_evento(orden, "item_anulado", f"{item.cantidad}× {item.nombre}: {motivo}", usuario.nombre_completo, ahora)
     db.commit()
     db.refresh(orden)
     return orden
@@ -389,7 +389,7 @@ def anular_orden(db: Session, usuario: Usuario, orden_id: uuid.UUID, motivo: str
     orden.estado = "anulada"
     orden.anulada_motivo = motivo
     orden.cerrada_en = ahora
-    _evento(orden, "anulada", motivo, usuario.nombre_completo, ahora)
+    registrar_evento(orden, "anulada", motivo, usuario.nombre_completo, ahora)
     db.commit()
     db.refresh(orden)
     return orden
@@ -413,7 +413,7 @@ def entregar(db: Session, usuario: Usuario, orden_id: uuid.UUID, ahora: datetime
         c.estado = "entregada"
         c.entregada_en = ahora
         c.entregada_por = usuario.nombre_completo
-    _evento(orden, "entregada", ", ".join(f"Comanda {c.numero}" for c in listas), usuario.nombre_completo, ahora)
+    registrar_evento(orden, "entregada", ", ".join(f"Comanda {c.numero}" for c in listas), usuario.nombre_completo, ahora)
     db.commit()
     db.refresh(orden)
     return orden

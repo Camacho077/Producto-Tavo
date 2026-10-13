@@ -1,0 +1,163 @@
+/* Pantalla de cocina (CSS de ruta: cada selector empieza por una clase
+   propia, ver css-por-ruta.test.js). Para tablet a un metro: tipografía
+   grande, contraste máximo y sin color; la demora se marca con borde
+   grueso, cabecera invertida y ▲. */
+@layer components {
+  .cocina-avisos {
+    display: grid;
+    gap: 6px;
+    margin: 0 0 12px;
+    padding: 10px 14px;
+    border: 2px solid var(--texto);
+    border-radius: var(--radio-bloque);
+    background: var(--superficie);
+    list-style: none;
+    font-size: 15px;
+  }
+
+  .cocina-tablero {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+    align-items: start;
+  }
+  @media (max-width: 767px) {
+    .cocina-tablero {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+
+  .cocina-columna {
+    display: grid;
+    gap: 10px;
+    min-width: 0;
+  }
+  .cocina-columna__titulo {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin: 0;
+    padding: 0 4px;
+    font-size: 13px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--texto-secundario);
+  }
+  .cocina-columna__titulo span {
+    font-size: 18px;
+    color: var(--texto);
+  }
+  .cocina-columna__vacio {
+    margin: 0;
+    padding: 18px 12px;
+    border: var(--borde-fino) dashed var(--borde);
+    border-radius: var(--radio-bloque);
+    text-align: center;
+    color: var(--texto-secundario);
+  }
+
+  .cocina-tarjeta {
+    display: grid;
+    border: var(--borde-fino) solid var(--borde);
+    border-radius: var(--radio-tarjeta);
+    background: var(--superficie);
+    overflow: hidden;
+  }
+  .cocina-tarjeta__cabeza {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    border-bottom: var(--borde-fino) solid var(--borde);
+    background: var(--relleno);
+    transition: background-color var(--transicion), color var(--transicion);
+  }
+  .cocina-tarjeta--tarde {
+    border: 3px solid var(--texto);
+  }
+  .cocina-tarjeta--tarde .cocina-tarjeta__cabeza {
+    background: var(--texto);
+    color: var(--texto-sobre-acento);
+  }
+  .cocina-tarjeta--tarde .cocina-tarjeta__destino small {
+    color: inherit;
+  }
+  .cocina-tarjeta__numero {
+    font-size: 30px;
+    font-weight: 700;
+    line-height: 1;
+  }
+  .cocina-tarjeta__destino {
+    display: grid;
+    font-size: 16px;
+    font-weight: 600;
+    line-height: 1.2;
+  }
+  .cocina-tarjeta__destino small {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--texto-secundario);
+  }
+  .cocina-tarjeta__tiempo {
+    font-size: 18px;
+    font-weight: 700;
+  }
+  .cocina-tarjeta__platos {
+    display: grid;
+    gap: 10px;
+    margin: 0;
+    padding: 12px 14px;
+    list-style: none;
+  }
+  .cocina-plato {
+    display: grid;
+    gap: 2px;
+  }
+  .cocina-plato__nombre {
+    font-size: 20px;
+    font-weight: 700;
+    line-height: 1.2;
+  }
+  .cocina-plato__mod {
+    padding-left: 14px;
+    font-size: 17px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+  }
+  .cocina-plato__nota {
+    padding-left: 14px;
+    font-size: 15px;
+    font-style: italic;
+    color: var(--texto-secundario);
+  }
+  .cocina-plato--anulado .cocina-plato__nombre,
+  .cocina-plato--anulado .cocina-plato__mod {
+    text-decoration: line-through;
+    color: var(--texto-secundario);
+  }
+  .cocina-tarjeta__nota {
+    margin: 0;
+    padding: 0 14px 10px;
+    font-size: 15px;
+    font-style: italic;
+  }
+  .cocina-tarjeta__pie {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    border-top: var(--borde-fino) solid var(--borde);
+    font-size: 13px;
+    color: var(--texto-secundario);
+  }
+  .cocina-tarjeta__espera {
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--texto);
+  }
+}

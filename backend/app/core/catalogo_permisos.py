@@ -34,6 +34,9 @@ CATALOGO: dict[str, tuple[str, str, tuple[str, ...]]] = {
     # agregar o quitar platos y cambiar datos; cambiar_estado = entregar;
     # anular = anular la orden completa (con motivo).
     "ordenes": ("Órdenes", "órdenes", ("ver", "crear", "editar", "cambiar_estado", "anular")),
+    # Pantalla de cocina (fase 5): ver las comandas; cambiar_estado = tomarlas
+    # y marcarlas listas.
+    "cocina": ("Pantalla de cocina", "la pantalla de cocina", ("ver", "cambiar_estado")),
     "usuarios": ("Usuarios", "usuarios", ("ver", "crear", "editar", "cambiar_estado", "eliminar")),
     "roles": ("Roles", "roles", ("ver", "crear", "editar", "eliminar")),
     "ia": ("Sugerencias IA", "las sugerencias de IA", ("ver",)),
@@ -60,6 +63,7 @@ GRUPO_DE_MODULO: dict[str, str] = {
     "proveedores": "inventario",
     "ventas": "ventas",
     "ordenes": "ordenes",
+    "cocina": "cocina",
     "usuarios": "seguridad",
     "roles": "seguridad",
     "ia": "ia",
@@ -76,6 +80,7 @@ PLAN_MINIMO_DE_GRUPO: dict[str, str] = {
     "inventario": "estandar",
     "ventas": "basico",
     "ordenes": "basico",
+    "cocina": "basico",
     "ia": "pro_ia",
     "ajustes": "basico",
 }
@@ -86,6 +91,7 @@ NOMBRE_GRUPO: dict[str, str] = {
     "inventario": "el Inventario",
     "ventas": "la Caja",
     "ordenes": "las Órdenes",
+    "cocina": "la Cocina",
     "ia": "las Sugerencias IA",
     "ajustes": "los Ajustes",
 }
@@ -212,7 +218,7 @@ ROLES_DE_EJEMPLO: dict[str, tuple[str, dict[str, list[str]]]] = {
     "Cocinero": (
         "Ve las comandas que entran a cocina, las toma y las marca como listas.",
         {
-            "ordenes": ["ver"],
+            "cocina": ["ver", "cambiar_estado"],
         },
     ),
 }

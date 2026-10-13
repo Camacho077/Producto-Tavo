@@ -25,6 +25,7 @@ const POR_RUTA = [
   "modules/ajustes/ajustes.css",
   "modules/carta/carta.css",
   "modules/ordenes/ordenes.css",
+  "modules/cocina/cocina.css",
 ];
 
 function archivosCss(dir) {

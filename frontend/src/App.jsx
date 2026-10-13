@@ -102,6 +102,9 @@ const OrdenDetalle = pantalla(modOrdenes, "OrdenDetalle");
 const OrdenEditar = pantalla(modOrdenes, "OrdenEditar");
 const MesasServicio = pantalla(modOrdenes, "MesasServicio");
 
+const modCocina = modulo(() => import("@/modules/cocina/CocinaPage"));
+const Cocina = pantalla(modCocina, "Cocina");
+
 const modTomarPedido = modulo(() => import("@/modules/ordenes/TomarPedidoPage"));
 const OrdenNueva = pantalla(modTomarPedido, "OrdenNueva");
 const OrdenAgregar = pantalla(modTomarPedido, "OrdenAgregar");
@@ -144,6 +147,7 @@ const MODULO_POR_RUTA = [
   ["/inventario/conteos", modMovimientos],
   ["/inventario/carga-inicial", modCargaInicial],
   ["/inventario", modInsumos],
+  ["/cocina", modCocina],
   ["/ordenes/nueva", modTomarPedido],
   ["/ordenes", modOrdenes],
   ["/ventas", modVentas],
@@ -256,6 +260,7 @@ export default function App() {
                     <Route path="/inventario/proveedores/:id" element={<ConPermiso modulo="proveedores" accion="ver"><ProveedorDetalle /></ConPermiso>} />
                     <Route path="/inventario/proveedores/:id/editar" element={<ConPermiso modulo="proveedores" accion="editar"><ProveedorEditar /></ConPermiso>} />
 
+                    <Route path="/cocina" element={<ConPermiso modulo="cocina" accion="ver"><Cocina /></ConPermiso>} />
                     <Route path="/ordenes" element={<ConPermiso modulo="ordenes" accion="ver"><OrdenesLista /></ConPermiso>} />
                     <Route path="/ordenes/nueva" element={<ConPermiso modulo="ordenes" accion="crear"><OrdenNueva /></ConPermiso>} />
                     <Route path="/ordenes/mesas" element={<ConPermiso modulo="ordenes" accion="ver"><MesasServicio /></ConPermiso>} />

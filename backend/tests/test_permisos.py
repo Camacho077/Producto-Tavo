@@ -115,6 +115,9 @@ ESPERADO = {
     ("POST", "/ordenes/{orden_id}/anular"): ("ordenes", "anular"),
     ("POST", "/ordenes/{orden_id}/entregar"): ("ordenes", "cambiar_estado"),
     ("POST", "/ordenes/agotados"): ("ordenes", "crear"),
+    ("GET", "/cocina/comandas"): ("cocina", "ver"),
+    ("POST", "/cocina/comandas/{comanda_id}/tomar"): ("cocina", "cambiar_estado"),
+    ("POST", "/cocina/comandas/{comanda_id}/finalizar"): ("cocina", "cambiar_estado"),
 }
 
 # Rutas que NO exigen permiso, y por qué.
@@ -129,7 +132,7 @@ SIN_PERMISO = {
 
 
 def _rutas_de_negocio():
-    for modulo in ("seguridad", "dashboard", "catalogo", "inventario", "compras", "ventas", "ordenes", "ia", "ajustes", "imagenes"):
+    for modulo in ("seguridad", "dashboard", "catalogo", "inventario", "compras", "ventas", "ordenes", "cocina", "ia", "ajustes", "imagenes"):
         router = importlib.import_module(f"app.modules.{modulo}.router").router
         for ruta in router.routes:
             for metodo in ruta.methods - {"HEAD", "OPTIONS"}:
@@ -269,7 +272,7 @@ def dos_empresas(client, tenant_factory, usuario_factory, auth_headers_factory):
 
     ids = {
         "categoria_id": cat["id"], "zona_id": zona["id"], "mesa_id": mesa["id"], "proveedor_id": prov["id"], "producto_id": prod["id"], "insumo_id": insumo["id"], "conteo_id": conteo["id"],
-        "compra_id": compra["id"], "venta_id": venta["id"], "orden_id": orden["id"], "item_id": orden["items"][0]["id"], "rol_id": rol["id"], "usuario_id": usuario["id"],
+        "compra_id": compra["id"], "venta_id": venta["id"], "orden_id": orden["id"], "item_id": orden["items"][0]["id"], "comanda_id": orden["comandas"][0]["id"], "rol_id": rol["id"], "usuario_id": usuario["id"],
     }
     return ha, hb, ids
 
@@ -313,8 +316,8 @@ def test_otra_empresa_recibe_404_y_nunca_datos_ajenos(metodo, path, param, clien
     assert resp.status_code == 404, (metodo, path, resp.status_code, resp.text[:200])
     assert ids[param] not in resp.text
     # Y en la empresa dueña, el recurso sigue ahí sin cambios.
-    if metodo in ("PUT", "PATCH", "DELETE", "POST"):
-        base = path.split("/{")[0]
+    base = path.split("/{")[0]
+    if metodo in ("PUT", "PATCH", "DELETE", "POST") and ("GET", f"{base}/{{{param}}}") in ESPERADO:
         dueno = client.get(f"{API}{base}/{ids[param]}", headers=ha)
         assert dueno.status_code == 200
         assert "robad" not in dueno.text.lower()

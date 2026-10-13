@@ -14,6 +14,7 @@ const OBJETO = {
   proveedores: "proveedores",
   ventas: "ventas",
   ordenes: "órdenes",
+  cocina: "la pantalla de cocina",
   usuarios: "usuarios",
   roles: "roles",
   ia: "las sugerencias de IA",

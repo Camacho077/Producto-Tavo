@@ -327,6 +327,33 @@ desde plantilla Excel/CSV con validación fila por fila.
 
 **Sigue (fase 5)**: pantalla de cocina.
 
+### 2026-10-12 — Fase 5: pantalla de cocina
+
+- **Módulo `cocina`** (backend `app/modules/cocina`, frontend
+  `modules/cocina`, ruta `/cocina`), permiso `cocina` (ver; cambiar_estado =
+  Tomar y Finalizar), grupo propio desde el plan Básico. El rol de ejemplo
+  Cocinero tiene SOLO `cocina`: no toma pedidos ni ve órdenes, inventario
+  ni caja.
+- La cocina trabaja COMANDAS: Entrantes → En preparación (Tomar) → Listos
+  (Finalizar); de Listos sale cuando el mesero ENTREGA. Cada paso guarda
+  quién y a qué hora, y queda en la línea de tiempo de la orden. Un cambio
+  que otra persona ya hizo responde 409 ("quizá otra persona la movió").
+- Solo llegan los platos que van a cocina; la venta directa no. Lo anulado
+  se ve tachado con el motivo y, durante 15 min, como aviso arriba; una
+  orden anulada sale de la pantalla.
+- **En vivo por consulta corta cada 5 s**, sin WebSocket (funciona igual
+  detrás del túnel de demos y de cualquier proxy) y solo con la pestaña
+  visible; los temporizadores avanzan cada 15 s (estado de React cada 15 s,
+  nunca por cuadro). Pasado `alerta_cocina_minutos` la tarjeta se marca con
+  borde grueso, cabecera invertida y ▲ (sin color, como todo el producto).
+- **Sonido opcional**: dos tonos con Web Audio (sin archivos), se activa con
+  un botón (los navegadores no suenan sin un toque previo) y se recuerda en
+  el dispositivo; Ajustes puede apagarlo para toda la empresa.
+- Tipografía para leer a un metro: número de orden 30 px, platos 20 px,
+  modificadores 17 px en mayúsculas. Tablet: 3 columnas; celular: apiladas.
+
+**Sigue (fase 6)**: caja, ventas y gastos.
+
 ---
 
 ## 1. Configuración crítica que NO se borra
@@ -1232,6 +1259,7 @@ skill (Impeccable desaconseja Inter; aquí no se cambia).
 
 | Fecha | Decisión / hito |
 |---|---|
+| 2026-10-12 | Fase 5: pantalla de cocina (comandas en vivo, Tomar/Finalizar con quién y cuándo, demora marcada, sonido opcional, avisos de anulaciones) (§0) |
 | 2026-10-12 | Fase 4: órdenes con comanda (consecutivo por jornada, descuento de insumos en una transacción, comandas por envío, anular con motivo devolviendo lo que salió, tablero, mesas, impresión detrás de una interfaz) reemplazan a los Pedidos (§0) |
 | 2026-10-12 | Fase 3: mermas con motivo, conteos físicos con ajuste valorizado, historial general de movimientos, carga inicial desde plantilla Excel/CSV revisada fila por fila (§0) |
 | 2026-10-12 | Fase 2: carta con recetas (costo, margen, % de costo en vivo), modificadores, combos con vigencia, agotado hoy, fotos de plato; inventario de INSUMOS con unidades y promedio ponderado; compras de insumos; IA y dashboard sobre insumos (§0) |

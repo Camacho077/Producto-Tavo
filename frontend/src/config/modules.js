@@ -1,4 +1,5 @@
 import {
+  ChefHat,
   ClipboardCheck,
   ClipboardList,
   FileUp,
@@ -47,6 +48,14 @@ export const MODULES = [
       { key: "ordenes", label: "Tablero", path: "/ordenes", icon: ClipboardList },
       { key: "mesas_servicio", permiso: "ordenes", label: "Mesas", path: "/ordenes/mesas", icon: LayoutGrid },
     ],
+  },
+  {
+    // Pantalla de cocina (fase 5, 2026-10-12): la única pantalla del cocinero.
+    key: "cocina",
+    label: "Cocina",
+    path: "/cocina",
+    icon: ChefHat,
+    plan: "basico",
   },
   {
     // Carta (2026-10-12): platos con receta, combos y categorías. Desde

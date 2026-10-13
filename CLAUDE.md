@@ -47,7 +47,8 @@ código. Nombre provisional del producto: "JS Restaurante".
   jornada, comandas por envío, descuento de insumos en una transacción,
   anular con motivo devolviendo el `consumo` guardado, tablero, mesas y
   `lib/impresion.js` con el conector del navegador; los Pedidos del ERP se
-  borraron). Lo de "Stock = suma de movimientos" y "Proveedores ↔
+  borraron); fase 5 (módulo `cocina`: comandas en vivo por consulta corta,
+  Tomar/Finalizar, permiso `cocina` aparte). Lo de "Stock = suma de movimientos" y "Proveedores ↔
   Productos" de abajo es HISTÓRICO: hoy aplica a los insumos.
 
 ## Mapa de puertos — CONFIGURACIÓN CRÍTICA (no se borra en limpiezas)
