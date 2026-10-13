@@ -198,7 +198,10 @@ def permisos_de_rol(es_administrador: bool, permisos: dict | None) -> dict[str, 
 
 
 # Roles de ejemplo que se crean con cada empresa nueva: los cuatro puestos de
-# un restaurante (2026-10-12). Permisos limitados y realistas; el
+# un restaurante (2026-10-12). Cada uno entra a SU pantalla (fase 7: la
+# deriva el frontend de estos permisos, `inicioDeRol` en config/modules.js):
+# Administrador → Dashboard, Cajero → Caja, Mesero → Tomar pedido,
+# Cocinero → Cocina. Permisos limitados y realistas; el
 # administrador puede ajustarlos desde Seguridad → Roles. Las empresas que ya
 # existían conservan sus roles (son datos del cliente).
 ROLES_DE_EJEMPLO: dict[str, tuple[str, dict[str, list[str]]]] = {
@@ -208,18 +211,15 @@ ROLES_DE_EJEMPLO: dict[str, tuple[str, dict[str, list[str]]]] = {
             "ventas": ["ver", "crear"],
             "caja": ["ver", "cambiar_estado"],
             "ordenes": ["ver", "crear", "editar", "cambiar_estado"],
-            "productos": ["ver"],
-            "categorias": ["ver"],
-            "mesas": ["ver"],
         },
     ),
+    # Fase 7 (2026-10-12): el mesero no necesita la carta ni las mesas de
+    # Ajustes: toma pedidos con su propia vista (/ordenes/carta y
+    # /ordenes/mesas, que exigen el permiso de órdenes).
     "Mesero": (
         "Toma los pedidos en las mesas desde el celular y sigue sus órdenes.",
         {
             "ordenes": ["ver", "crear", "editar", "cambiar_estado"],
-            "productos": ["ver"],
-            "categorias": ["ver"],
-            "mesas": ["ver"],
         },
     ),
     "Cocinero": (

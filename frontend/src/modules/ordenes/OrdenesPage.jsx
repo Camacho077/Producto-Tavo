@@ -83,7 +83,8 @@ export function OrdenesLista() {
   const { puede } = useAuth();
   const [vista, setVista] = useState("activas");
   const [tipo, setTipo] = useState("");
-  const [mias, setMias] = useState(false);
+  // El mesero (quien no ve caja ni dashboard) arranca viendo SUS órdenes.
+  const [mias, setMias] = useState(() => !puede("caja", "ver") && !puede("dashboard", "ver"));
   const filtros = { vista, ...(tipo ? { tipo } : {}), ...(mias ? { mias: true } : {}) };
   const listado = useListadoPaginado(RUTA, { filtros, porPagina: 30 });
   const { data: jornada, recargar: recargarJornada } = useApiResource(`${RUTA}/jornada`);

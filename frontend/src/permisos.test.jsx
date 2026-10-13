@@ -70,7 +70,7 @@ describe("rutas bloqueadas", () => {
     );
     expect(screen.queryByText("formulario")).toBeNull();
     expect(screen.getByRole("alert")).toHaveTextContent("no tiene permiso para crear categorías");
-    expect(screen.getByRole("link", { name: "Ir a una pantalla disponible" })).toHaveAttribute("href", "/ordenes/nueva");
+    expect(screen.getByRole("link", { name: "Ir a una pantalla disponible" })).toHaveAttribute("href", "/caja");
   });
 
   it("una ruta de un módulo NO contratado muestra el plan, aunque el rol sea administrador", () => {
@@ -121,13 +121,13 @@ describe("rutas bloqueadas", () => {
         <ConSesion permisos={CAJERO}>
           <Routes>
             <Route path="/" element={<InicioSegunPermiso><p>dashboard</p></InicioSegunPermiso>} />
-            <Route path="/ordenes/nueva" element={<p>tomar pedido</p>} />
+            <Route path="/caja" element={<p>caja</p>} />
           </Routes>
         </ConSesion>
       </MemoryRouter>
     );
     expect(screen.queryByText("dashboard")).toBeNull();
-    expect(screen.getByText("tomar pedido")).toBeInTheDocument();
+    expect(screen.getByText("caja")).toBeInTheDocument();
   });
 });
 

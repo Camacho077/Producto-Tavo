@@ -1,9 +1,10 @@
-import { Menu } from "lucide-react";
+import { LogOut, Menu, Moon, Sun } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 
 import { avisosDeEstado } from "@/context/AvisosContext";
 import { enlaceDeAviso } from "@/modules/dashboard/avisos";
 import { BRANDING } from "@/config/branding";
+import { useTheme } from "@/theme/ThemeContext";
 
 // Píldoras de estado que caben a la derecha: las demás viven en el panel de
 // avisos del dashboard.
@@ -36,22 +37,19 @@ function seccionActual(modulos, pathname) {
  * avisan. Los avisos son los del panel del dashboard (AvisosProvider): no
  * cuestan ninguna petición extra.
  */
-export default function BarraSuperior({ modulos, avisos, menuAbierto, onAbrirMenu, nombreEmpresa }) {
+export default function BarraSuperior({ modulos, avisos, menuAbierto, onAbrirMenu, nombreEmpresa, enfocado = null }) {
   const { pathname } = useLocation();
+  const { esOscuro, alternarModo } = useTheme();
   const seccion = seccionActual(modulos, pathname);
   const estado = avisosDeEstado(avisos).slice(0, MAXIMO_PILDORAS);
 
   return (
     <header className="barra-superior">
-      <button
-        type="button"
-        className="iconbtn menu-btn"
-        onClick={onAbrirMenu}
-        aria-label="Abrir menú"
-        aria-expanded={menuAbierto}
-      >
-        <Menu size={18} aria-hidden="true" />
-      </button>
+      {!enfocado && (
+        <button type="button" className="iconbtn menu-btn" onClick={onAbrirMenu} aria-label="Abrir menú" aria-expanded={menuAbierto}>
+          <Menu size={18} aria-hidden="true" />
+        </button>
+      )}
 
       <p className="barra-superior__seccion">
         <span className="barra-superior__empresa">{nombreEmpresa ?? BRANDING.nombre}</span>
@@ -87,6 +85,20 @@ export default function BarraSuperior({ modulos, avisos, menuAbierto, onAbrirMen
             );
           })}
         </ul>
+      )}
+
+      {/* Modo enfocado (un rol con una sola pantalla): sin sidebar, así que
+          quién está, el tema y cerrar sesión viven aquí. */}
+      {enfocado && (
+        <div className="barra-superior__usuario">
+          <span className="truncate">{enfocado.usuario?.nombre_completo}</span>
+          <button type="button" className="iconbtn iconbtn--plano" onClick={alternarModo} aria-label={esOscuro ? "Cambiar a modo claro" : "Cambiar a modo oscuro"}>
+            {esOscuro ? <Sun size={15} aria-hidden="true" /> : <Moon size={15} aria-hidden="true" />}
+          </button>
+          <button type="button" className="iconbtn iconbtn--plano" onClick={enfocado.onLogout} aria-label="Cerrar sesión" title="Cerrar sesión">
+            <LogOut size={15} aria-hidden="true" />
+          </button>
+        </div>
       )}
     </header>
   );

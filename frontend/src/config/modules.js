@@ -201,3 +201,28 @@ export function primeraRutaPermitida(modulos) {
   if (!primero) return null;
   return primero.hijos ? primero.hijos[0].path : primero.path;
 }
+
+/** Las pantallas sueltas del menú (módulos sin hijos y cada submódulo). */
+export function hojasDe(modulos) {
+  return modulos.flatMap((m) => (m.hijos ? m.hijos.map((h) => ({ ...h, grupo: m.key })) : [m]));
+}
+
+/**
+ * PANTALLA DE INICIO POR ROL (fase 7, 2026-10-12). Cada rol entra directo a
+ * lo suyo, en este orden: quien ve el dashboard (administrador) → "/"; quien
+ * maneja la caja (cajero) → Caja; quien toma pedidos (mesero) → Tomar
+ * pedido; quien está en cocina → Cocina. Un rol a la medida sin ninguno de
+ * esos entra a su primera pantalla permitida. Se deriva de los PERMISOS, así
+ * que un rol personalizado en Seguridad → Roles también aterriza bien.
+ */
+export function inicioDeRol(modulos, puede) {
+  const rutas = new Set(hojasDe(modulos).map((h) => h.path));
+  const prioridades = [
+    ["/", () => puede("dashboard", "ver")],
+    ["/caja", () => puede("caja", "ver") && puede("ventas", "crear")],
+    ["/ordenes/nueva", () => puede("ordenes", "crear")],
+    ["/cocina", () => puede("cocina", "ver")],
+  ];
+  const elegida = prioridades.find(([ruta, aplica]) => rutas.has(ruta) && aplica());
+  return elegida ? elegida[0] : primeraRutaPermitida(modulos);
+}

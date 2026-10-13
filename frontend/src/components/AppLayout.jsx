@@ -9,8 +9,9 @@ import "@/components/ui/pantallas.css";
 import BarraSuperior from "@/components/BarraSuperior";
 import PieLegal from "@/components/PieLegal";
 import Sidebar from "@/components/Sidebar";
+import SinConexion from "@/components/SinConexion";
 import { Aviso } from "@/components/ui";
-import { modulosVisibles } from "@/config/modules";
+import { hojasDe, inicioDeRol, modulosVisibles } from "@/config/modules";
 import { useAuth } from "@/context/AuthContext";
 import { AvisosProvider, badgesDeAvisos, useAvisos } from "@/context/AvisosContext";
 import { CURVA_SUAVE, puedeAnimar } from "@/lib/movimiento";
@@ -23,10 +24,16 @@ import { CURVA_SUAVE, puedeAnimar } from "@/lib/movimiento";
  * En pantallas angostas el sidebar se convierte en cajón (entra con transform,
  * nunca con `left`) y aparece una barra inferior con los accesos que más se
  * usan, construida con los módulos que el plan del tenant deja ver.
+ *
+ * VISTAS POR ROL (fase 7, 2026-10-12): la barra inferior empieza por la
+ * pantalla de inicio DEL ROL (el mesero ve Tomar pedido, Tablero y Mesas al
+ * alcance del pulgar). Y un rol con UNA sola pantalla (el cocinero) entra en
+ * MODO ENFOCADO: sin sidebar ni barra inferior, toda la tablet para la
+ * cocina, con su nombre, el tema y cerrar sesión arriba.
  */
 
-// Cuántos módulos caben en la barra inferior además de Inicio y Menú.
-const MODULOS_EN_BARRA = 2;
+// Cuántos accesos caben en la barra inferior además de Menú.
+const ACCESOS_EN_BARRA = 3;
 
 /**
  * SALIDA DE VISTA — la pantalla que se va SIEMPRE sale animada.
@@ -80,7 +87,7 @@ function animarSalida(clon) {
       { opacity: 1, transform: "translate3d(0, 0, 0)" },
       { opacity: 0, transform: "translate3d(0, -6px, 0)" },
     ],
-    { duration: 180, easing: `cubic-bezier(${CURVA_SUAVE.join(", ")})`, fill: "forwards" }
+    { duration: 180, easing: `cubic-bezier(${CURVA_SUAVE.join(", ")})`, fill: "forwards" },
   );
   const quitar = () => clon.remove();
   salida.onfinish = quitar;
@@ -100,10 +107,13 @@ export default function AppLayout() {
 function Marco() {
   const { tenant, usuario, logout, puede } = useAuth();
   const avisos = useAvisos()?.data?.avisos ?? [];
-  const [menuAbierto, setMenuAbierto] = useState(false);
   const { pathname } = useLocation();
-
-  const cerrarMenu = useCallback(() => setMenuAbierto(false), []);
+  // El cajón se abre "en" una ruta: al navegar a otra queda cerrado solo
+  // (derivado en el render, sin un efecto que lo cierre después).
+  const [abiertoEn, setAbiertoEn] = useState(null);
+  const menuAbierto = abiertoEn === pathname;
+  const abrirMenu = useCallback(() => setAbiertoEn(pathname), [pathname]);
+  const cerrarMenu = useCallback(() => setAbiertoEn(null), []);
 
   // Ref con limpieza (React 19): corre cuando la pantalla de esta ruta se va.
   // La geometría de la vista se mide ANTES, en un ResizeObserver (corre con
@@ -126,10 +136,6 @@ function Marco() {
     };
   }, []);
 
-  // Al navegar, el cajón se cierra solo.
-  useEffect(() => {
-    setMenuAbierto(false);
-  }, [pathname]);
 
   // Con el cajón abierto la página de fondo no se desplaza, y Escape lo cierra.
   useEffect(() => {
@@ -137,39 +143,44 @@ function Marco() {
     raiz.classList.toggle("sin-scroll", menuAbierto);
     if (!menuAbierto) return undefined;
     const alTeclear = (evento) => {
-      if (evento.key === "Escape") setMenuAbierto(false);
+      if (evento.key === "Escape") cerrarMenu();
     };
     document.addEventListener("keydown", alTeclear);
     return () => {
       document.removeEventListener("keydown", alTeclear);
       raiz.classList.remove("sin-scroll");
     };
-  }, [menuAbierto]);
+  }, [menuAbierto, cerrarMenu]);
 
   const modulos = modulosVisibles(tenant?.plan, tenant?.modulos_activos, puede);
-  const inicio = modulos.find((m) => m.path === "/");
-  const enBarra = modulos.filter((m) => m.path !== "/").slice(0, MODULOS_EN_BARRA);
+  const hojas = hojasDe(modulos);
+  const rutaInicio = inicioDeRol(modulos, puede);
+  const enfocado = hojas.length === 1;
+  const accesos = [...hojas.filter((h) => h.path === rutaInicio), ...hojas.filter((h) => h.path !== rutaInicio)].slice(0, ACCESOS_EN_BARRA);
 
   return (
     <>
       {/* Pila de alertas: fija arriba a la derecha, fuera del flujo y fuera del
           div con key por ruta, para que no se remonte al navegar. */}
       <Aviso />
+      <SinConexion />
 
-      <div className="shell">
+      <div className={`shell ${enfocado ? "shell--enfocado" : ""}`}>
         <div className="app">
-          <Sidebar
-            plan={tenant?.plan}
-            modulosActivos={tenant?.modulos_activos}
-            nombreEmpresa={tenant?.nombre_empresa}
-            logoId={tenant?.logo_id}
-            usuario={usuario}
-            onLogout={logout}
-            abierto={menuAbierto}
-            onCerrar={cerrarMenu}
-            puede={puede}
-            badges={badgesDeAvisos(avisos)}
-          />
+          {!enfocado && (
+            <Sidebar
+              plan={tenant?.plan}
+              modulosActivos={tenant?.modulos_activos}
+              nombreEmpresa={tenant?.nombre_empresa}
+              logoId={tenant?.logo_id}
+              usuario={usuario}
+              onLogout={logout}
+              abierto={menuAbierto}
+              onCerrar={cerrarMenu}
+              puede={puede}
+              badges={badgesDeAvisos(avisos)}
+            />
+          )}
 
           <main className="main">
             {/* Barra superior: el botón del cajón vive aquí y no en el
@@ -179,8 +190,9 @@ function Marco() {
               modulos={modulos}
               avisos={avisos}
               menuAbierto={menuAbierto}
-              onAbrirMenu={() => setMenuAbierto(true)}
+              onAbrirMenu={abrirMenu}
               nombreEmpresa={tenant?.nombre_empresa}
+              enfocado={enfocado ? { usuario, onLogout: logout } : null}
             />
 
             {/* Vista: entra con fade + 8 px desde abajo (CSS .vista) y sale
@@ -198,34 +210,22 @@ function Marco() {
       </div>
 
       {/* Velo del cajón: solo opacidad, y sin capturar clics cuando está oculto. */}
-      <div
-        className={`velo ${menuAbierto ? "velo--visible" : ""}`}
-        onClick={cerrarMenu}
-        role="presentation"
-      />
+      <div className={`velo ${menuAbierto ? "velo--visible" : ""}`} onClick={cerrarMenu} role="presentation" />
 
-      <nav className="tabbar" aria-label="Navegación rápida">
-        {inicio && (
-          <NavLink to="/" end className={({ isActive }) => `tab ${isActive ? "tab--activo" : ""}`}>
-            <inicio.icon size={20} aria-hidden="true" />
-            Inicio
-          </NavLink>
-        )}
-        {enBarra.map((modulo) => (
-          <NavLink
-            key={modulo.key}
-            to={modulo.path}
-            className={({ isActive }) => `tab ${isActive ? "tab--activo" : ""}`}
-          >
-            <modulo.icon size={20} aria-hidden="true" />
-            {modulo.label}
-          </NavLink>
-        ))}
-        <button type="button" className="tab" onClick={() => setMenuAbierto(true)} aria-label="Abrir menú">
-          <Menu size={20} aria-hidden="true" />
-          Menú
-        </button>
-      </nav>
+      {!enfocado && (
+        <nav className="tabbar" aria-label="Navegación rápida">
+          {accesos.map((hoja) => (
+            <NavLink key={hoja.path} to={hoja.path} end className={({ isActive }) => `tab ${isActive ? "tab--activo" : ""}`}>
+              <hoja.icon size={20} aria-hidden="true" />
+              {hoja.path === "/" ? "Inicio" : hoja.label}
+            </NavLink>
+          ))}
+          <button type="button" className="tab" onClick={abrirMenu} aria-label="Abrir menú">
+            <Menu size={20} aria-hidden="true" />
+            Menú
+          </button>
+        </nav>
+      )}
     </>
   );
 }

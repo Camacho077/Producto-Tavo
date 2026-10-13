@@ -517,6 +517,38 @@
     display: none;
   }
 
+  /* Sin conexión (fase 7): franja fija arriba, invertida, sin color. */
+  .sin-conexion {
+    position: fixed;
+    top: 0;
+    left: 50%;
+    z-index: 60;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    max-width: calc(100vw - 32px);
+    padding: 8px 14px;
+    border-radius: 0 0 var(--radio-bloque) var(--radio-bloque);
+    background-color: var(--texto);
+    color: var(--texto-sobre-acento);
+    font-size: 13px;
+    transform: translateX(-50%);
+  }
+
+  /* Modo enfocado (fase 7): un rol con una sola pantalla, sin menú. */
+  .barra-superior__usuario {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-left: auto;
+    min-width: 0;
+    font-size: 13px;
+    color: var(--texto-secundario);
+  }
+  .shell--enfocado .main__pie {
+    padding-bottom: 16px;
+  }
+
   /* --------------------------------------------------------------------------
      CAJÓN LATERAL EN MÓVIL
      -------------------------------------------------------------------------- */

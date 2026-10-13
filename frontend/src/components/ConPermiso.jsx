@@ -2,7 +2,7 @@ import { Link, Navigate } from "react-router-dom";
 import { ShieldOff } from "lucide-react";
 
 import { Card, PageHeader } from "@/components/ui";
-import { etiquetaDePlan, moduloContratado, modulosVisibles, planMinimoDe, primeraRutaPermitida } from "@/config/modules";
+import { etiquetaDePlan, inicioDeRol, moduloContratado, modulosVisibles, planMinimoDe } from "@/config/modules";
 import { useAuth } from "@/context/AuthContext";
 import { fraseDePermiso } from "@/lib/permisos";
 
@@ -29,14 +29,14 @@ export default function ConPermiso({ modulo, accion = "ver", children }) {
 export function InicioSegunPermiso({ children }) {
   const { puede, tenant } = useAuth();
   if (puede("dashboard", "ver")) return children;
-  const destino = primeraRutaPermitida(modulosVisibles(tenant?.plan, tenant?.modulos_activos, puede));
+  const destino = inicioDeRol(modulosVisibles(tenant?.plan, tenant?.modulos_activos, puede), puede);
   if (destino && destino !== "/") return <Navigate to={destino} replace />;
   return <SinAcceso modulo="dashboard" accion="ver" />;
 }
 
 export function SinAcceso({ modulo, accion, motivo = "rol" }) {
   const { puede, tenant, usuario } = useAuth();
-  const destino = primeraRutaPermitida(modulosVisibles(tenant?.plan, tenant?.modulos_activos, puede));
+  const destino = inicioDeRol(modulosVisibles(tenant?.plan, tenant?.modulos_activos, puede), puede);
   const porPlan = motivo === "plan";
   return (
     <div className="pantalla-estrecha">

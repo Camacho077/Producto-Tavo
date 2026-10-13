@@ -413,6 +413,39 @@ documento y correo del cliente, base, impuesto y tasa, y los campos
 
 **Sigue (fase 7)**: vistas por rol y PWA.
 
+### 2026-10-12 — Fase 7: vistas por rol y PWA
+
+- **Cada rol entra a SU pantalla**, derivada de sus permisos
+  (`inicioDeRol` en `config/modules.js`; un rol personalizado también
+  aterriza bien): dashboard.ver → Dashboard; caja.ver + ventas.crear →
+  Caja; ordenes.crear → Tomar pedido; cocina.ver → Cocina; si no, su
+  primera pantalla permitida. La seguridad sigue en el backend (403 por
+  permiso y por plan); el frontend solo oculta y redirige.
+- **Su propio menú**: el sidebar y la barra inferior se arman con lo que el
+  rol puede ver. La barra inferior del celular empieza por la pantalla de
+  inicio del rol (mesero: Tomar pedido, Tablero, Mesas). El tablero del
+  mesero arranca en "Solo las mías".
+- **Modo enfocado**: un rol con UNA sola pantalla (el cocinero) se ve sin
+  sidebar ni barra inferior; arriba quedan su nombre, el tema claro/oscuro
+  y cerrar sesión. Toda la tablet para la cocina.
+- **Roles de ejemplo** según la tabla de la fase 7: el Mesero queda solo con
+  `ordenes` (toma pedidos con `/ordenes/carta` y `/ordenes/mesas`, que
+  exigen el permiso de órdenes); el Cajero con ventas, caja y órdenes; el
+  Cocinero solo con cocina. Siguen siendo editables en Seguridad → Roles.
+- **PWA**: `manifest.webmanifest`, íconos monocromos 192/512 y enmascarable
+  (generados con Pillow, sin color), `theme-color`, y un service worker
+  propio (`public/sw.js`, sin dependencias) registrado SOLO en la versión
+  compilada: navegación con red primero y la última app como respaldo;
+  `/assets/` con caché primero (nombres con hash). La API (otro origen)
+  NUNCA se guarda en caché.
+- **Sin conexión**: franja fija "Sin conexión" mientras el navegador no
+  tenga red; el pedido que se está escribiendo ya vivía en el equipo
+  (borrador en localStorage desde la fase 4) y se envía al volver la red.
+- El cajón lateral se cierra al navegar derivándolo de la ruta (sin un
+  efecto que haga setState).
+
+**Sigue (fase 8)**: dashboard y reportes.
+
 ---
 
 ## 1. Configuración crítica que NO se borra
@@ -1318,6 +1351,7 @@ skill (Impeccable desaconseja Inter; aquí no se cambia).
 
 | Fecha | Decisión / hito |
 |---|---|
+| 2026-10-12 | Fase 7: cada rol entra a su pantalla con su menú, modo enfocado para cocina, PWA instalable con service worker propio y aviso de sin conexión (§0) |
 | 2026-10-12 | Fase 6: caja (cobro con comprobante interno, varios medios, propina voluntaria, impuesto desglosado, dividir la cuenta, apertura y cierre con cuadre y motivo) y gastos; nota legal de factura electrónica (§0) |
 | 2026-10-12 | Fase 5: pantalla de cocina (comandas en vivo, Tomar/Finalizar con quién y cuándo, demora marcada, sonido opcional, avisos de anulaciones) (§0) |
 | 2026-10-12 | Fase 4: órdenes con comanda (consecutivo por jornada, descuento de insumos en una transacción, comandas por envío, anular con motivo devolviendo lo que salió, tablero, mesas, impresión detrás de una interfaz) reemplazan a los Pedidos (§0) |

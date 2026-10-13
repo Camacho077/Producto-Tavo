@@ -51,7 +51,9 @@ código. Nombre provisional del producto: "JS Restaurante".
   Tomar/Finalizar, permiso `cocina` aparte); fase 6 (módulo `caja` reemplaza a
   `ventas`: cobro = venta con comprobante INTERNO, varios medios, propina,
   impuesto desglosado, dividir cuenta, apertura/cierre con cuadre; módulo
-  `gastos`). Lo de "Stock = suma de movimientos" y "Proveedores ↔
+  `gastos`); fase 7 (inicio y menú por rol con `inicioDeRol`, modo enfocado
+  para un rol de una sola pantalla, PWA con `public/sw.js` solo en build).
+  Lo de "Stock = suma de movimientos" y "Proveedores ↔
   Productos" de abajo es HISTÓRICO: hoy aplica a los insumos.
 
 ## Mapa de puertos — CONFIGURACIÓN CRÍTICA (no se borra en limpiezas)

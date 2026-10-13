@@ -432,7 +432,7 @@ def test_sin_costos_ver_no_hay_costo_ni_margen(client, tenant_factory, rol_facto
     tenant = tenant_factory()
     ha = auth_headers_factory(usuario_factory(tenant))
     descripcion, permisos_cajero = ROLES_DE_EJEMPLO["Cajero"]
-    hc = auth_headers_factory(usuario_factory(tenant, rol=rol_factory(tenant, nombre="Cajero", permisos={**permisos_cajero, "insumos": ["ver"]})))
+    hc = auth_headers_factory(usuario_factory(tenant, rol=rol_factory(tenant, nombre="Cajero", permisos={**permisos_cajero, "productos": ["ver"], "insumos": ["ver"]})))
 
     insumo = client.post(f"{API}/inventario/insumos", headers=ha, json={"nombre": "Leche", "unidad": "L", "costo_unitario": "2500"}).json()
     prod = client.post(f"{API}/catalogo/productos", headers=ha, json={"nombre": "Café con leche", "precio": "4000",

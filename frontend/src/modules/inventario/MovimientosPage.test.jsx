@@ -101,7 +101,7 @@ describe("Merma", () => {
     const usuario = userEvent.setup(TECLEO);
     montar("/inventario/insumos/i1/merma");
     await usuario.type(await screen.findByLabelText(/Cantidad/), "3");
-    expect(screen.getByText(/Es más de lo que hay \(2 kg\)/)).toBeInTheDocument();
+    expect(await screen.findByText(/Es más de lo que hay \(2 kg\)/)).toBeInTheDocument();
   });
 });
 
