@@ -211,7 +211,7 @@ def cancelar_compra(db: Session, tenant_id: uuid.UUID, compra_id: uuid.UUID) -> 
     return compra
 
 
-def anular_compra(db: Session, tenant_id: uuid.UUID, compra_id: uuid.UUID, usuario_nombre: str | None = None) -> models.Compra:
+def anular_compra(db: Session, tenant_id: uuid.UUID, compra_id: uuid.UUID, usuario_nombre: str | None = None, ahora=None) -> models.Compra:
     """Anula una compra pendiente o confirmada. Si estaba confirmada, lo que
     sumó sale de la bodega (no puede quedar negativo) y su peso sale del
     costo promedio del insumo."""
@@ -237,7 +237,7 @@ def anular_compra(db: Session, tenant_id: uuid.UUID, compra_id: uuid.UUID, usuar
             inventario.revertir_costo_de_entrada(item.insumo, cantidad, costo)
             inventario.registrar(
                 db, tenant_id, item.insumo, "anulacion_compra", -cantidad,
-                documento_tipo="compra", documento_id=compra.id, documento_codigo=codigo, usuario_nombre=usuario_nombre,
+                documento_tipo="compra", documento_id=compra.id, documento_codigo=codigo, usuario_nombre=usuario_nombre, fecha=ahora,
             )
     compra.estado = "anulada"
     db.commit()

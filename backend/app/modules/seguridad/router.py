@@ -9,9 +9,8 @@ from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.core.deps import get_current_usuario
 from app.core import mensajes
-from app.core.catalogo_permisos import ACCIONES, CATALOGO, ROLES_DE_EJEMPLO, frase_permiso, permisos_de_rol
+from app.core.catalogo_permisos import ACCIONES, CATALOGO, frase_permiso, permisos_de_rol
 from app.core.consultas import obtener_del_tenant
-from app.core.legal import VERSIONES as VERSIONES_LEGALES
 from app.core.errors import AuthError, ConflictError, ForbiddenError, NotFoundError
 from app.core.exportar import campo, responder
 from app.core.paginacion import Pagina, ParametrosPagina, paginar
@@ -20,7 +19,7 @@ from app.db.models import Tenant
 from app.db.session import get_db
 from app.core.security import hash_password, verify_password, create_access_token
 from app.modules.ajustes.schemas import configuracion_de
-from app.modules.seguridad import models, schemas
+from app.modules.seguridad import alta, models, schemas
 
 router = APIRouter(prefix="/seguridad", tags=["Seguridad"])
 
@@ -46,48 +45,12 @@ def login(payload: schemas.LoginRequest, db: Session = Depends(get_db)):
 def registro(payload: schemas.RegistroRequest, db: Session = Depends(get_db)):
     """
     Alta inicial self-service: crea el Tenant, su rol Administrador (acceso
-    total), los roles de ejemplo Cajero y Bodega, y el primer usuario, en una
-    sola transacción — si algo falla (ej. el correo ya existe), no queda nada
+    total), los roles de ejemplo (Cajero, Mesero, Cocinero), el primer
+    usuario y su aceptación legal, en una sola transacción — si algo falla (ej. el correo ya existe), no queda nada
     a medias. Devuelve un token igual que /login para que el frontend pueda
     loguear automáticamente tras registrarse.
     """
-    tenant = Tenant(nombre_empresa=payload.nombre_empresa)
-    db.add(tenant)
-
-    try:
-        db.flush()  # asigna tenant.id sin cerrar la transacción todavía
-
-        rol_admin = models.Rol(
-            tenant_id=tenant.id, nombre="Administrador", descripcion="Acceso total", es_administrador=True
-        )
-        db.add(rol_admin)
-        for nombre, (descripcion, permisos) in ROLES_DE_EJEMPLO.items():
-            db.add(models.Rol(tenant_id=tenant.id, nombre=nombre, descripcion=descripcion, permisos=permisos))
-        db.flush()
-
-        usuario = models.Usuario(
-            tenant_id=tenant.id,
-            nombre_completo="Administrador",
-            email=payload.email,
-            hashed_password=hash_password(payload.password),
-            rol_id=rol_admin.id,
-        )
-        db.add(usuario)
-        db.flush()
-
-        # Prueba de la autorización: documento, versión vigente y fecha/hora.
-        for documento, version in VERSIONES_LEGALES.items():
-            db.add(
-                models.AceptacionLegal(
-                    tenant_id=tenant.id, usuario_id=usuario.id, email=usuario.email, documento=documento, version=version
-                )
-            )
-
-        db.commit()
-    except IntegrityError:
-        db.rollback()
-        raise ConflictError("Ya existe una cuenta registrada con ese correo electrónico")
-
+    tenant, usuario = alta.crear_empresa(db, payload.nombre_empresa, payload.email, payload.password)
     token = create_access_token(data={"sub": str(usuario.id), "tenant_id": str(tenant.id)})
     return schemas.TokenResponse(access_token=token)
 

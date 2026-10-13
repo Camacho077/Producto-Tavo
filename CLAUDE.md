@@ -239,15 +239,19 @@ contenedor, volumen ni base se comparte:
 - Docker Compose en `infra/` levanta Postgres + backend + frontend juntos.
 - Script `automatizaciones/deploy/alta_tenant.py` crea un tenant nuevo con
   su admin desde línea de comandos.
-- Script `automatizaciones/deploy/seed_demo.py` (idempotente) carga datos de
-  demostración en una empresa: 5 categorías, 5 marcas, 5 proveedores
-  (jurídicos con NIT/DV válido y naturales con CC/CE), 5 productos, 8 compras
-  confirmadas, 9 ventas (una por mes en los últimos 5 meses, esta semana,
-  ayer y hoy) y 2 pedidos. **Las fechas son relativas a HOY en cada corrida**
-  (re-ancla los documentos de la demo): correrlo el día de una demostración
-  deja ventas hoy, esta semana, este mes y en 6M/1A (`tests/test_seed_demo.py`). Pasa por los esquemas Pydantic y los
-  servicios reales (el stock sale de movimientos, nunca se escribe a mano).
-  Desde `backend/`: `venv\Scripts\python ..\automatizaciones\deploy\seed_demo.py --email <correo de acceso>`.
+- Script `automatizaciones/deploy/seed_demo.py` (2026-10-12, SOLO
+  desarrollo: con `ENV=production` se niega) crea dos empresas de
+  demostración: **Donde Tavo** (90 días de historia: ~2200 órdenes, ~30
+  compras, mermas, conteo, cierres de caja diarios, gastos; hoy órdenes en
+  todos los estados y la caja abierta; las ocho historias que detecta la IA)
+  y **Café Central** (una semana, para probar el aislamiento). Fechas
+  relativas a HOY (Colombia); idempotente por día (si ya hay órdenes de hoy
+  no hace nada) y `--reset` borra y recrea SOLO esas dos empresas. Pasa por
+  los servicios reales (recetas, descuento de insumos, costos, caja).
+  Cuentas y recorrido en `docs/DECISIONES.md` §0 ("Datos de
+  demostración"). Desde `backend/`:
+  `venv\Scripts\python ..\automatizaciones\deploy\seed_demo.py [--reset]`
+  (~5 min). Lo protege `tests/test_seed_demo.py`.
 
 ## Estado para clientes (2026-10-02, tras integrar a main)
 - **Completo y verificado**: login/registro con aceptación legal, dashboard

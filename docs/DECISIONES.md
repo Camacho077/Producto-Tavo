@@ -480,6 +480,80 @@ documento y correo del cliente, base, impuesto y tasa, y los campos
 **Sigue**: datos de demostración completos (pedido del usuario del
 2026-10-12) y verificación por rol.
 
+### 2026-10-12 — Datos de demostración (rama `datos-demo`)
+
+- **`automatizaciones/deploy/seed_demo.py` reescrito.** Solo desarrollo:
+  con `ENV=production` se niega (`ConflictError`) y las cuentas demo nunca
+  existen en producción. Fechas relativas a HOY en Colombia; idempotente
+  por día (si Donde Tavo ya tiene órdenes de hoy, no toca nada); `--reset`
+  borra y recrea SOLO las dos empresas demo (borrado genérico por
+  `tenant_id` sobre todas las tablas). Se corre desde `backend/`:
+  `venv\Scripts\python ..\automatizaciones\deploy\seed_demo.py [--reset]`
+  (unos 4–5 min). **Correrlo el día de la demo**: los estados de "hoy"
+  (cocina, mesas, caja abierta) son de la jornada en que se cargó.
+- **Pasa por la lógica real**: llama a los servicios y a las funciones de
+  ruta de FastAPI como funciones (sin HTTP), con un `ahora` histórico que
+  la API nunca envía (`registrar_merma`, `registrar_conteo`,
+  `anular_compra`, `cocina.services.mover`, `gastos.services`,
+  `seguridad.alta.crear_empresa` se separaron de sus routers para eso). Las
+  recetas descuentan insumos, el costo sale del promedio ponderado y la caja
+  cuadra con los cobros. Los eventos (compras, órdenes, tomar/finalizar/
+  entregar/cobrar, anulaciones, mermas, conteo, cierres, gastos) se aplican
+  en orden cronológico; la cantidad de cada compra se calcula con lo que
+  va a gastarse hasta la siguiente, así nunca falta un insumo.
+- **Donde Tavo** (90 días): logo provisional, 12 mesas en Salón y Terraza,
+  3 tipos de orden, medios de pago, impuesto al consumo, jornada y alerta
+  de cocina; 20 platos en 5 categorías con foto, descripción y
+  modificadores (uno agotado hoy: Jugo de mora; uno inactivo: Sopa de
+  costilla), 2 combos de estudiante vigentes y uno vencido (Combo
+  parciales, solo en su semana); 25 insumos; 4 proveedores (2 jurídicos con
+  NIT y DV válidos, 2 naturales); ~35 compras con una anulada (duplicada);
+  ~2200 órdenes de los tres tipos y orígenes; hoy órdenes en todos los
+  estados, una anulada, mesas libres/ocupadas/por cobrar y la caja
+  abierta; un cierre por día anterior (tres de Carla con faltantes);
+  mermas con motivo y un conteo físico; gastos de arriendo, servicios,
+  nómina, gas y aseo. **Café Central** (7 días, 3 platos) para el
+  aislamiento.
+- **Cuentas** (contraseñas válidas para las reglas de registro, sin
+  ajustes): admin@dondetavo.demo / Tavo2026*Admin (Gustavo Rincón),
+  caja@dondetavo.demo / Tavo2026*Caja (Carla Ruiz), mesero@ / mesero2@ /
+  mesero3@dondetavo.demo / Tavo2026*Mesero, cocina@ / cocina2@dondetavo.demo
+  / Tavo2026*Cocina, admin@cafecentral.demo / Central2026*Admin.
+- **Historias para la IA** (y la regla que la detecta, todas nuevas o
+  ajustadas en `app/modules/ia/analisis.py`): demanda alta de lunes a
+  jueves y casi nula el domingo (`patron_dia`); picos a las 7 y a las 12
+  medidos por la LLEGADA de la orden, no por el cobro (`patron_hora`);
+  semana de parciales con más Rápidas (`semana_fuerte`, semanas de
+  calendario completas contra la mediana, con la categoría que la empujó)
+  y la semana pasada floja (`semana_floja`); Almuerzo ejecutivo y
+  Hamburguesa clásica venden mucho y dejan poco margen (el "mucho" es por
+  dinero movido, no por unidades); Arroz con leche casi no se vende (sección
+  nueva `carta`); la carne de res subió 30 % y bajó el margen de 3 platos
+  (sección nueva `alzas`, solo con `costos.ver`); mermas anormales de
+  lechuga en las dos últimas semanas (`merma`); diferencias de caja
+  repetidas en el turno de Carla (`diferencias_caja`, enlaza a Cierres);
+  leche y queso se acaban en días (`quiebre`). Además: las caídas ya no
+  cuentan promociones vencidas, un "ganador" debe pesar al menos 1 % de lo
+  vendido, y las semanas fuera de lo común no dependen del mínimo de los
+  patrones de día y hora.
+- **Cifras creíbles** (ajuste del mismo día, al ver el dashboard): con
+  ~25 órdenes diarias y gastos de $16 M el restaurante perdía $11 M al mes.
+  Ahora ~36 órdenes de lunes a miércoles (unas 2.200 en 90 días, ~$12–13 M
+  vendidos al mes) y gastos de un local universitario pequeño (arriendo
+  $1,8 M, nómina $1,6 M por quincena, energía, acueducto, internet, gas y
+  aseo, ~$6,3 M): utilidad real de $0,9–1,4 M al mes (8–11 %). El mes en
+  curso puede ir en negativo los primeros días porque el arriendo se paga
+  el 1.
+- **"Hoy" nunca en cero**: si la carga corre temprano y hay pocas órdenes
+  de hoy, al menos `MIN_COBRADAS_HOY` (5) quedan cobradas y los estados
+  vivos (entrante, en preparación, lista, entregada) se reparten por
+  prioridad con las que sobran (a las 9:30 a. m. las 10 órdenes del día
+  quedaban vivas y "Hoy" mostraba $0).
+- Lo protegen `tests/test_seed_demo.py` (cuentas, estados de hoy, caja,
+  inventario = suma de movimientos, utilidad real = ingresos − costo por
+  receta − gastos, aislamiento, idempotencia, se niega en producción) y las
+  pruebas nuevas de `tests/test_ia.py`.
+
 ---
 
 ## 1. Configuración crítica que NO se borra
@@ -1385,6 +1459,7 @@ skill (Impeccable desaconseja Inter; aquí no se cambia).
 
 | Fecha | Decisión / hito |
 |---|---|
+| 2026-10-12 | Datos de demostración: Donde Tavo con 90 días de historia y Café Central para el aislamiento, cuentas por rol solo en desarrollo, y reglas nuevas de la IA (temporadas, picos, carta, alzas, mermas, diferencias de caja) (§0) |
 | 2026-10-12 | Fase 8: utilidad real en el dashboard, periodo Semana, donas de participación (máx. 6 partes), pantalla de Reportes con CSV por sección y PDF (§0) |
 | 2026-10-12 | Fase 7: cada rol entra a su pantalla con su menú, modo enfocado para cocina, PWA instalable con service worker propio y aviso de sin conexión (§0) |
 | 2026-10-12 | Fase 6: caja (cobro con comprobante interno, varios medios, propina voluntaria, impuesto desglosado, dividir la cuenta, apertura y cierre con cuadre y motivo) y gastos; nota legal de factura electrónica (§0) |

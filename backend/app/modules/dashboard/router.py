@@ -14,7 +14,6 @@ from app.modules.dashboard import avisos as reglas_de_aviso
 from app.modules.dashboard.periodos import (
     DESFASE_NEGOCIO,
     PERIODOS,
-    RANGOS_GRAFICA,
     RangoGrafica,
     Ventana,
     a_hora_negocio,

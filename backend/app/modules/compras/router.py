@@ -2,7 +2,6 @@ import uuid
 
 from fastapi import APIRouter, Depends, Query, Response, status
 from sqlalchemy import String, func
-from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload, selectinload
 
 from app.core.branding import NOMBRE_PRODUCTO

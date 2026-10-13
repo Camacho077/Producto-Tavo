@@ -20,6 +20,7 @@ const RUTAS = {
   venta: (id) => `/caja/ventas/${id}`,
   ventas: () => "/caja/ventas",
   proveedor: (id) => `/inventario/proveedores/${id}`,
+  cierres: () => "/caja/cierres",
 };
 
 const TEXTOS_ENLACE = {
@@ -32,6 +33,7 @@ const TEXTOS_ENLACE = {
   venta: "Ver venta",
   ventas: "Ver ventas",
   proveedor: "Ver proveedor",
+  cierres: "Ver cierres de caja",
 };
 
 /** Devuelve `{a, texto}` o null si el recurso no tiene ruta conocida. */

@@ -168,7 +168,7 @@ try {
             --admin-email $DEMO_EMAIL --admin-password $DEMO_CLAVE --si-no-existe
     }
     Correr "Cargar datos de demostración" {
-        & $pythonVenv (Join-Path $raiz "automatizaciones\deploy\seed_demo.py") --email $DEMO_EMAIL
+        & $pythonVenv (Join-Path $raiz "automatizaciones\deploy\seed_demo.py")
     }
 
     # ------------------------------------------------------------ 8. Diagnóstico
@@ -192,6 +192,7 @@ Write-Host "   Diagnóstico:       http://localhost:8002/diagnostico   (o: cd ba
 Write-Host ""
 Write-Host "   Cuenta de prueba:  $DEMO_EMAIL" -ForegroundColor Yellow
 Write-Host "   Contraseña:        $DEMO_CLAVE" -ForegroundColor Yellow
+Write-Host "   Demo Donde Tavo:   admin@dondetavo.demo / Tavo2026*Admin (las demás cuentas las imprime seed_demo.py)" -ForegroundColor Yellow
 Write-Host "   (empresa '$DEMO_EMPRESA' con categorías, productos, compras, ventas y pedidos de ejemplo)"
 Write-Host ""
 

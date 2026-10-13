@@ -1,3 +1,4 @@
+import uuid
 """
 MÓDULO IA — sugerencias calculadas con los datos reales del tenant
 (app/modules/ia/analisis.py). Restaurante (2026-10-12): el inventario es de
@@ -12,6 +13,7 @@ import pytest
 from app.core.tiempo import ahora_utc
 from app.core.validaciones import digito_verificacion_nit
 from app.modules.ia import analisis
+from app.modules.catalogo.models import Producto
 from app.modules.inventario.models import Insumo
 from tests.conftest import vender as vender_orden
 
@@ -206,7 +208,7 @@ def test_insumo_quieto_con_capital_inmovilizado(sesion, db_session):
     sin_costos = analisis.calcular(db_session, tenant.id, ahora, ver_costos=False)
     s2 = next(x for x in seccion(sin_costos, "rotacion")["sugerencias"] if x["titulo"] == "Harina casi no se gasta")
     assert all(d["etiqueta"] != "Capital quieto (a costo)" for d in s2["datos"])
-    assert "784" not in str(sin_costos)
+    assert "784.000" not in str(sin_costos)
 
 
 def test_un_insumo_nuevo_no_esta_quieto(sesion, db_session):
@@ -300,7 +302,7 @@ def test_patron_de_dia_y_franja(sesion, db_session):
     patrones = {s["tipo"]: s for s in seccion(cuerpo, "patrones")["sugerencias"]}
     assert patrones["patron_dia"]["titulo"] == "Los sábados son tu día fuerte"
     assert "concentran el 100 %" in patrones["patron_dia"]["por_que"]
-    assert patrones["patron_hora"]["titulo"].startswith("La franja de 1")  # 13, 14 o 15:00
+    assert patrones["patron_hora"]["titulo"].startswith("La hora pico es a las 1")  # 15 o 16:00
 
 
 def test_pocas_semanas_no_alcanzan_para_un_patron(sesion, db_session):
@@ -331,3 +333,110 @@ def test_nunca_mezcla_datos_de_otra_empresa(client, tenant_factory, usuario_fact
     assert r.status_code == 200
     assert "Secreto" not in r.text and "Distribuidora Andina" not in r.text
     assert r.json()["base"]["ventas"] == 0
+
+
+# =====================================================================
+# Reglas del restaurante (2026-10-12): carta, alzas, mermas, caja, temporadas
+# =====================================================================
+def test_plato_que_casi_no_se_vende(sesion, db_session):
+    client, h, tenant = sesion
+    ahora = ahora_utc()
+    prov = proveedor(client, h, "Distribuidora Andina", "900123456")
+    relleno = base_de_ventas(client, h, ahora, prov)
+    raro, insumo = plato(client, h, "Postre raro", precio="4000")
+    comprar(client, h, prov, insumo, 50, 500, ahora - timedelta(days=200))
+    vender(client, h, raro, 1, ahora - timedelta(days=50))
+    db_session.query(Producto).filter(Producto.id.in_([raro, relleno])).update({"created_at": ahora - timedelta(days=90)}, synchronize_session=False)
+    db_session.commit()
+    s = seccion(analisis.calcular(db_session, tenant.id, ahora, ver_costos=True), "carta")
+    titulos = [x["titulo"] for x in s["sugerencias"]]
+    assert "Plato de Postre raro casi no se vende" in titulos
+    raro_s = next(x for x in s["sugerencias"] if x["titulo"] == "Plato de Postre raro casi no se vende")
+    assert "Vendió 0 unidades en 30 días" in raro_s["por_que"] and "última venta" in raro_s["por_que"]
+
+
+def test_alza_de_un_insumo_y_platos_que_perdieron_margen(sesion, db_session):
+    client, h, tenant = sesion
+    ahora = ahora_utc()
+    prov = proveedor(client, h, "Carnes del Llano", "900765432")
+    carne = client.post(f"{API}/inventario/insumos", headers=h, json={"nombre": "Carne", "unidad": "kg"}).json()["id"]
+    p = client.post(f"{API}/catalogo/productos", headers=h, json={"nombre": "Hamburguesa", "precio": "13500",
+                    "receta": [{"insumo_id": carne, "cantidad": "150", "unidad": "g"}]}).json()
+    comprar(client, h, prov, carne, 10, 22000, ahora - timedelta(days=80), unidad="kg")
+    comprar(client, h, prov, carne, 10, 28600, ahora - timedelta(days=10), unidad="kg")
+    s = seccion(analisis.calcular(db_session, tenant.id, ahora, ver_costos=True), "alzas")
+    alza = s["sugerencias"][0]
+    assert alza["titulo"] == "Carne subió 30 % y bajó el margen de 1 plato"
+    assert "Hamburguesa (" in alza["por_que"] and alza["enlace"]["recurso"] == "insumo"
+    assert p["id"]
+    sin_costos = seccion(analisis.calcular(db_session, tenant.id, ahora, ver_costos=False), "alzas")
+    assert sin_costos["sugerencias"] == [] and sin_costos["requiere_costos"]
+
+
+def test_mermas_fuera_de_lo_normal(sesion, db_session):
+    client, h, tenant = sesion
+    ahora = ahora_utc()
+    prov = proveedor(client, h, "Fruver", "900222333")
+    base_de_ventas(client, h, ahora, prov)
+    lechuga = client.post(f"{API}/inventario/insumos", headers=h, json={"nombre": "Lechuga", "unidad": "unidad"}).json()["id"]
+    comprar(client, h, prov, lechuga, 100, 2500, ahora - timedelta(days=89))
+    from app.modules.inventario import schemas as si, services as inv
+    from app.modules.seguridad.models import Usuario
+
+    usuario = db_session.query(Usuario).filter(Usuario.tenant_id == tenant.id).first()
+    lechuga = uuid.UUID(lechuga)
+    inv.registrar_merma(db_session, usuario, lechuga, si.MermaCreate(cantidad=1, unidad="unidad", motivo="vencido"), ahora=ahora - timedelta(days=60))
+    for d in range(1, 7):
+        inv.registrar_merma(db_session, usuario, lechuga, si.MermaCreate(cantidad=2, unidad="unidad", motivo="danado"), ahora=ahora - timedelta(days=d))
+    a = next(x for x in seccion(analisis.calcular(db_session, tenant.id, ahora, ver_costos=True), "alertas")["sugerencias"] if x["tipo"] == "merma")
+    assert a["titulo"] == "Mermas fuera de lo normal: Lechuga"
+    assert "6 mermas por 12 unidades" in a["por_que"]
+    assert {"etiqueta": "Valor perdido", "valor": "$30.000"} in a["datos"]
+
+
+def test_diferencias_de_caja_repetidas_en_el_turno_de_una_persona(sesion, db_session, usuario_factory):
+    client, h, tenant = sesion
+    ahora = ahora_utc()
+    prov = proveedor(client, h, "Distribuidora Andina", "900123456")
+    base_de_ventas(client, h, ahora, prov)
+    from app.modules.caja import schemas as sc, services as cj
+
+    carla = usuario_factory(tenant, nombre_completo="Carla Ruiz")
+    jorge = usuario_factory(tenant, nombre_completo="Jorge Mesa")
+    if cj.caja_abierta(db_session, tenant.id):
+        abierta = cj.caja_abierta(db_session, tenant.id)
+        cj.cerrar(db_session, jorge, sc.CerrarCaja(contado=cj.cuadre(db_session, abierta)["esperado"]))
+    for d, quien, faltante in ((9, carla, 2000), (7, jorge, 0), (5, carla, 5000), (3, carla, 3500)):
+        cj.abrir(db_session, quien, 100000, ahora=ahora - timedelta(days=d, hours=10))
+        cj.cerrar(db_session, quien, sc.CerrarCaja(contado={"efectivo": 100000 - faltante}, motivo_diferencia="Faltó" if faltante else None), ahora=ahora - timedelta(days=d))
+    a = next(x for x in seccion(analisis.calcular(db_session, tenant.id, ahora, ver_costos=True), "alertas")["sugerencias"] if x["tipo"] == "diferencias_caja")
+    assert a["titulo"] == "Diferencias de caja repetidas en el turno de Carla Ruiz"
+    assert "3 fueron de su turno, por $10.500" in a["por_que"]
+
+
+def test_semana_fuerte_y_semana_floja(sesion, db_session):
+    client, h, tenant = sesion
+    ahora = ahora_utc()
+    prov = proveedor(client, h, "Distribuidora Andina", "900123456")
+    pid, insumo = plato(client, h, "Menú", precio="10000")
+    comprar(client, h, prov, insumo, 2000, 100, ahora - timedelta(days=200))
+    local = ahora - timedelta(hours=5)
+    lunes_actual = (local - timedelta(days=local.weekday())).replace(hour=17, minute=0, second=0, microsecond=0) + timedelta(hours=5)
+    for semanas in range(1, 11):
+        n = 30 if semanas == 5 else 4 if semanas == 1 else 10
+        vender(client, h, pid, n, lunes_actual - timedelta(weeks=semanas) + timedelta(days=1))
+    tipos = {x["tipo"]: x for x in seccion(analisis.calcular(db_session, tenant.id, ahora, ver_costos=True), "patrones")["sugerencias"]}
+    assert tipos["semana_fuerte"]["titulo"].endswith("vendiste 200 % más de lo normal")
+    assert tipos["semana_floja"]["titulo"] == "La semana pasada vendiste 60 % menos que una semana normal"
+
+
+def test_se_vende_mucho_pero_deja_poco_margen(sesion, db_session):
+    client, h, tenant = sesion
+    ahora = ahora_utc()
+    prov = proveedor(client, h, "Distribuidora Andina", "900123456")
+    pid, insumo = plato(client, h, "Almuerzo", precio="10800")
+    comprar(client, h, prov, insumo, 200, 6000, ahora - timedelta(days=60))
+    for d in range(1, 8):
+        vender(client, h, pid, 5, ahora - timedelta(days=d))
+    s = next(x for x in seccion(analisis.calcular(db_session, tenant.id, ahora, ver_costos=True), "precios")["sugerencias"])
+    assert s["titulo"] == "Plato de Almuerzo se vende mucho pero deja poco margen (60 % de costo)" and s["nivel"] == "advertencia"

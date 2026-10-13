@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session, joinedload, selectinload
 
 from app.core import mensajes
 from app.core.consultas import obtener_del_tenant
-from app.core.errors import AppError, ConflictError, ForbiddenError, NotFoundError
+from app.core.errors import AppError, ConflictError, ForbiddenError
 from app.core.validaciones import ZONA_NEGOCIO
 from app.core.exportar import campo, responder
 from app.core.paginacion import Pagina, ParametrosPagina, paginar
@@ -24,7 +24,6 @@ from app.db.session import get_db
 from app.modules.catalogo.models import RecetaItem
 from app.modules.catalogo.services import mensaje_insumo_en_uso
 from app.modules.inventario import carga, models, schemas, services
-from app.modules.inventario.unidades import compatibles, convertir, legible
 from app.modules.seguridad.models import Usuario
 
 router = APIRouter(prefix="/inventario", tags=["Inventario"])
@@ -268,10 +267,6 @@ def movimientos_insumo(
 # =====================================================================
 # Historial general, mermas y conteos físicos
 # =====================================================================
-def _codigo_conteo(numero: int) -> str:
-    return f"CON-{numero:06d}"
-
-
 @router.get("/movimientos", response_model=Pagina[schemas.MovimientoOut])
 def listar_movimientos(
     params: ParametrosPagina = Depends(),
@@ -331,22 +326,7 @@ def registrar_merma(
     """Salida que no es venta (vencido, dañado, derramado…), siempre con su
     motivo. No puede dejar la existencia en negativo: si se perdió más de lo
     que dice el sistema, lo que corresponde es un conteo físico."""
-    tenant_id = usuario.tenant_id
-    insumo = services.bloquear_insumos(db, tenant_id, [insumo_id]).get(insumo_id)
-    if insumo is None:
-        services.obtener_insumo_o_404(db, tenant_id, insumo_id)
-    if not compatibles(payload.unidad, insumo.unidad):
-        raise ConflictError(f"{insumo.nombre} se lleva en {insumo.unidad}: la merma no puede ir en {payload.unidad}.")
-    cantidad = convertir(payload.cantidad, payload.unidad, insumo.unidad)
-    if Decimal(insumo.existencia) < cantidad:
-        raise ConflictError(
-            f"No se pudo registrar la merma de {insumo.nombre}: quedan {legible(insumo.existencia, insumo.unidad)} "
-            f"y se intentó sacar {legible(cantidad, insumo.unidad)}. Si en la bodega hay menos de lo que dice el sistema, haz un conteo físico."
-        )
-    motivo = models.MOTIVOS_MERMA[payload.motivo] + (f": {payload.detalle}" if payload.detalle else "")
-    movimiento = services.registrar(db, tenant_id, insumo, "merma", -cantidad, motivo=motivo, usuario_nombre=usuario.nombre_completo)
-    db.commit()
-    db.refresh(movimiento)
+    movimiento = services.registrar_merma(db, usuario, insumo_id, payload)
     return services.serializar_movimiento(movimiento, _ver_costos(usuario))
 
 
@@ -354,7 +334,7 @@ def _serializar_conteo(c: models.Conteo, ver_costos: bool, con_items: bool) -> d
     return {
         "id": c.id,
         "numero": c.numero,
-        "codigo": _codigo_conteo(c.numero),
+        "codigo": services.codigo_conteo(c.numero),
         "motivo": c.motivo,
         "usuario_nombre": c.usuario_nombre,
         "lineas": len(c.items),
@@ -409,39 +389,7 @@ def registrar_conteo(
     """Ajuste por conteo físico: por cada insumo contado se compara con el
     sistema y la diferencia queda como movimiento "ajuste" (con su valor a
     costo) que apunta a este conteo. La existencia queda igual a lo contado."""
-    tenant_id = usuario.tenant_id
-    ids = [l.insumo_id for l in payload.lineas]
-    if len(set(ids)) != len(ids):
-        raise ConflictError("El conteo repite un insumo: cada insumo va una sola vez.")
-    insumos = services.bloquear_insumos(db, tenant_id, ids)
-    if len(insumos) != len(set(ids)):
-        raise NotFoundError("Uno de los insumos contados ya no existe o pertenece a otra empresa: recarga la pantalla.")
-    numero = (db.query(func.coalesce(func.max(models.Conteo.numero), 0)).filter(models.Conteo.tenant_id == tenant_id).scalar() or 0) + 1
-    conteo = models.Conteo(tenant_id=tenant_id, numero=numero, motivo=payload.motivo, usuario_nombre=usuario.nombre_completo)
-    db.add(conteo)
-    db.flush()
-    codigo = _codigo_conteo(numero)
-    total = Decimal("0")
-    for i, linea in enumerate(payload.lineas):
-        insumo = insumos[linea.insumo_id]
-        sistema = Decimal(insumo.existencia)
-        diferencia = Decimal(linea.contado) - sistema
-        costo = Decimal(insumo.costo_unitario)
-        valor = (diferencia * costo).quantize(Decimal("0.01"))
-        total += valor
-        conteo.items.append(models.ConteoItem(
-            tenant_id=tenant_id, insumo_id=insumo.id, sistema=sistema, contado=linea.contado,
-            diferencia=diferencia, costo_unitario=costo, valor=valor, orden=i,
-        ))
-        if diferencia != 0:
-            services.registrar(
-                db, tenant_id, insumo, "ajuste", diferencia,
-                documento_tipo="conteo", documento_id=conteo.id, documento_codigo=codigo,
-                motivo=payload.motivo or "Conteo físico", usuario_nombre=usuario.nombre_completo, permitir_negativo=True,
-            )
-    conteo.valor_diferencia = total
-    db.commit()
-    db.refresh(conteo)
+    conteo = services.registrar_conteo(db, usuario, payload)
     return _serializar_conteo(conteo, _ver_costos(usuario), True)
 
 

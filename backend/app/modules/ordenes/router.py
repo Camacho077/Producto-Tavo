@@ -12,7 +12,7 @@ from app.db.models import Tenant
 from app.db.session import get_db
 from app.modules.ajustes.schemas import configuracion_de
 from app.modules.ajustes.services import fecha_jornada
-from app.modules.catalogo.models import Categoria, Modificador, Producto
+from app.modules.catalogo.models import Categoria, Producto
 from app.modules.catalogo.services import agotado_hoy, vigente
 from app.core.tiempo import ahora_utc
 from app.modules.ordenes import models, schemas, services

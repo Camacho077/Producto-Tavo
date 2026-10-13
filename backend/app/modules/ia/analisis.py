@@ -19,15 +19,18 @@ Reglas de oro:
 - Pocas consultas agregadas: cuesta lo mismo con 10 ventas que con 10.000.
 
 Secciones:
-    alertas       insumos que se acabarían pronto, caídas de venta
+    alertas       insumos que se acabarían pronto, caídas de venta, mermas
+                  fuera de lo normal y diferencias de caja repetidas
     reponer       lista de compras sugerida (insumos y cuánto)
     ganadores     platos que más crecen
-    patrones      días de la semana y franjas horarias fuertes
+    carta         platos que casi no se venden (candidatos a salir)
+    patrones      días de la semana, horas pico y semanas fuera de lo común
+                  (parciales, vacaciones)
     rotacion      insumos quietos (capital inmovilizado)
     precios       platos con costo alto según su receta        (costos)
+    alzas         insumos que subieron y a qué platos les bajaron el margen (costos)
     proveedores   proveedor más barato por insumo                (costos)
 """
-import math
 import uuid
 from collections import defaultdict
 from datetime import datetime, timedelta
@@ -41,12 +44,14 @@ from app.db.models import Tenant
 from app.modules.ajustes.schemas import configuracion_de
 from app.modules.catalogo import recetas
 from app.modules.catalogo.models import Producto
-from app.modules.catalogo.services import opciones_carga_producto
+from app.modules.catalogo.services import opciones_carga_producto, vigente
+from app.modules.ordenes.models import Orden
 from app.modules.compras.models import Compra, CompraItem, Proveedor
 from app.modules.dashboard.periodos import DESFASE_NEGOCIO
 from app.modules.inventario.models import Insumo, MovimientoInsumo
 from app.modules.inventario.unidades import convertir, legible
-from app.modules.caja.models import Venta, VentaItem
+from app.modules.caja.models import CajaSesion, Venta, VentaItem
+from app.modules.catalogo.models import Categoria
 
 # ---------------------------------------------------------------------------
 # Umbrales con nombre: cambiarlos es un solo sitio y los tests se apoyan aquí.
@@ -67,6 +72,7 @@ CAIDA_PRODUCTO_PCT = 40.0
 CAIDA_TOTAL_PCT = 20.0
 CRECIMIENTO_GANADOR_PCT = 20.0
 MIN_UNIDADES_GANADOR = 5
+MIN_PARTE_GANADOR_PCT = 1.0  # de lo vendido en 30 días: un plato marginal que sube no "gana"
 MAX_GANADORES = 5
 
 DIAS_INSUMO_NUEVO = 30  # un insumo más nuevo no puede estar "quieto"
@@ -82,6 +88,26 @@ AHORRO_MINIMO_PCT = 5.0
 MIN_VENTAS_PATRON = 10
 MIN_SEMANAS_PATRON = 4
 SEMANAS_PATRON = 8
+
+# Platos que casi no se venden (fase 9, 2026-10-12).
+MAX_UNIDADES_QUIETO = 3  # en 30 días
+DIAS_PLATO_NUEVO = 30
+# Alzas de insumos.
+ALZA_MINIMA_PCT = 12.0
+DIAS_ALZA = 30
+DIAS_ALZA_BASE = 120
+# Mermas fuera de lo normal.
+DIAS_MERMA = 14
+MERMA_VECES = 3.0  # el tramo reciente frente al ritmo de antes
+MIN_MERMAS_RECIENTES = 4
+# Diferencias de caja repetidas.
+DIAS_CAJA = 30
+MIN_DIFERENCIAS_PERSONA = 2
+# Semanas fuera de lo común.
+SEMANAS_TEMPORADA = 12
+SEMANA_FUERTE_PCT = 20.0
+SEMANA_FLOJA_PCT = 25.0
+TOP_VENTAS = 3  # "se vende mucho" = entre los 3 más vendidos de 30 días
 
 DIAS_SEMANA = ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"]  # dow de Postgres
 DIAS_PLURAL = ["domingos", "lunes", "martes", "miércoles", "jueves", "viernes", "sábados"]
@@ -290,7 +316,7 @@ def _insumos_a_comprar(insumos, consumo, ahora):
         sugerida = max(0.0, ritmo * DIAS_A_CUBRIR + minimo - existencia)
         if cobertura < DIAS_QUIEBRE:
             titulo = (
-                f"{i.nombre} ya se acabó y se sigue gastando"
+                f"{i.nombre} ya se acabó"
                 if existencia <= 0
                 else f"{i.nombre} se acabaría hacia el {_fecha(ahora + timedelta(days=cobertura))}"
             )
@@ -339,7 +365,8 @@ def _caidas(productos, ventas):
                     "Revisa qué platos explican la caída (abajo) y si faltaron insumos.", "ventas", clave="total",
                 )
             )
-    nombres = {p.id: p for p in productos}
+    # Una promoción que ya no está vigente "cae" a propósito: no es alerta.
+    nombres = {p.id: p for p in productos if vigente(p)}
     for pid, v in ventas.items():
         u_ant, u_act = int(v.u_ant), int(v.u_act)
         if u_ant < MIN_UNIDADES_CAIDA or pid not in nombres:
@@ -362,9 +389,10 @@ def _caidas(productos, ventas):
 def _ganadores(productos, ventas):
     nombres = {p.id: p for p in productos}
     candidatos = []
+    total = sum(float(v.m_act) for v in ventas.values()) or 1
     for pid, v in ventas.items():
         u_act, u_ant = int(v.u_act), int(v.u_ant)
-        if pid not in nombres or u_act < MIN_UNIDADES_GANADOR:
+        if pid not in nombres or u_act < MIN_UNIDADES_GANADOR or float(v.m_act) / total * 100 < MIN_PARTE_GANADOR_PCT:
             continue
         if u_ant == 0:
             crecimiento = None  # nuevo en el ranking: no se inventa un porcentaje
@@ -374,7 +402,6 @@ def _ganadores(productos, ventas):
                 continue
         candidatos.append((float(v.m_act), pid, v, crecimiento))
     candidatos.sort(key=lambda c: c[0], reverse=True)
-    total = sum(float(v.m_act) for v in ventas.values()) or 1
     res = []
     for monto, pid, v, crecimiento in candidatos[:MAX_GANADORES]:
         p = nombres[pid]
@@ -435,6 +462,8 @@ def _ingrediente_mas_caro(p) -> str | None:
 def _precios(productos, ventas, config):
     """Platos cuyo costo por receta se come demasiado del precio."""
     res, sin_receta = [], 0
+    # "Se vende mucho" = entre los que más dinero mueven en 30 días.
+    top = {pid for pid, _ in sorted(((pid, float(v.m_act)) for pid, v in ventas.items()), key=lambda x: x[1], reverse=True)[:TOP_VENTAS]}
     for p in productos:
         costeo = recetas.costeo(p, config)
         if costeo["costo"] is None or costeo["porcentaje_costo"] is None:
@@ -452,6 +481,8 @@ def _precios(productos, ventas, config):
         caro = _ingrediente_mas_caro(p)
         if pct >= 100:
             nivel, titulo = "critico", f"{p.nombre} se vende por debajo de su costo"
+        elif p.id in top:
+            nivel, titulo = "advertencia", f"{p.nombre} se vende mucho pero deja poco margen ({_pct(pct)} de costo)"
         else:
             nivel, titulo = "oportunidad", f"{p.nombre} tiene un costo del {_pct(pct)}"
         res.append(
@@ -465,7 +496,7 @@ def _precios(productos, ventas, config):
                 f"Evalúa subir el precio hacia {_pesos(sugerido)}, ajustar la porción o negociar el insumo.", "producto", p.id,
             )
         )
-    res.sort(key=lambda s: 0 if s["nivel"] == "critico" else 1)
+    res.sort(key=lambda s: {"critico": 0, "advertencia": 1}.get(s["nivel"], 2))
     return res, sin_receta
 
 
@@ -514,7 +545,8 @@ def _patrones(db, tenant_id, ahora):
     base = db.query(Venta).filter(Venta.tenant_id == tenant_id, Venta.estado == "completada", Venta.fecha >= inicio, Venta.fecha <= ahora)
     n_ventas, semanas = base.with_entities(func.count(Venta.id), func.count(func.distinct(func.date_trunc("week", local)))).one()
     if n_ventas < MIN_VENTAS_PATRON or semanas < MIN_SEMANAS_PATRON:
-        return [], (
+        # Las semanas fuera de lo común tienen su propio mínimo (6 semanas).
+        return _temporadas(db, tenant_id, ahora), (
             f"Para detectar patrones hacen falta al menos {MIN_VENTAS_PATRON} ventas repartidas en "
             f"{MIN_SEMANAS_PATRON} semanas distintas (de las últimas {SEMANAS_PATRON}); hay "
             f"{plural(int(n_ventas), 'venta', 'ventas')} en {plural(int(semanas), 'semana', 'semanas')}."
@@ -536,22 +568,267 @@ def _patrones(db, tenant_id, ahora):
                 clave="dia",
             )
         )
-    hora = func.extract("hour", local)
-    por_hora = dict(base.with_entities(hora, func.count(Venta.id)).group_by(hora).all())
-    bloques = {h: sum(int(por_hora.get(x, 0)) for x in range(h, h + 3)) for h in range(0, 22)}
-    inicio_bloque = max(bloques, key=lambda h: bloques[h])
-    parte_h = bloques[inicio_bloque] / int(n_ventas) * 100
-    if parte_h >= 40:
+    # Horas pico: cuándo LLEGAN las órdenes (el cobro llega después de comer).
+    llegada = Orden.created_at + DESFASE_NEGOCIO
+    hora = func.extract("hour", llegada)
+    por_hora = {
+        int(h): int(n)
+        for h, n in db.query(hora, func.count(Orden.id))
+        .filter(Orden.tenant_id == tenant_id, Orden.estado != "anulada", Orden.created_at >= inicio, Orden.created_at <= ahora)
+        .group_by(hora).all()
+    }
+    n_ordenes = sum(por_hora.values())
+    picos = _picos(por_hora, n_ordenes)
+    if picos:
+        textos = [f"{h}:00 ({_pct(c / n_ordenes * 100)})" for h, c in picos]
         res.append(
             _sugerencia(
-                "patron_hora", "informativo", f"La franja de {inicio_bloque}:00 a {inicio_bloque + 3}:00 es la de más ventas",
-                f"El {_pct(parte_h)} de las ventas de las últimas {SEMANAS_PATRON} semanas se registró en esas tres horas "
-                "(hora de Colombia).",
-                [("Ventas en la franja", str(bloques[inicio_bloque])), ("Ventas totales", str(int(n_ventas)))],
-                "Ten la preparación y los turnos listos antes de esa franja.", clave="hora",
+                "patron_hora", "informativo",
+                f"Tus horas pico: {' y '.join(f'{h}:00' for h, _ in picos)}" if len(picos) > 1 else f"La hora pico es a las {picos[0][0]}:00",
+                f"En las últimas {SEMANAS_PATRON} semanas las horas en que más órdenes llegaron fueron {' y '.join(textos)} "
+                "(hora de Colombia, porcentaje de las órdenes).",
+                [(f"{h}:00", f"{c} órdenes") for h, c in picos] + [("Órdenes totales", str(n_ordenes))],
+                "Ten la preparación y los turnos listos antes de cada pico.", clave="hora",
             )
         )
+    res.extend(_temporadas(db, tenant_id, ahora))
     return res, (None if res else "No hay un día ni una franja que se destaque: las ventas están repartidas de forma pareja.")
+
+
+def _picos(por_hora: dict, total: int) -> list[tuple[int, int]]:
+    """Hasta dos horas pico separadas al menos 3 horas, cada una con más del
+    10 % de las ventas (un desayuno y un almuerzo fuertes son dos picos)."""
+    candidatas = sorted(por_hora.items(), key=lambda x: x[1], reverse=True)
+    elegidas: list[tuple[int, int]] = []
+    for h, c in candidatas:
+        if c / max(total, 1) < 0.10:
+            break
+        if all(abs(h - e) >= 3 for e, _ in elegidas):
+            elegidas.append((h, c))
+        if len(elegidas) == 2:
+            break
+    return sorted(elegidas)
+
+
+def _temporadas(db, tenant_id, ahora):
+    """Semanas completas (lunes a domingo, Colombia) fuera de lo común frente
+    a la mediana: una semana fuerte (¿parciales?, ¿qué categoría la empujó?)
+    y una semana reciente floja (¿vacaciones?). Ayuda a planear compras y
+    preparación por temporada."""
+    local = Venta.fecha + DESFASE_NEGOCIO
+    semana = func.date_trunc("week", local)
+    inicio = ahora - timedelta(weeks=SEMANAS_TEMPORADA + 1)
+    hoy_local = ahora + DESFASE_NEGOCIO
+    # Lunes 00:00 (Colombia) de la semana en curso: solo cuentan semanas completas.
+    fin_semana_actual = datetime(hoy_local.year, hoy_local.month, hoy_local.day) - timedelta(days=hoy_local.weekday())
+    filas = (
+        db.query(semana.label("s"), func.sum(Venta.total))
+        .filter(Venta.tenant_id == tenant_id, Venta.estado == "completada", Venta.fecha >= inicio, local < fin_semana_actual)
+        .group_by(semana).order_by(semana).all()
+    )
+    if len(filas) < 6:
+        return []
+    totales = {f.s: float(f[1]) for f in filas}
+    ordenadas = sorted(totales.values())
+    mediana = ordenadas[len(ordenadas) // 2]
+    if mediana <= 0:
+        return []
+    res = []
+    fuerte, valor = max(totales.items(), key=lambda x: x[1])
+    alza = (valor - mediana) / mediana * 100
+    if alza >= SEMANA_FUERTE_PCT:
+        cats = (
+            db.query(semana.label("s"), func.coalesce(Categoria.nombre, "Sin categoría"), func.sum(VentaItem.cantidad * VentaItem.precio_unitario))
+            .join(VentaItem, VentaItem.venta_id == Venta.id).join(Producto, Producto.id == VentaItem.producto_id)
+            .outerjoin(Categoria, Categoria.id == Producto.categoria_id)
+            .filter(Venta.tenant_id == tenant_id, Venta.estado == "completada", Venta.fecha >= inicio, local < fin_semana_actual)
+            .group_by(semana, Categoria.nombre).all()
+        )
+        en_semana = defaultdict(float)
+        resto = defaultdict(float)
+        for sem, cat, monto in cats:
+            (en_semana if sem == fuerte else resto)[cat] += float(monto)
+        t_sem, t_resto = sum(en_semana.values()) or 1, sum(resto.values()) or 1
+        cambios = {c: en_semana[c] / t_sem * 100 - resto.get(c, 0) / t_resto * 100 for c in en_semana}
+        cat, delta = max(cambios.items(), key=lambda x: x[1]) if cambios else (None, 0)
+        detalle = (f" {cat} pesó el {_pct(en_semana[cat] / t_sem * 100)} de lo vendido esa semana (en una semana normal, "
+                   f"el {_pct(resto.get(cat, 0) / t_resto * 100)}).") if cat and delta >= 5 else ""
+        res.append(
+            _sugerencia(
+                "semana_fuerte", "informativo", f"La semana del {_fecha(fuerte - DESFASE_NEGOCIO)} vendiste {_pct(alza)} más de lo normal",
+                f"Sumó {_pesos(valor)} frente a una semana típica de {_pesos(mediana)} (mediana de las últimas {len(totales)})."
+                + detalle + " Si coincide con parciales u otra temporada universitaria, sirve para planear la próxima.",
+                [("Esa semana", _pesos(valor)), ("Semana típica", _pesos(mediana)), ("Diferencia", f"▲ {_pct(alza)}")]
+                + ([(f"{cat} esa semana", _pct(en_semana[cat] / t_sem * 100))] if detalle else []),
+                f"Para la próxima temporada así, compra y prepara más{' ' + cat.lower() if detalle else ''} desde el lunes.", clave="fuerte",
+            )
+        )
+    ultima, v_ultima = max(totales), totales[max(totales)]
+    baja = (mediana - v_ultima) / mediana * 100
+    if baja >= SEMANA_FLOJA_PCT:
+        res.append(
+            _sugerencia(
+                "semana_floja", "advertencia", f"La semana pasada vendiste {_pct(baja)} menos que una semana normal",
+                f"La semana del {_fecha(ultima - DESFASE_NEGOCIO)} sumó {_pesos(v_ultima)} frente a una semana típica de {_pesos(mediana)}. "
+                "Si empezaron las vacaciones o hubo menos clases, la demanda seguirá baja unos días.",
+                [("Semana pasada", _pesos(v_ultima)), ("Semana típica", _pesos(mediana)), ("Diferencia", f"▼ {_pct(baja)}")],
+                "Baja las cantidades de compra y de preparación hasta que la demanda vuelva; evita desperdicio.", clave="floja",
+            )
+        )
+    return res
+
+
+def _platos_quietos(productos, ventas, ahora):
+    """Platos de la carta que casi no se venden en 30 días (y no son nuevos)."""
+    res = []
+    activos = [p for p in productos if p.tipo == "plato" and p.created_at and (ahora - p.created_at).days >= DIAS_PLATO_NUEVO]
+    for p in activos:
+        v = ventas.get(p.id)
+        u = int(v.u_act) if v else 0
+        if u > MAX_UNIDADES_QUIETO:
+            continue
+        ultima = f" La última venta fue el {_fecha(v.ultima)}." if v and v.ultima else " No se vendió en todo el periodo."
+        res.append(
+            _sugerencia(
+                "plato_quieto", "oportunidad", f"{p.nombre} casi no se vende",
+                f"Vendió {unidades(u)} en {VENTANA_DIAS} días.{ultima} Ocupa espacio en la carta y sus insumos pueden vencerse.",
+                [("Unidades 30 días", unidades(u)), ("Precio", _pesos(p.precio))],
+                "Evalúa sacarlo de la carta, cambiarlo o promocionarlo una semana para ver si responde.", "producto", p.id,
+            )
+        )
+    return res
+
+
+def _alzas(db, tenant_id, ahora, insumos, productos, config):
+    """Insumos cuyo precio de compra del último mes subió frente a los meses
+    anteriores, y a qué platos les bajó el margen (con su receta)."""
+    corte = ahora - timedelta(days=DIAS_ALZA)
+    inicio = ahora - timedelta(days=DIAS_ALZA_BASE)
+    filas = (
+        db.query(CompraItem.insumo_id, CompraItem.unidad, (Compra.fecha >= corte).label("reciente"),
+                 func.sum(CompraItem.cantidad), func.sum(CompraItem.cantidad * CompraItem.precio_unitario))
+        .join(Compra, Compra.id == CompraItem.compra_id)
+        .filter(Compra.tenant_id == tenant_id, Compra.estado == "confirmada", Compra.fecha >= inicio)
+        .group_by(CompraItem.insumo_id, CompraItem.unidad, Compra.fecha >= corte).all()
+    )
+    acumulado = defaultdict(lambda: {True: [Decimal(0), Decimal(0)], False: [Decimal(0), Decimal(0)]})
+    for iid, unidad, reciente, cantidad, monto in filas:
+        insumo = insumos.get(iid)
+        if insumo is None:
+            continue
+        acumulado[iid][bool(reciente)][0] += convertir(Decimal(cantidad), unidad, insumo.unidad)
+        acumulado[iid][bool(reciente)][1] += Decimal(monto)
+    res = []
+    for iid, tramos in acumulado.items():
+        (q_n, m_n), (q_v, m_v) = tramos[True], tramos[False]
+        if q_n <= 0 or q_v <= 0:
+            continue
+        nuevo, viejo = m_n / q_n, m_v / q_v
+        alza = float((nuevo - viejo) / viejo * 100)
+        if alza < ALZA_MINIMA_PCT:
+            continue
+        insumo = insumos[iid]
+        afectados = []
+        for p in productos:
+            if p.tipo != "plato":
+                continue
+            cantidad = sum((recetas.cantidad_por_porcion(l) for l in p.receta if l.insumo_id == iid), Decimal(0))
+            if cantidad <= 0:
+                continue
+            neto = recetas.precio_neto(p.precio, config)
+            costo = recetas.costo_de_producto(p) or Decimal(0)
+            antes = costo - cantidad * (nuevo - viejo)
+            if neto > 0:
+                afectados.append((p, float(antes / neto * 100), float(costo / neto * 100)))
+        if not afectados:
+            continue
+        afectados.sort(key=lambda a: a[2] - a[1], reverse=True)
+        lista = ", ".join(f"{p.nombre} ({_pct(a)} → {_pct(d)})" for p, a, d in afectados[:4])
+        res.append(
+            _sugerencia(
+                "alza", "advertencia", f"{insumo.nombre} subió {_pct(alza)} y bajó el margen de {plural(len(afectados), 'plato', 'platos')}",
+                f"En los últimos {DIAS_ALZA} días lo pagaste a {_pesos(nuevo)} por {insumo.unidad} en promedio, frente a {_pesos(viejo)} "
+                f"en los meses anteriores. El % de costo de cada plato con ese precio: {lista}.",
+                [("Precio antes", f"{_pesos(viejo)} / {insumo.unidad}"), ("Precio ahora", f"{_pesos(nuevo)} / {insumo.unidad}"), ("Alza", f"▲ {_pct(alza)}")]
+                + [(p.nombre, f"{_pct(a)} → {_pct(d)} de costo") for p, a, d in afectados[:4]],
+                "Negocia con otro proveedor, ajusta las porciones o revisa el precio de esos platos.", "insumo", iid,
+            )
+        )
+    return res
+
+
+def _mermas(db, tenant_id, ahora, insumos, ver_costos):
+    """Insumos cuyas mermas de las últimas 2 semanas están muy por encima
+    de su ritmo de antes."""
+    reciente = ahora - timedelta(days=DIAS_MERMA)
+    inicio = ahora - timedelta(days=HISTORIA_DIAS)
+    salida = -MovimientoInsumo.cantidad
+    filas = (
+        db.query(
+            MovimientoInsumo.insumo_id,
+            func.coalesce(func.sum(case((MovimientoInsumo.created_at >= reciente, salida), else_=0)), 0),
+            func.coalesce(func.sum(case((MovimientoInsumo.created_at < reciente, salida), else_=0)), 0),
+            func.count(case((MovimientoInsumo.created_at >= reciente, 1))),
+            func.coalesce(func.sum(case((MovimientoInsumo.created_at >= reciente, -MovimientoInsumo.valor), else_=0)), 0),
+        )
+        .filter(MovimientoInsumo.tenant_id == tenant_id, MovimientoInsumo.tipo == "merma", MovimientoInsumo.created_at >= inicio)
+        .group_by(MovimientoInsumo.insumo_id).all()
+    )
+    dias_antes = HISTORIA_DIAS - DIAS_MERMA
+    res = []
+    for iid, ahora_q, antes_q, veces, valor in filas:
+        insumo = insumos.get(iid)
+        if insumo is None or int(veces) < MIN_MERMAS_RECIENTES:
+            continue
+        ritmo_antes = float(antes_q) / dias_antes * DIAS_MERMA
+        if float(ahora_q) < MERMA_VECES * max(ritmo_antes, 0.0001) and ritmo_antes > 0:
+            continue
+        veces_txt = f"{_num(float(ahora_q) / ritmo_antes, 0)} veces lo normal" if ritmo_antes > 0 else "y antes casi no había"
+        res.append(
+            _sugerencia(
+                "merma", "advertencia", f"Mermas fuera de lo normal: {insumo.nombre}",
+                f"En los últimos {DIAS_MERMA} días se registraron {plural(int(veces), 'merma', 'mermas')} por "
+                f"{_cantidad(float(ahora_q), insumo.unidad)} ({veces_txt}: en los {dias_antes} días anteriores, "
+                f"{_cantidad(float(antes_q), insumo.unidad)} en total).",
+                [("Últimos 14 días", _cantidad(float(ahora_q), insumo.unidad)), ("Mermas registradas", str(int(veces)))]
+                + ([("Valor perdido", _pesos(valor))] if ver_costos else []),
+                "Revisa cómo llega y cómo se guarda (proveedor, temperatura, rotación) y el motivo de cada merma.", "insumo", iid,
+            )
+        )
+    return res
+
+
+def _diferencias_caja(db, tenant_id, ahora):
+    """Cierres de caja con diferencia que se repiten en el turno de una misma
+    persona (en 30 días)."""
+    filas = (
+        db.query(CajaSesion.cerrada_por, CajaSesion.cerrada_en, CajaSesion.diferencia)
+        .filter(CajaSesion.tenant_id == tenant_id, CajaSesion.estado == "cerrada", CajaSesion.cerrada_en >= ahora - timedelta(days=DIAS_CAJA),
+                CajaSesion.diferencia != 0)
+        .order_by(CajaSesion.cerrada_en).all()
+    )
+    if not filas:
+        return []
+    por_persona = defaultdict(list)
+    for quien, cuando, dif in filas:
+        por_persona[quien or "Sin registrar"].append((cuando, Decimal(dif)))
+    res = []
+    for quien, cierres in por_persona.items():
+        if len(cierres) < MIN_DIFERENCIAS_PERSONA or len(cierres) / len(filas) < 0.6:
+            continue
+        total = sum((d for _, d in cierres), Decimal(0))
+        res.append(
+            _sugerencia(
+                "diferencias_caja", "advertencia", f"Diferencias de caja repetidas en el turno de {quien}",
+                f"De {plural(len(filas), 'cierre con diferencia', 'cierres con diferencia')} en {DIAS_CAJA} días, "
+                f"{len(cierres)} fueron de su turno, por {_pesos(abs(total))} en total "
+                f"({', '.join(f'{_fecha(c)}: {_pesos(d)}' for c, d in cierres)}).",
+                [(f"Cierre del {_fecha(c)}", ("▲ " if d > 0 else "▼ ") + _pesos(abs(d))) for c, d in cierres] + [("Total", _pesos(total))],
+                "Revisa con esa persona cómo da las devueltas y cómo cuenta el cierre; considera un arqueo a mitad del turno.",
+                "cierres", clave=quien,
+            )
+        )
+    return res
 
 
 # ---------------------------------------------------------------------------
@@ -588,7 +865,8 @@ def calcular(db: Session, tenant_id: uuid.UUID, ahora: datetime, ver_costos: boo
 
     if suficiente:
         quiebres, reponer, sin_ritmo = _insumos_a_comprar(insumos_lista, consumo, ahora)
-        alertas = quiebres + _caidas(productos, ventas)
+        alertas = quiebres + _mermas(db, tenant_id, ahora, insumos, ver_costos) + _diferencias_caja(db, tenant_id, ahora) + _caidas(productos, ventas)
+        quietos = _platos_quietos(productos, ventas, ahora)
         ganadores = _ganadores(productos, ventas)
         patrones, nota_patrones = _patrones(db, tenant_id, ahora)
         rotacion = _insumos_quietos(insumos_lista, consumo, ver_costos, ahora)
@@ -597,12 +875,14 @@ def calcular(db: Session, tenant_id: uuid.UUID, ahora: datetime, ver_costos: boo
             + (f" {plural(sin_ritmo, 'insumo no tiene', 'insumos no tienen')} consumo suficiente en 30 días para estimar su ritmo." if sin_ritmo else "")
         )
         secciones = [
-            _seccion("alertas", "Alertas inteligentes", "Insumos que se acabarían pronto y caídas de venta.", alertas,
-                     None if alertas else "Ningún insumo se acaba pronto y no hay caídas notables de venta."),
+            _seccion("alertas", "Alertas inteligentes", "Insumos que se acabarían pronto, mermas y diferencias de caja fuera de lo normal, caídas de venta.", alertas,
+                     None if alertas else "Ningún insumo se acaba pronto, no hay mermas ni diferencias de caja fuera de lo normal y no hay caídas notables de venta."),
             _seccion("reponer", "Lista de compras sugerida", f"Insumos que alcanzan para menos de {DIAS_REPONER} días al consumo de los últimos 30.", reponer, nota_reponer),
             _seccion("ganadores", "Platos ganadores", f"Los que más venden y crecen al menos {_pct(CRECIMIENTO_GANADOR_PCT)}.", ganadores,
                      None if ganadores else "Ningún plato crece de forma notable frente a los 30 días anteriores."),
-            _seccion("patrones", "Patrones de venta", f"Días y horas fuertes en las últimas {SEMANAS_PATRON} semanas.", patrones, nota_patrones),
+            _seccion("carta", "Platos que casi no se venden", f"Platos con {MAX_UNIDADES_QUIETO} unidades o menos en {VENTANA_DIAS} días (sin contar los nuevos).", quietos,
+                     None if quietos else "Todos los platos de la carta se venden a un ritmo razonable."),
+            _seccion("patrones", "Patrones de venta", f"Días, horas pico y semanas fuera de lo común en las últimas {SEMANAS_PATRON}–{SEMANAS_TEMPORADA} semanas.", patrones, nota_patrones),
             _seccion("rotacion", "Insumos quietos", f"Existencias que casi no se gastan (menos de un cuarto en {ROTACION_DIAS} días).", rotacion,
                      None if rotacion else "Todos los insumos con más de 30 días se gastan a un ritmo razonable."),
         ]
@@ -613,7 +893,8 @@ def calcular(db: Session, tenant_id: uuid.UUID, ahora: datetime, ver_costos: boo
                 ("alertas", "Alertas inteligentes", "Insumos que se acabarían pronto y caídas de venta."),
                 ("reponer", "Lista de compras sugerida", "Según el consumo de los insumos."),
                 ("ganadores", "Platos ganadores", "Los que más venden y crecen."),
-                ("patrones", "Patrones de venta", "Días y horas fuertes."),
+                ("carta", "Platos que casi no se venden", "Según las ventas de 30 días."),
+                ("patrones", "Patrones de venta", "Días, horas y temporadas."),
                 ("rotacion", "Insumos quietos", "Existencias que casi no se gastan."),
             )
         ]
@@ -636,9 +917,13 @@ def calcular(db: Session, tenant_id: uuid.UUID, ahora: datetime, ver_costos: boo
             if not comparables else "Ya le compras cada insumo al proveedor más barato que tienes registrado."
         )
         secciones.append(_seccion("precios", "Platos con costo alto", f"Platos cuyo costo por receta pasa del {_pct(COSTO_ALTO_PCT)} del precio.", precios, nota_precios, True))
+        alzas = _alzas(db, tenant_id, ahora, insumos, productos, config)
+        secciones.append(_seccion("alzas", "Alzas de insumos", f"Insumos que subieron {_pct(ALZA_MINIMA_PCT)} o más en {DIAS_ALZA} días y los platos que perdieron margen.", alzas,
+                                  None if alzas else "Ningún insumo subió de forma notable en el último mes.", True))
         secciones.append(_seccion("proveedores", "Proveedores con mejores condiciones", f"Precio promedio por insumo y proveedor en {COSTOS_DIAS} días.", proveedores, nota_prov, True))
     else:
         secciones.append(_seccion("precios", "Platos con costo alto", "Según el costo de cada receta.", sin_datos=sin_permiso, requiere_costos=True))
+        secciones.append(_seccion("alzas", "Alzas de insumos", "Según el precio de compra.", sin_datos=sin_permiso, requiere_costos=True))
         secciones.append(_seccion("proveedores", "Proveedores con mejores condiciones", "Precio por insumo y proveedor.", sin_datos=sin_permiso, requiere_costos=True))
 
     return {

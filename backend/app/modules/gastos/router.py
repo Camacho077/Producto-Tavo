@@ -11,8 +11,7 @@ from app.core.exportar import campo, responder
 from app.core.paginacion import ParametrosPagina, paginar
 from app.core.permisos import usuario_con_permiso
 from app.db.session import get_db
-from app.modules.caja.services import caja_abierta
-from app.modules.gastos import models, schemas
+from app.modules.gastos import models, schemas, services
 from app.modules.seguridad.models import Usuario
 
 router = APIRouter(prefix="/gastos", tags=["Gastos"])
@@ -39,21 +38,6 @@ def _serializar(g: models.Gasto) -> dict:
 
 def _obtener(db: Session, tenant_id: uuid.UUID, gasto_id: uuid.UUID) -> models.Gasto:
     return obtener_del_tenant(db, models.Gasto, tenant_id, gasto_id, "El gasto indicado")
-
-
-def _aplicar(db: Session, usuario: Usuario, gasto: models.Gasto, payload: schemas.GastoIn) -> None:
-    if payload.de_caja and payload.medio_pago != "efectivo":
-        raise ConflictError("Solo un gasto en efectivo puede salir de la caja.")
-    if payload.de_caja:
-        if gasto.caja_id is None:
-            caja = caja_abierta(db, usuario.tenant_id)
-            if caja is None:
-                raise ConflictError("No hay caja abierta de donde sacar el efectivo: desmarca «Pagado desde la caja» o abre la caja.")
-            gasto.caja_id = caja.id
-    else:
-        gasto.caja_id = None
-    for campo_ in ("fecha", "categoria", "descripcion", "valor", "medio_pago"):
-        setattr(gasto, campo_, getattr(payload, campo_))
 
 
 def _exigir_editable(gasto: models.Gasto, accion: str) -> None:
@@ -92,19 +76,14 @@ def obtener(gasto_id: uuid.UUID, db: Session = Depends(get_db), usuario: Usuario
 
 @router.post("", status_code=status.HTTP_201_CREATED)
 def crear(payload: schemas.GastoIn, db: Session = Depends(get_db), usuario: Usuario = Depends(usuario_con_permiso("gastos", "crear"))):
-    gasto = models.Gasto(tenant_id=usuario.tenant_id, usuario_nombre=usuario.nombre_completo)
-    _aplicar(db, usuario, gasto, payload)
-    db.add(gasto)
-    db.commit()
-    db.refresh(gasto)
-    return _serializar(gasto)
+    return _serializar(services.registrar(db, usuario, payload))
 
 
 @router.put("/{gasto_id}")
 def editar(gasto_id: uuid.UUID, payload: schemas.GastoIn, db: Session = Depends(get_db), usuario: Usuario = Depends(usuario_con_permiso("gastos", "editar"))):
     gasto = _obtener(db, usuario.tenant_id, gasto_id)
     _exigir_editable(gasto, "editar")
-    _aplicar(db, usuario, gasto, payload)
+    services.aplicar(db, usuario, gasto, payload)
     db.commit()
     db.refresh(gasto)
     return _serializar(gasto)

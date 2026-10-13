@@ -101,7 +101,7 @@ bien "Esquema al día"
 paso "7/8 Usuario y datos de prueba"
 "$PY" "$RAIZ/automatizaciones/deploy/alta_tenant.py" --empresa "$DEMO_EMPRESA" --plan pro_ia \
   --admin-email "$DEMO_EMAIL" --admin-password "$DEMO_CLAVE" --si-no-existe
-"$PY" "$RAIZ/automatizaciones/deploy/seed_demo.py" --email "$DEMO_EMAIL"
+"$PY" "$RAIZ/automatizaciones/deploy/seed_demo.py"
 
 # ---------------------------------------------------------------- 8. Diagnóstico
 paso "8/8 Diagnóstico del entorno"
@@ -121,6 +121,7 @@ cat <<FIN
 
    Cuenta de prueba:  $DEMO_EMAIL
    Contraseña:        $DEMO_CLAVE
+   Demo Donde Tavo:   admin@dondetavo.demo / Tavo2026*Admin (las demás cuentas las imprime seed_demo.py)
    (empresa '$DEMO_EMPRESA' con categorías, productos, compras, ventas y pedidos de ejemplo)
 
 FIN
