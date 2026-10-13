@@ -1,7 +1,7 @@
 import { api } from "@/lib/api";
 
 /**
- * URL pública de una imagen ya procesada por el backend (WebP). Un `<img>` no
+ * URL pública de una imagen ya procesada por el backend (WebP). Una etiqueta img no
  * manda el token, por eso la ruta del backend es pública (por UUID aleatorio)
  * y la respuesta se cachea para siempre: reemplazar una imagen crea otra con
  * otro id (backend/app/modules/imagenes).

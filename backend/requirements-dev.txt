@@ -1,3 +1,5 @@
 -r requirements.txt
 pytest==9.1.1
-httpx==0.28.1
+# Cliente HTTP del TestClient de Starlette (desde 1.6 pide httpx2; con httpx
+# avisaba "deprecated", 2026-10-13).
+httpx2==2.13.1

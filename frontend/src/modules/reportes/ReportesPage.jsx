@@ -138,7 +138,7 @@ export function Reportes() {
       {d && (
         <div className="space-y-4">
           <Card titulo="Resumen">
-            <div className="reporte-cifras">
+            <div className={`reporte-cifras ${verCostos ? "reporte-cifras--completas" : ""}`}>
               <Cifra etiqueta="Vendido" valor={pesos(r.total)} detalle={`${formatearNumero(r.ordenes)} órdenes · ticket ${pesos(r.ticket_promedio)}`} />
               <Cifra etiqueta="Ingresos" valor={pesos(r.ingresos)} detalle={`Sin impuesto al consumo (${pesos(r.impuesto)})`} />
               {verCostos && <Cifra etiqueta="Costo de lo vendido" valor={pesos(r.costo)} detalle={`${pct(r.costo_pct)} de los ingresos`} />}

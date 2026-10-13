@@ -236,7 +236,7 @@ export function GastoDetalle() {
   const { data: g, error } = useApiResource(`${RUTA}/${id}`);
   const [eliminar, setEliminar] = useState(false);
   return (
-    <PantallaDetalle
+    <PantallaDetalle estrecha
       volver={RUTA}
       titulo={g?.descripcion ?? "Gasto"}
       descripcion={g ? `${g.categoria_nombre} · ${formatearMoneda(g.valor)}` : undefined}

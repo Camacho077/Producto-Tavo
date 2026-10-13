@@ -5,7 +5,7 @@
 # Para actualizar: cambia la versión aquí, corre `pytest` completo y súbelo.
 # Lo exige tests/test_dependencias.py.
 fastapi==0.141.1
-starlette==1.6.0
+starlette==1.7.0
 uvicorn[standard]==0.52.4
 sqlalchemy==2.0.52
 psycopg2-binary==2.9.13

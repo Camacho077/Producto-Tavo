@@ -1,15 +1,33 @@
+# Secretos: cualquier .env en cualquier carpeta (los .env.example SÍ se versionan)
+.env
+.env.*
+!.env.example
+!.env.*.example
+*.pem
+*.key
+
 # Python
 backend/venv/
+venv/
+.venv/
 backend/__pycache__/
 backend/**/__pycache__/
 *.pyc
 backend/.env
 
 # Node / frontend
-frontend/node_modules/
+node_modules/
 frontend/dist/
+dist/
 frontend/.env
 frontend/.env.tunnel
+
+# Bases de datos y respaldos locales (los datos de cada máquina no viajan por git)
+*.db
+*.sqlite
+*.sqlite3
+*.dump
+*.bak
 
 # General
 .DS_Store

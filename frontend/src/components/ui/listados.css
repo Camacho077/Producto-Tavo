@@ -8,6 +8,39 @@
   /* El sidebar y el marco de la aplicación viven en components/shell.css. */
 
   /* --------------------------------------------------------------------------
+     BARRA DEL LISTADO: buscador, filtros y exportar. En celular el buscador
+     va a lo ancho y los filtros en dos columnas iguales (antes cada uno
+     quedaba en su propia fila, con un ancho distinto).
+     -------------------------------------------------------------------------- */
+  .barra-listado {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+  }
+  .barra-listado__buscador {
+    flex: 1;
+    min-width: 220px;
+  }
+  @media (max-width: 640px) {
+    .barra-listado {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .barra-listado__buscador {
+      grid-column: 1 / -1;
+      min-width: 0;
+    }
+    .barra-listado > *,
+    .barra-listado .select,
+    .barra-listado .btn {
+      width: 100%;
+      min-width: 0;
+    }
+  }
+
+  /* --------------------------------------------------------------------------
      BUSCADOR
      -------------------------------------------------------------------------- */
   .buscador {
@@ -111,6 +144,11 @@
     color: var(--texto);
     overflow-wrap: anywhere;
     text-align: left;
+  }
+  /* Una cifra nunca se parte ("$ 1." / "091"): se lee completa o no se lee. */
+  .detalle__valor.cifra {
+    overflow-wrap: normal;
+    white-space: nowrap;
   }
   @media (max-width: 640px) {
     .detalle__campo {

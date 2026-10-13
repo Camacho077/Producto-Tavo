@@ -114,7 +114,10 @@ export function useFormulario(esquema, inicial, { normalizadores = {} } = {}) {
         if (err?.response?.status === 422 && Array.isArray(detalle?.errores)) {
           const mapa = {};
           const generales = [];
-          for (const e of detalle.errores) (e.campo ? (mapa[e.campo] = e.mensaje) : generales.push(e.mensaje));
+          for (const e of detalle.errores) {
+            if (e.campo) mapa[e.campo] = e.mensaje;
+            else generales.push(e.mensaje);
+          }
           setErroresBackend(mapa);
           enfocarPrimerInvalido(Object.keys(mapa));
           if (generales.length) {

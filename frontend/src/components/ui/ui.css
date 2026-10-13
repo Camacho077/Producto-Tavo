@@ -346,6 +346,32 @@
   .input::placeholder {
     color: var(--texto-secundario);
   }
+  /* Selector de archivo: el botón nativo también lleva el sistema (pastilla
+     secundaria), no el gris del navegador. */
+  .input[type="file"] {
+    display: flex;
+    align-items: center;
+    padding: 0 0.375rem;
+    color: var(--texto-secundario);
+    cursor: pointer;
+  }
+  .input[type="file"]::file-selector-button {
+    height: 26px;
+    margin-right: 0.625rem;
+    padding: 0 0.75rem;
+    font: inherit;
+    font-weight: 500;
+    color: var(--texto);
+    background-color: var(--superficie);
+    border: var(--borde-fino) solid var(--borde);
+    border-radius: var(--radio-control);
+    cursor: pointer;
+    transition: background-color var(--transicion), border-color var(--transicion);
+  }
+  .input[type="file"]:hover::file-selector-button {
+    background-color: var(--realce-medio);
+    border-color: var(--borde-fuerte);
+  }
   .input:hover:not(:disabled),
   .select:hover:not(:disabled) {
     border-color: var(--borde-fuerte);
@@ -638,6 +664,11 @@
     min-width: 52px;
     padding: 9px 14px;
   }
+  @media (pointer: coarse) {
+    .pildora {
+      min-height: 44px;
+    }
+  }
   @media (max-width: 720px) {
     .pildora {
       min-width: 0;
@@ -837,4 +868,35 @@
     color: var(--negativo-texto);
   }
 
+
+  /* --------------------------------------------------------------------------
+     PANTALLAS TÁCTILES (2026-10-13): mesero en celular, cocina en tablet.
+     La densidad de escritorio (botones de 30 px) se queda para el mouse; con
+     el dedo cada objetivo mide al menos 40 px y los campos usan 16 px de
+     letra (con menos, iOS hace zoom al enfocarlos).
+     -------------------------------------------------------------------------- */
+  @media (pointer: coarse) {
+    .btn--sm {
+      height: 40px;
+    }
+    .btn--md {
+      height: 44px;
+    }
+    .btn--icono.btn--sm {
+      width: 40px;
+    }
+    .btn--icono {
+      width: 44px;
+    }
+    .input,
+    .select {
+      height: 44px;
+      font-size: 16px;
+    }
+    .ficha .ficha__quitar {
+      width: 32px;
+      height: 32px;
+      margin: -6px -8px -6px -4px;
+    }
+  }
 }

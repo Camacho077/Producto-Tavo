@@ -341,7 +341,7 @@ export function RolDetalle() {
   const noEditable = data ? (data.es_administrador ? !esAdministrador : !esAdministrador && data.id === usuario?.rol_id) : false;
 
   return (
-    <PantallaDetalle
+    <PantallaDetalle estrecha
       volver={RUTA}
       titulo={data?.nombre ?? "Detalle del rol"}
       descripcion={data?.descripcion ?? undefined}

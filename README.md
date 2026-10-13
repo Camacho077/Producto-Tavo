@@ -31,9 +31,20 @@ producto-tavo/
 
 ## Empezar desde cero (Windows)
 
-Pasos exactos para quien acaba de clonar el repositorio. Los `.env` **no se
+Pasos exactos para quien llega nuevo al proyecto. Los `.env` **no se
 versionan** (tienen secretos): cada máquina crea los suyos, y el script de
 abajo lo hace por ti.
+
+> **Tu base de datos es tuya.** Lo que hay en la base de otra persona
+> (órdenes, cobros, ajustes, usuarios que creó) **no viaja por git**: git solo
+> lleva el código. Tu Postgres empieza vacío y el script le carga los mismos
+> datos de demostración. Si quieres empezar de nuevo, vuelve a cargarlos con
+> `seed_demo.py --reset` (ver el paso 4).
+
+**0. Acepta la invitación.** Te llega un correo de GitHub ("invited you to
+collaborate on Camacho077/Producto-Tavo"): ábrelo y pulsa *Accept
+invitation* (o entra a <https://github.com/Camacho077/Producto-Tavo/invitations>
+con tu cuenta). El repositorio es privado: sin aceptar, no podrás clonarlo.
 
 **1. Instala los requisitos** (una sola vez; abre una terminal NUEVA después
 de instalar, para que tome el PATH):
@@ -60,7 +71,7 @@ de instalar, para que tome el PATH):
 proyecto):
 
 ```powershell
-git clone <url-del-repositorio> producto-tavo
+git clone https://github.com/Camacho077/Producto-Tavo.git producto-tavo
 cd producto-tavo
 powershell -ExecutionPolicy Bypass -File automatizaciones\setup.ps1
 ```
@@ -69,15 +80,33 @@ powershell -ExecutionPolicy Bypass -File automatizaciones\setup.ps1
 orden: revisa requisitos → copia `backend/.env.example` y
 `frontend/.env.example` a `.env` si faltan (con una `SECRET_KEY` aleatoria)
 → crea `backend/venv` e instala dependencias → `npm ci` → arranca Postgres
-con Docker si hace falta y crea la base → `alembic upgrade head` → crea la
-cuenta de prueba y carga datos de demostración → corre el diagnóstico. Al
-final imprime las URLs y las credenciales:
+con Docker si hace falta y crea la base → `alembic upgrade head` → carga los
+datos de demostración (`seed_demo.py`: el restaurante "Donde Tavo" con 90
+días de historia y "Café Central" para probar el aislamiento; tarda unos
+5 minutos) → corre el diagnóstico. Al final imprime las URLs y las
+credenciales:
 
 | | |
 |---|---|
 | Aplicación | <http://localhost:5175> |
 | API / documentación | <http://localhost:8002/docs> |
-| Cuenta de prueba | `demo@jscompany.co` / `Demo2026!` |
+
+**Cuentas de la demo** (existen SOLO en desarrollo; con `ENV=production` el
+script se niega a crearlas). Cada rol entra a su propia pantalla y solo ve
+lo suyo; ábrelo en el dispositivo de cada rol (o con el modo de dispositivo
+del navegador):
+
+| Rol | Correo | Contraseña | Entra a | Dispositivo |
+|---|---|---|---|---|
+| Administrador | `admin@dondetavo.demo` | `Tavo2026*Admin` | Dashboard | escritorio |
+| Cajero | `caja@dondetavo.demo` | `Tavo2026*Caja` | Caja | escritorio |
+| Mesero | `mesero@dondetavo.demo` | `Tavo2026*Mesero` | Tomar pedido | celular |
+| Cocinero | `cocina@dondetavo.demo` | `Tavo2026*Cocina` | Cocina | tablet |
+| Admin de otra empresa | `admin@cafecentral.demo` | `Central2026*Admin` | Dashboard de Café Central | escritorio |
+
+También existen `mesero2@` y `mesero3@dondetavo.demo` (`Tavo2026*Mesero`),
+`cocina2@dondetavo.demo` (`Tavo2026*Cocina`) y una empresa vacía de prueba
+`demo@jscompany.co` / `Demo2026!`.
 
 En Linux, macOS o Git Bash: `bash automatizaciones/setup.sh` (mismos pasos).
 
@@ -96,6 +125,16 @@ que Windows deje abrir el 8002 e imprime la URL). Sin el script:
 "Backend + Frontend" (`.vscode/launch.json`) o Ctrl+Mayús+B → "Arrancar
 backend y frontend" (`.vscode/tasks.json`). **`uvicorn app.main:app` sin
 `--port 8002` no arranca**: se detiene y dice cómo hacerlo (ver "Puertos").
+
+**4. Ábrelo** en <http://localhost:5175> y entra con una de las cuentas de
+arriba. Las fechas de la demo son relativas al día en que se cargan: para
+que "Hoy" tenga órdenes en cocina, mesas ocupadas y caja abierta, vuelve a
+cargarla el día que la vayas a mostrar (desde `backend/`):
+
+```powershell
+venv\Scripts\python ..\automatizaciones\deploy\seed_demo.py           # solo si hoy no hay datos
+venv\Scripts\python ..\automatizaciones\deploy\seed_demo.py --reset   # borra y recrea las dos empresas demo
+```
 
 **Si algo no funciona, corre el diagnóstico** antes de tocar nada. Revisa
 los `.env`, las variables cargadas (sin mostrar secretos), la conexión a

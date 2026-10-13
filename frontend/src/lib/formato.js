@@ -18,11 +18,26 @@ export function formatearNumero(valor) {
   return numeroCO.format(numero);
 }
 
+/** Zona del negocio: los días y las horas que ve el restaurante (Colombia). */
+const ZONA = "America/Bogota";
+
+/**
+ * El backend manda instantes en UTC SIN zona ("2026-10-12T23:41:36"): leídos
+ * tal cual, el navegador los toma como hora local y en Colombia salen 5 h
+ * corridos (un cierre de las 9:15 p. m. aparecía a las 2:15 a. m.). Una fecha
+ * sola ("2026-10-12") es un día del calendario, no un instante.
+ */
+function aInstante(iso) {
+  const texto = String(iso);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(texto)) return new Date(`${texto}T12:00:00Z`);
+  return new Date(/[zZ]|[+-]\d\d:\d\d$/.test(texto) ? texto : `${texto}Z`);
+}
+
 export function formatearFecha(iso) {
   if (!iso) return "—";
-  const fecha = new Date(iso);
+  const fecha = aInstante(iso);
   if (Number.isNaN(fecha.getTime())) return "—";
-  return fecha.toLocaleDateString("es-CO", { day: "2-digit", month: "short", year: "numeric" });
+  return fecha.toLocaleDateString("es-CO", { day: "2-digit", month: "short", year: "numeric", timeZone: ZONA });
 }
 
 export function formatearVariacion(actual, anterior) {
@@ -39,7 +54,7 @@ export function formatearVariacion(actual, anterior) {
 
 export function formatearFechaHora(iso) {
   if (!iso) return "—";
-  const fecha = new Date(iso);
+  const fecha = aInstante(iso);
   if (Number.isNaN(fecha.getTime())) return "—";
   return fecha.toLocaleString("es-CO", {
     day: "2-digit",
@@ -47,6 +62,7 @@ export function formatearFechaHora(iso) {
     year: "numeric",
     hour: "2-digit",
     minute: "2-digit",
+    timeZone: ZONA,
   });
 }
 
@@ -67,14 +83,14 @@ export function fechaLocalAhora() {
 /** "07:45 a. m." en hora de Colombia (comandas, tablero, cocina). */
 export function formatearHora(iso) {
   if (!iso) return "—";
-  const fecha = new Date(/[zZ]|[+-]\d\d:\d\d$/.test(iso) ? iso : `${iso}Z`);
+  const fecha = aInstante(iso);
   if (Number.isNaN(fecha.getTime())) return "—";
-  return fecha.toLocaleTimeString("es-CO", { hour: "2-digit", minute: "2-digit", timeZone: "America/Bogota" });
+  return fecha.toLocaleTimeString("es-CO", { hour: "2-digit", minute: "2-digit", timeZone: ZONA });
 }
 
 /** Minutos enteros desde un instante del backend (UTC sin zona). */
 export function minutosDesde(iso, ahora = Date.now()) {
   if (!iso) return 0;
-  const fecha = new Date(/[zZ]|[+-]\d\d:\d\d$/.test(iso) ? iso : `${iso}Z`);
+  const fecha = aInstante(iso);
   return Math.max(0, Math.floor((ahora - fecha.getTime()) / 60000));
 }

@@ -107,14 +107,20 @@
     background: var(--superficie);
     color: var(--texto-secundario);
   }
+  .pedido__buscador {
+    cursor: text;
+  }
+  /* El campo ocupa toda la caja de 44 px (antes medía 23 y el borde no
+     respondía al toque); 16 px evita que iOS haga zoom al enfocarlo. */
   .pedido__buscador input {
     flex: 1;
+    align-self: stretch;
     min-width: 0;
     border: 0;
     background: transparent;
     color: var(--texto);
     font: inherit;
-    font-size: 15px;
+    font-size: 16px;
     outline: none;
   }
   .pedido__buscador:focus-within {
@@ -334,6 +340,17 @@
   }
   .mesas-tile__orden {
     font-size: 12px;
+  }
+  /* Con el dedo (mesero en celular): fichas y enlaces de 44 px de alto. */
+  @media (pointer: coarse) {
+    .pedido-ficha {
+      min-height: 44px;
+    }
+    .mesas-tile__orden {
+      display: inline-flex;
+      align-items: center;
+      min-height: 40px;
+    }
   }
   /* Sin color: ocupada = relleno; por cobrar = borde punteado y grueso. */
   .mesas-tile--ocupada {

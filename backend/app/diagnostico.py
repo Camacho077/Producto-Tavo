@@ -339,7 +339,7 @@ MARCAS = {OK: "✔", AVISO: "⚠", ERROR: "✘"}
 
 
 def imprimir(informe: dict) -> None:
-    print("\nDiagnóstico del entorno — JS Company ERP\n")
+    print("\nDiagnóstico del entorno — JS Restaurante (Producto Tavo)\n")
     for seccion, items in informe["secciones"].items():
         print(f"■ {seccion}")
         for i in items:

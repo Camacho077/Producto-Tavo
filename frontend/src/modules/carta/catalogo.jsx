@@ -272,7 +272,7 @@ export function CatalogoDetalle({ config }) {
   const modulo = moduloDe(config);
 
   return (
-    <PantallaDetalle
+    <PantallaDetalle estrecha
       volver={ruta}
       titulo={data?.nombre ?? `Detalle de ${singular}`}
       migas={migasDeCatalogo(config, { etiqueta: data?.nombre ?? "…" })}

@@ -2,11 +2,16 @@
    propia, ver css-por-ruta.test.js). */
 @layer components {
   /* Costo y margen: el % de costo en grande y el desglose al lado. */
+  /* Flex que envuelve: en la columna lateral angosta (escritorio) el % va
+     arriba y el desglose debajo, sin partir las cifras; en ancho, al lado. */
   .carta-costeo {
-    display: grid;
-    grid-template-columns: auto minmax(0, 1fr);
-    gap: 1.25rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem 1.25rem;
     align-items: center;
+  }
+  .carta-costeo > .detalle {
+    flex: 1 1 15rem;
   }
   .carta-costeo__etiqueta {
     margin: 0 0 4px;
@@ -14,11 +19,6 @@
     letter-spacing: 0.08em;
     text-transform: uppercase;
     color: var(--texto-secundario);
-  }
-  @media (max-width: 640px) {
-    .carta-costeo {
-      grid-template-columns: 1fr;
-    }
   }
 
   /* Modificador como sale en la comanda: mayúsculas y peso. */

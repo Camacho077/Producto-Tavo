@@ -263,10 +263,10 @@ function TomarPedido({ orden = null }) {
 
           <Card titulo="Carta">
             {errorCarta && <p className="estado estado--error">{errorCarta}</p>}
-            <div className="pedido__buscador">
+            <label className="pedido__buscador">
               <Search size={16} aria-hidden="true" />
               <input type="search" value={busqueda} onChange={(e) => setBusqueda(e.target.value)} placeholder="Buscar plato…" aria-label="Buscar plato" />
-            </div>
+            </label>
             <div className="pedido__categorias" role="tablist" aria-label="Categorías">
               {[{ id: "", nombre: "Todo" }, ...(carta?.categorias ?? [])].map((c) => (
                 <button

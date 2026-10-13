@@ -27,6 +27,22 @@
     grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
     gap: 12px;
   }
+  /* Con costos son siete cifras: en una rejilla automática quedaba
+     "Propinas" sola en otra fila. Cuatro columnas y la utilidad real (la
+     respuesta de la pantalla) a doble ancho: dos filas completas. */
+  @media (min-width: 641px) {
+    .reporte-cifras--completas {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .reporte-cifras--completas .reporte-cifra--fuerte {
+      grid-column: span 2;
+    }
+  }
+  @media (min-width: 1024px) {
+    .reporte-cifras--completas {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+  }
   .reporte-cifra {
     padding: 12px 14px;
     border: var(--borde-fino) solid var(--borde);

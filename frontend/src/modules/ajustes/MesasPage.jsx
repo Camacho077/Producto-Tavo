@@ -280,7 +280,7 @@ export function MesaDetalle() {
   const { data, error, recargar } = useApiResource(`${URL_MESAS}/${id}`);
   const [dialogo, setDialogo] = useState(null);
   return (
-    <PantallaDetalle
+    <PantallaDetalle estrecha
       volver={RUTA_MESAS}
       titulo={data ? `Mesa ${data.nombre}` : "Mesa"}
       descripcion={data?.zona_nombre ? `Zona ${data.zona_nombre}` : undefined}
@@ -499,7 +499,7 @@ export function ZonaDetalle() {
   const { data, error } = useApiResource(`${URL_ZONAS}/${id}`);
   const [eliminar, setEliminar] = useState(false);
   return (
-    <PantallaDetalle
+    <PantallaDetalle estrecha
       volver={RUTA_ZONAS}
       titulo={data?.nombre ?? "Zona"}
       migas={migasZonas({ etiqueta: data?.nombre ?? "…" })}

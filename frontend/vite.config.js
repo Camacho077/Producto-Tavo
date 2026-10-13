@@ -50,9 +50,6 @@ const HOSTS_TUNEL = ['.loca.lt', '.ngrok-free.app', '.trycloudflare.com']
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [exigirVariablesDeEntorno(), react(), tailwindcss()],
-  esbuild: {
-    jsx: "automatic",
-  },
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
@@ -71,7 +68,7 @@ export default defineConfig({
           // React y el router SÍ hacen falta desde el primer pintado, así
           // que tenerlos aparte no cuesta nada y el navegador los conserva
           // en caché entre despliegues.
-          if (id.includes("react-router") || /node_modules[\/]react(-dom)?[\/]/.test(id) || id.includes("scheduler")) {
+          if (id.includes("react-router") || /node_modules[\\/]react(-dom)?[\\/]/.test(id) || id.includes("scheduler")) {
             return "vendor-react";
           }
           if (id.includes("zod")) return "vendor-validacion";

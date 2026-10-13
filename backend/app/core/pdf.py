@@ -9,7 +9,7 @@ Cada ítem es {descripcion, detalle, cantidad, precio_unitario, subtotal}:
 `detalle` es lo que va en la segunda columna (la unidad de compra de un
 insumo, los modificadores de un plato…) y su título es `columna_detalle`.
 """
-from datetime import datetime
+from datetime import datetime, timezone
 from decimal import Decimal
 from io import BytesIO
 
@@ -21,6 +21,7 @@ from reportlab.lib.units import mm
 from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
 from app.core.branding import EMPRESA_PROVEEDORA, NOMBRE_PRODUCTO
+from app.core.validaciones import ZONA_NEGOCIO
 
 # Paleta MONOCROMÁTICA del producto (2026-10-12, la misma de
 # frontend/src/index.css en claro): el PDF es papel blanco. Antes usaba la
@@ -45,9 +46,12 @@ def formatear_cantidad(valor) -> str:
 
 
 def formatear_fecha(valor: datetime | None) -> str:
+    """En hora de Colombia: los instantes se guardan en UTC sin zona (un
+    cobro de las 6:41 p. m. salía impreso a las 23:41)."""
     if not valor:
         return "—"
-    return valor.strftime("%d/%m/%Y %H:%M")
+    local = valor.replace(tzinfo=timezone.utc).astimezone(ZONA_NEGOCIO) if valor.tzinfo is None else valor.astimezone(ZONA_NEGOCIO)
+    return local.strftime("%d/%m/%Y %H:%M")
 
 
 def generar_documento_pdf(
@@ -190,7 +194,7 @@ def generar_documento_pdf(
 
     contenido += [
         Spacer(1, 10 * mm),
-        Paragraph(pie or f"Documento generado el {datetime.now().strftime('%d/%m/%Y %H:%M')} · {empresa}", st_pie),
+        Paragraph(pie or f"Documento generado el {datetime.now(ZONA_NEGOCIO).strftime('%d/%m/%Y %H:%M')} · {empresa}", st_pie),
     ]
 
     doc.build(contenido)

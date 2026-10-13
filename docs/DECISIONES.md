@@ -554,6 +554,66 @@ documento y correo del cliente, base, impuesto y tasa, y los campos
   receta − gastos, aislamiento, idempotencia, se niega en producción) y las
   pruebas nuevas de `tests/test_ia.py`.
 
+### 2026-10-13 — Pulido final antes de compartir el repositorio (rama `pulido-final`)
+
+Recorrido automático de las 67 pantallas con los cuatro roles en 375, 768 y
+1440 px (267 vistas: captura, desborde, consola, medidas de formularios,
+tablas y objetivos táctiles) más `/impeccable layout` y `/impeccable audit`.
+Paleta, tipografías y animaciones no se tocaron.
+
+- **Horas corridas 5 h (error real)**: el backend manda instantes UTC sin
+  zona y `formatearFecha`/`formatearFechaHora` los leían como hora local; un
+  cierre de las 9:15 p. m. salía a las 2:15 a. m. Ahora todo pasa por
+  `aInstante` y se muestra en `America/Bogota` (`lib/formato.test.js`). Lo
+  mismo en los PDF: `formatear_fecha` y el pie "Documento generado"
+  (`tests/test_pdf_fechas.py`).
+- **Cifras partidas**: en la tarjeta "Costo y margen" (columna lateral) el
+  `overflow-wrap: anywhere` del detalle partía "$ 1." / "091". Las cifras del
+  `Detalle` ya no se parten y la tarjeta envuelve (el % arriba, el desglose
+  debajo) cuando no cabe al lado.
+- **Detalles de una sola tarjeta a 720 px** (categoría, mesa, zona, gasto,
+  usuario, rol), igual que su formulario de edición: antes una tarjeta de
+  1.160 px con cinco filas.
+- **Reportes**: siete cifras en rejilla automática dejaban "Propinas" sola;
+  ahora 4 columnas con la utilidad real a doble ancho (dos filas completas).
+- **Cocina en tablet vertical**: columnas de ~240 px partían "Mesa S1" en
+  tres renglones; con una consulta de contenedor el tiempo baja a su línea.
+- **Pantallas táctiles** (`@media (pointer: coarse)`): botones de 40–44 px,
+  campos de 44 px con letra de 16 px (con menos, iOS hace zoom), fichas y
+  píldoras de 44 px, íconos de la barra a 44 px. La densidad de escritorio
+  (30 px) se queda para el mouse. El buscador de "Tomar pedido" es un
+  `label`: toda la caja enfoca el campo.
+- **Barra de los listados en celular**: buscador a lo ancho y filtros en dos
+  columnas iguales (antes uno por fila con anchos distintos).
+- Selector de archivo de la carga inicial con el botón del sistema.
+- **Cero avisos**: Starlette 1.7.0 (la 1.6 usaba un alias obsoleto de
+  anyio), `httpx2` para el TestClient (Starlette lo pide desde 1.6), el
+  `ResourceWarning` de `test_startup` (tubería sin cerrar), Vitest 4.1.11
+  (la 3.x tenía vulnerabilidades en `@vitest/mocker` y `tinypool`; se
+  declaró `@testing-library/dom`, que antes llegaba como peer) y
+  `source-map-js` 1.2.2. `npm audit`: 0. Dependencias de producción sin
+  cambios. Se quitó `esbuild.jsx` de `vite.config.js` (Vite 8 usa oxc y lo
+  ignoraba con un aviso). `/health` y el diagnóstico decían "JS Company -
+  ERP": ahora "JS Restaurante".
+- **Lint**: se corrigieron las advertencias triviales; quedan 29 heredadas
+  del Producto JS (`only-export-components` en archivos de contexto y
+  `set-state-in-effect` en los hooks que evitan el parpadeo). No son
+  errores; cambiarlas obliga a partir archivos y tocar hooks medidos, y se
+  deja para un trabajo aparte.
+- **Seguridad antes de compartir**: revisados los 11 commits del historial
+  y los archivos: sin `.env`, tokens, claves ni secretos (solo valores de
+  ejemplo y la clave de la base local de Docker). `.gitignore` cubre
+  cualquier `.env` (salvo los `.example`), `venv`, `node_modules`, `dist`,
+  bases y respaldos locales, Impeccable y `.claude/worktrees`.
+- **Verificado**: 731 pruebas del backend sin un solo aviso (también con
+  `python -X dev`), 290 del frontend, build, `impeccable detect` limpio,
+  consola sin errores ni advertencias en las 267 vistas, punta a punta por
+  rol (mesero en celular toma → cocina en tablet toma y finaliza → mesero
+  entrega → caja cobra → admin lo ve en "Hoy"), y Docker desde cero en un
+  proyecto aislado (`tavo-verif`, otros puertos y volúmenes): migraciones
+  sobre base vacía, backend, frontend y n8n en 200; el Producto JS siguió
+  en sus puertos (5432 y 8001) sin tocarse.
+
 ---
 
 ## 1. Configuración crítica que NO se borra
@@ -1459,6 +1519,7 @@ skill (Impeccable desaconseja Inter; aquí no se cambia).
 
 | Fecha | Decisión / hito |
 |---|---|
+| 2026-10-13 | Pulido final: horas en Colombia en pantalla y PDF, cifras sin partir, detalles a 720 px, objetivos táctiles de 40–44 px, cocina en tablet, cero avisos y 0 vulnerabilidades, revisión de secretos; repositorio compartido con el compañero (§0) |
 | 2026-10-12 | Datos de demostración: Donde Tavo con 90 días de historia y Café Central para el aislamiento, cuentas por rol solo en desarrollo, y reglas nuevas de la IA (temporadas, picos, carta, alzas, mermas, diferencias de caja) (§0) |
 | 2026-10-12 | Fase 8: utilidad real en el dashboard, periodo Semana, donas de participación (máx. 6 partes), pantalla de Reportes con CSV por sección y PDF (§0) |
 | 2026-10-12 | Fase 7: cada rol entra a su pantalla con su menú, modo enfocado para cocina, PWA instalable con service worker propio y aviso de sin conexión (§0) |

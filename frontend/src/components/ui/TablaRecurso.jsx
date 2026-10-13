@@ -34,8 +34,8 @@ export default function TablaRecurso({
 
   return (
     <Card titulo={titulo} descripcion={descripcion} acciones={acciones}>
-      <div className="flex flex-wrap items-center gap-3 mb-4">
-        <Buscador valor={busqueda} onCambiar={setBusqueda} placeholder={placeholderBusqueda} className="flex-1 min-w-[220px]" />
+      <div className="barra-listado">
+        <Buscador valor={busqueda} onCambiar={setBusqueda} placeholder={placeholderBusqueda} className="barra-listado__buscador" />
         {filtros}
         {exportar && <BotonExportar listado={listado} nombre={exportar} />}
       </div>

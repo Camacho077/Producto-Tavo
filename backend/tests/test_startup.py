@@ -20,7 +20,7 @@ import sys
 import time
 from pathlib import Path
 
-import httpx
+import httpx2 as httpx
 import pytest
 
 BACKEND_DIR = Path(__file__).resolve().parents[1]
@@ -72,3 +72,5 @@ def test_el_backend_arranca_como_proceso_real_y_responde_health():
             proceso.wait(timeout=5)
         except subprocess.TimeoutExpired:
             proceso.kill()
+            proceso.wait()
+        proceso.stdout.close()  # sin esto, ResourceWarning: unclosed file

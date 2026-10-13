@@ -303,7 +303,7 @@ export function UsuarioDetalle() {
   const motivo = bloqueado ? "Solo un administrador modifica a otro administrador" : undefined;
 
   return (
-    <PantallaDetalle
+    <PantallaDetalle estrecha
       volver={RUTA}
       titulo={data?.nombre_completo ?? "Detalle del usuario"}
       descripcion={data ? `${data.email}${esYo ? " · tu cuenta" : ""}` : undefined}

@@ -513,6 +513,14 @@
     border-color: transparent;
     background-color: transparent;
   }
+  /* Con el dedo (celular, tablet de cocina): 44 px. */
+  @media (pointer: coarse) {
+    .iconbtn,
+    .iconbtn--plano {
+      width: 44px;
+      height: 44px;
+    }
+  }
   .menu-btn {
     display: none;
   }
