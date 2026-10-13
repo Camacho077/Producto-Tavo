@@ -291,3 +291,97 @@
     color: var(--texto-terciario);
   }
 }
+
+@layer components {
+  /* ==========================================================================
+     DONA DE PARTICIPACIÓN (fase 8): seis tonos por ROL, de la tinta al borde.
+     Entra una vez (transform + opacidad); los arcos no se animan.
+     ========================================================================== */
+  .dona {
+    margin: 0;
+    min-width: 0;
+  }
+  .dona__titulo {
+    margin: 0 0 10px;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--texto-secundario);
+  }
+  .dona__cuerpo {
+    display: grid;
+    grid-template-columns: 120px minmax(0, 1fr);
+    gap: 14px;
+    align-items: center;
+  }
+  .dona__svg {
+    width: 120px;
+    height: 120px;
+    transform-origin: 50% 50%;
+    animation: dona-entra var(--dur-dato) var(--ease-suave) 150ms backwards;
+  }
+  @keyframes dona-entra {
+    from {
+      opacity: 0;
+      transform: rotate(-40deg) scale(0.9);
+    }
+  }
+  .dona__parte--0 { fill: var(--texto); background-color: var(--texto); }
+  .dona__parte--1 { fill: var(--texto-suave); background-color: var(--texto-suave); }
+  .dona__parte--2 { fill: var(--texto-terciario); background-color: var(--texto-terciario); }
+  .dona__parte--3 { fill: var(--texto-secundario); background-color: var(--texto-secundario); }
+  .dona__parte--4 { fill: var(--borde-fuerte); background-color: var(--borde-fuerte); }
+  .dona__parte--5 { fill: var(--borde); background-color: var(--borde); }
+  .dona__parte {
+    stroke: var(--superficie);
+    stroke-width: 0.8;
+  }
+  /* Una sola parte es un anillo: sin la línea que separa partes. */
+  .dona__parte--unica {
+    stroke: none;
+  }
+  .dona__leyenda {
+    display: grid;
+    gap: 6px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    font-size: 12.5px;
+  }
+  .dona__leyenda li {
+    display: grid;
+    grid-template-columns: 10px minmax(0, 1fr) auto auto;
+    align-items: center;
+    gap: 8px;
+  }
+  .dona__muestra {
+    width: 10px;
+    height: 10px;
+    border-radius: 3px;
+  }
+  .dona__nombre {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .dona__pct {
+    font-weight: 600;
+  }
+  .dona__valor {
+    color: var(--texto-secundario);
+  }
+  .dona__vacio {
+    margin: 0;
+    font-size: 13px;
+    color: var(--texto-secundario);
+  }
+  @media (max-width: 420px) {
+    .dona__cuerpo {
+      grid-template-columns: minmax(0, 1fr);
+      justify-items: center;
+    }
+    .dona__leyenda {
+      width: 100%;
+    }
+  }
+}

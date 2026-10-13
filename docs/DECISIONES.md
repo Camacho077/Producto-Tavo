@@ -446,6 +446,40 @@ documento y correo del cliente, base, impuesto y tasa, y los campos
 
 **Sigue (fase 8)**: dashboard y reportes.
 
+### 2026-10-12 — Fase 8: dashboard y reportes
+
+- **Definiciones únicas** (`app/modules/reportes/consultas.py`, las usan el
+  dashboard y Reportes): *Vendido* = lo que pagaron por lo consumido, con
+  el impuesto al consumo y sin propinas; *Ingresos* = vendido SIN el
+  impuesto (es de la DIAN); *Costo de lo vendido* = costo por receta de
+  cada plato el día que se pidió; *Utilidad bruta* = ingresos − costo;
+  *Utilidad real* = bruta − gastos. Las propinas no son ingreso.
+- **Dashboard**: periodo **Semana** (desde el lunes de Colombia, contra el
+  mismo tramo de la semana anterior) además de Hoy, Mes y Año. KPI:
+  Vendido, **Utilidad real** (con su bruta y los gastos; sin costos.ver se
+  muestra el ticket promedio y el backend no manda la cifra), **Órdenes**
+  (con ticket promedio; reemplaza a "Clientes", que dependía de un nombre
+  opcional) y Platos vendidos. La tarjeta oscura responde "¿Cuánto gané?".
+- **Donas de participación** (por categoría, medio de pago y tipo de
+  orden) en el dashboard y en Reportes: componente propio
+  `components/charts/Dona.jsx`, monocromo con seis tonos por ROL, leyenda
+  con porcentaje y valor, **nunca más de 6 partes** (el resto en "Otros",
+  `charts/partes.js` y espejo `partes()` en el backend). Entra una vez con
+  transform + opacidad; los arcos se calculan en JS y no se animan.
+- **Reportes** (`/reportes`, permiso nuevo `reportes`, grupo propio desde
+  Básico): Hoy, Semana, Mes, Año o fechas (hasta 400 días); resumen
+  financiero, platos más y menos vendidos con margen y % de costo, horas de
+  más venta, días de la semana, tipos de orden, meseros (órdenes, vendido,
+  ticket), medios de pago, categorías, consumo de insumos y mermas con su
+  costo, y gastos por categoría. **CSV por sección** (`/reportes/csv`) y
+  **PDF** completo (`/reportes/pdf`, `generar_reporte_pdf` en
+  `app/core/pdf.py`). Las cifras de costo solo con `costos.ver`.
+- Se conservan la gráfica de área, la comparación con el tramo anterior y
+  la proyección del producto JS.
+
+**Sigue**: datos de demostración completos (pedido del usuario del
+2026-10-12) y verificación por rol.
+
 ---
 
 ## 1. Configuración crítica que NO se borra
@@ -1351,6 +1385,7 @@ skill (Impeccable desaconseja Inter; aquí no se cambia).
 
 | Fecha | Decisión / hito |
 |---|---|
+| 2026-10-12 | Fase 8: utilidad real en el dashboard, periodo Semana, donas de participación (máx. 6 partes), pantalla de Reportes con CSV por sección y PDF (§0) |
 | 2026-10-12 | Fase 7: cada rol entra a su pantalla con su menú, modo enfocado para cocina, PWA instalable con service worker propio y aviso de sin conexión (§0) |
 | 2026-10-12 | Fase 6: caja (cobro con comprobante interno, varios medios, propina voluntaria, impuesto desglosado, dividir la cuenta, apertura y cierre con cuadre y motivo) y gastos; nota legal de factura electrónica (§0) |
 | 2026-10-12 | Fase 5: pantalla de cocina (comandas en vivo, Tomar/Finalizar con quién y cuándo, demora marcada, sonido opcional, avisos de anulaciones) (§0) |

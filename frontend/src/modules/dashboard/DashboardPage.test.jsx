@@ -30,8 +30,25 @@ const PANEL = {
     compras_variacion: null,
     saldo: 253647000,
     numero_ventas: 67,
-    numero_clientes: 6,
     productos_vendidos: 354,
+    ingresos: 446602777,
+    impuesto: 35728223,
+    propinas: 1200000,
+    costo: 160000000,
+    utilidad_bruta: 286602777,
+    gastos: 90000000,
+    utilidad_real: 196602777,
+    margen_bruto_pct: 64.2,
+    ordenes: 61,
+    ticket_promedio: 7907066,
+  },
+  participacion: {
+    categorias: [
+      { nombre: "Almuerzos", valor: 300 },
+      { nombre: "Bebidas", valor: 100 },
+    ],
+    medios: [{ nombre: "Efectivo", valor: 400 }],
+    tipos: [],
   },
   mas_vendidos: [
     {
@@ -78,7 +95,7 @@ function servirApi() {
     if (url.startsWith("/dashboard/panel")) return Promise.resolve({ data: { ...PANEL } });
     if (url.startsWith("/dashboard/serie")) return Promise.resolve({ data: { ...SERIE } });
     if (url.startsWith("/dashboard/avisos")) return Promise.resolve({ data: AVISOS });
-    if (url === "/seguridad/me") return Promise.resolve({ data: { usuario: null, tenant: null } });
+    if (url === "/seguridad/me") return Promise.resolve({ data: { usuario: null, tenant: null, es_administrador: true, permisos: { dashboard: ["ver"], costos: ["ver"], reportes: ["ver"] } } });
     return Promise.resolve({ data: {} });
   });
 }
@@ -108,6 +125,8 @@ function ListadoFalso() {
 beforeEach(() => {
   vi.clearAllMocks();
   localStorage.clear();
+  // Con sesión: el panel muestra la utilidad solo a quien tiene costos.ver.
+  localStorage.setItem("js_company_token", "token-de-prueba");
   servirApi();
 });
 
@@ -132,7 +151,7 @@ describe("Dashboard — datos reales del tenant", () => {
     expect(screen.getByText("69,8%")).toBeInTheDocument();
     // Las tarjetas que se leen con el cursor encima no se elevan en hover
     // (review-animations, 2026-09-29): borde y luz sí, desplazamiento no.
-    expect(screen.getByText("Productos más vendidos").closest(".tarjeta")).toHaveClass("tarjeta--quieta");
+    expect(screen.getByText("Platos más vendidos").closest(".tarjeta")).toHaveClass("tarjeta--quieta");
     expect(screen.getByLabelText("Rendimiento")).toHaveClass("tarjeta--quieta");
     // Cada producto enlaza a su ficha.
     expect(screen.getByRole("link", { name: /Silla ejecutiva Roble/ })).toHaveAttribute(
@@ -148,12 +167,13 @@ describe("Dashboard — datos reales del tenant", () => {
     await screen.findByText("Silla ejecutiva Roble");
 
     const kpis = [...document.querySelectorAll(".kpi")];
-    expect(kpis.map((k) => k.querySelector(".kpi__etiqueta").textContent)).toEqual([
+    // La etiqueta de la utilidad depende del permiso de costos, que llega con la sesión.
+    await waitFor(() => expect(kpis.map((k) => k.querySelector(".kpi__etiqueta").textContent)).toEqual([
       "Total vendido",
-      "Compras",
-      "Clientes",
-      "Productos vendidos",
-    ]);
+      "Utilidad real",
+      "Órdenes",
+      "Platos vendidos",
+    ]));
     // Cifra e icono DENTRO del bloque gris; la tendencia, fuera de él.
     for (const kpi of kpis) {
       const bloque = kpi.querySelector(":scope > .kpi__bloque");
@@ -164,13 +184,13 @@ describe("Dashboard — datos reales del tenant", () => {
     const valor = (i) => kpis[i].querySelector(".kpi__valor");
     // Todas terminan a la vez (~900 ms); los conteos van redondeados.
     await waitFor(() => expect(valor(0)).toHaveTextContent("$ 482.331.000"), { timeout: 2500 });
-    expect(valor(1)).toHaveTextContent("$ 228.684.000");
-    expect(valor(2)).toHaveTextContent(/^6$/);
+    expect(valor(1)).toHaveTextContent("$ 196.602.777");
+    expect(valor(2)).toHaveTextContent(/^61$/);
     expect(valor(3)).toHaveTextContent(/^354$/);
-    // Ventas trae variación; compras no tiene base: dice el periodo, sin %.
+    // Ventas trae variación; la utilidad dice de dónde sale.
     expect(kpis[0].querySelector(".kpi__tendencia")).toHaveTextContent("▲82,0%vs. mismo tramo del mes anterior");
-    expect(kpis[1].querySelector(".kpi__tendencia")).toHaveTextContent("Sin comparativa en este mes");
-    expect(kpis[1].querySelector(".insignia")).toBeNull();
+    expect(kpis[1].querySelector(".kpi__tendencia")).toHaveTextContent(/^Bruta .* − gastos /);
+    expect(kpis[2].querySelector(".kpi__tendencia")).toHaveTextContent("Ticket promedio $ 7.907.066");
     // El timbre y el usuario ya no están en el encabezado del dashboard.
     expect(screen.queryByLabelText("Ir a los avisos")).toBeNull();
   });
@@ -178,8 +198,8 @@ describe("Dashboard — datos reales del tenant", () => {
   it("sin base de comparación NO inventa una variación", async () => {
     montar();
     await screen.findByText("Lampara Onix");
-    // compras_anterior = 0 y la variación del segundo producto es null: en
-    // ninguno de los dos casos puede aparecer un porcentaje.
+    // La variación del segundo producto es null: no puede aparecer un
+    // porcentaje inventado.
     const insignias = document.querySelectorAll(".insignia");
     const textos = [...insignias].map((n) => n.textContent);
     expect(textos).not.toContain("▲100,0%");
@@ -294,5 +314,14 @@ describe("Dashboard — datos reales del tenant", () => {
     fireEvent.submit(campo.closest("form"));
 
     expect(await screen.findByText(/listado de productos filtrado por: silla roble/)).toBeInTheDocument();
+  });
+
+  it("tres donas de participación con leyenda y porcentaje; sin datos lo dice", async () => {
+    montar();
+    const categorias = await screen.findByRole("figure", { name: "Por categoría" });
+    expect(categorias).toHaveTextContent("Almuerzos75 %");
+    expect(categorias).toHaveTextContent("Bebidas25 %");
+    expect(screen.getByRole("figure", { name: "Por medio de pago" })).toHaveTextContent("Efectivo100 %");
+    expect(screen.getByRole("figure", { name: "Por tipo de orden" })).toHaveTextContent("Sin datos en el periodo.");
   });
 });

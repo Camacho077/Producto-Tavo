@@ -1,7 +1,8 @@
 import { Suspense, lazy, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowRight, BarChart3, Package, Search, ShoppingCart, Users, Wallet } from "lucide-react";
+import { ArrowRight, BarChart3, ClipboardList, Package, PiggyBank, Search, Wallet } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 
+import Dona from "@/components/charts/Dona";
 import CifraAnimada from "@/components/dashboard/CifraAnimada";
 import Objeto3d, { MiniaturaProducto, formaPorIndice } from "@/components/dashboard/Objeto3d";
 import PanelAvisos from "@/modules/dashboard/PanelAvisos";
@@ -43,6 +44,7 @@ const GraficaRendimiento = lazy(() => import("@/components/charts/GraficaRendimi
 
 const PERIODOS = [
   { clave: "hoy", etiqueta: "Hoy", titulo: "Hoy frente a ayer" },
+  { clave: "semana", etiqueta: "Semana", titulo: "Desde el lunes frente al mismo tramo de la semana anterior" },
   { clave: "mes", etiqueta: "Mes", titulo: "Lo que va del mes frente al mismo tramo del mes anterior" },
   { clave: "anio", etiqueta: "Año", titulo: "Lo que va del año frente al mismo tramo del año anterior" },
 ];
@@ -57,6 +59,7 @@ const RANGOS = [
 
 const TEXTO_PERIODO = {
   hoy: { actual: "Hoy", anterior: "Ayer", en: "hoy" },
+  semana: { actual: "Esta semana", anterior: "Mismo tramo de la semana anterior", en: "en esta semana" },
   mes: { actual: "Este mes", anterior: "Mismo tramo del mes anterior", en: "en este mes" },
   anio: { actual: "Este año", anterior: "Mismo tramo del año anterior", en: "en este año" },
 };
@@ -69,17 +72,17 @@ const TEXTO_RANGO = {
   "1a": { actual: "Últimos 12 meses", anterior: "12 meses anteriores" },
 };
 
-// Los conteos (clientes, unidades) se REDONDEAN mientras cuentan: el contador
-// pasa por valores intermedios y "1,343 clientes" no existe.
+// Los conteos (órdenes, unidades) se REDONDEAN mientras cuentan: el contador
+// pasa por valores intermedios y "1,343 órdenes" no existen.
 const formatearEntero = (n) => formatearNumero(Math.round(n));
 
 // Constante de módulo: de aquí salen las refs de los contadores, así que tiene
 // que ser el MISMO objeto en cada render.
 const FORMATOS = {
   ventas: formatearMoneda,
-  compras: formatearMoneda,
+  utilidad: formatearMoneda,
   proyeccion: formatearMoneda,
-  clientes: formatearEntero,
+  ordenes: formatearEntero,
   productos: formatearEntero,
 };
 
@@ -336,7 +339,8 @@ function RejillaInventario({ inventario }) {
    Pantalla
    ========================================================================== */
 export default function DashboardPage() {
-  const { usuario, tenant } = useAuth();
+  const { usuario, tenant, puede } = useAuth();
+  const verCostos = puede("costos", "ver");
   const navigate = useNavigate();
   const [periodo, setPeriodo] = useState("mes");
   const [rango, setRango] = useState("1m");
@@ -352,9 +356,9 @@ export default function DashboardPage() {
   const cifras = useMemo(
     () => ({
       ventas: t?.ventas ?? 0,
-      compras: t?.compras ?? 0,
+      utilidad: t?.utilidad_real ?? 0,
       proyeccion: proyeccion?.ventas ?? 0,
-      clientes: t?.numero_clientes ?? 0,
+      ordenes: t?.ordenes ?? 0,
       productos: t?.productos_vendidos ?? 0,
     }),
     [t, proyeccion]
@@ -364,9 +368,9 @@ export default function DashboardPage() {
   // se pasa es una función de ref.
   const {
     ventas: refVentas,
-    compras: refCompras,
+    utilidad: refUtilidad,
     proyeccion: refProyeccion,
-    clientes: refClientes,
+    ordenes: refOrdenes,
     productos: refProductos,
   } = useContadoresAnimados(FORMATOS, panel.data ? cifras : null);
 
@@ -447,33 +451,49 @@ export default function DashboardPage() {
               }
               tendencia={hayPanel && <Tendencia variacion={t.ventas_variacion} textos={textos} />}
             />
+            {/* Utilidad real = ingresos sin impuesto − costo por receta − gastos.
+                Sin permiso de costos, la tarjeta no se muestra (el backend
+                tampoco manda la cifra). */}
             <TarjetaKpi
-              icono={ShoppingCart}
-              etiqueta="Compras"
+              icono={PiggyBank}
+              etiqueta={verCostos ? "Utilidad real" : "Ticket promedio"}
               retardo=".085s"
               cargando={!hayPanel}
               valor={
-                <p className="kpi__valor" ref={refCompras}>
-                  {FORMATOS.compras(0)}
-                </p>
+                verCostos ? (
+                  <p className="kpi__valor" ref={refUtilidad}>
+                    {FORMATOS.utilidad(0)}
+                  </p>
+                ) : (
+                  <p className="kpi__valor">{formatearMoneda(t?.ticket_promedio ?? 0)}</p>
+                )
               }
-              tendencia={hayPanel && <Tendencia variacion={t.compras_variacion} textos={textos} />}
+              tendencia={
+                hayPanel &&
+                (verCostos ? (
+                  <span className="kpi__contexto">
+                    Bruta {formatearCompacto(t.utilidad_bruta)} − gastos {formatearCompacto(t.gastos)}
+                  </span>
+                ) : (
+                  <span className="kpi__contexto">Por orden {textos.en}</span>
+                ))
+              }
             />
             <TarjetaKpi
-              icono={Users}
-              etiqueta="Clientes"
+              icono={ClipboardList}
+              etiqueta="Órdenes"
               retardo=".13s"
               cargando={!hayPanel}
               valor={
-                <p className="kpi__valor" ref={refClientes}>
-                  {FORMATOS.clientes(0)}
+                <p className="kpi__valor" ref={refOrdenes}>
+                  {FORMATOS.ordenes(0)}
                 </p>
               }
-              tendencia={<span className="kpi__contexto">Con compras {textos.en}</span>}
+              tendencia={hayPanel && <span className="kpi__contexto">Ticket promedio {formatearMoneda(t.ticket_promedio)}</span>}
             />
             <TarjetaKpi
               icono={Package}
-              etiqueta="Productos vendidos"
+              etiqueta="Platos vendidos"
               retardo=".175s"
               cargando={!hayPanel}
               valor={
@@ -486,7 +506,7 @@ export default function DashboardPage() {
 
             <TarjetaLuz className="reveal dash-vendidos tarjeta--quieta" estilo={{ "--d": ".22s" }}>
               <div className="fila-entre">
-                <h2 className="tarjeta__titulo">Productos más vendidos</h2>
+                <h2 className="tarjeta__titulo">Platos más vendidos</h2>
                 <Link to="/carta" className="enlace enlace--pequeno">
                   Ver todo
                 </Link>
@@ -519,14 +539,16 @@ export default function DashboardPage() {
                 {hayPanel ? (
                   <>
                     <BarChart3 size={22} aria-hidden="true" />
-                    <p className="tarjeta-acento__titulo">Decisiones con datos</p>
+                    <p className="tarjeta-acento__titulo">¿Cuánto gané?</p>
                     <p className="tarjeta-acento__texto">
-                      {t.numero_ventas > 0
-                        ? `${formatearNumero(t.numero_ventas)} ventas en el periodo, con un saldo de ${formatearCompacto(t.saldo)} frente a compras.`
-                        : "Registra tu primera venta y aquí verás el saldo del periodo frente a las compras."}
+                      {t.numero_ventas === 0
+                        ? "Cobra tu primera orden y aquí verás cuánto entró, cuánto costó y cuánto ganaste."
+                        : verCostos
+                          ? `Entraron ${formatearCompacto(t.ingresos)} sin impuesto; los platos costaron ${formatearCompacto(t.costo)} (${formatearNumero(Math.round(100 - (t.margen_bruto_pct ?? 0)))} %) y los gastos ${formatearCompacto(t.gastos)}.`
+                          : `${formatearNumero(t.numero_ventas)} cobros ${textos.en}, ${formatearCompacto(t.ingresos)} sin impuesto.`}
                     </p>
-                    <Link to="/caja/ventas" className="boton-claro">
-                      Ver ventas
+                    <Link to={puede("reportes", "ver") ? "/reportes" : "/caja/ventas"} className="boton-claro">
+                      {puede("reportes", "ver") ? "Ver reportes" : "Ver ventas"}
                       <ArrowRight size={13} aria-hidden="true" />
                     </Link>
                   </>
@@ -575,6 +597,19 @@ export default function DashboardPage() {
           </Suspense>
         )}
       </TarjetaLuz>
+
+      {/* ---------------- Participación (fase 8) ---------------- */}
+      <section className="dash-participacion reveal" style={{ "--d": ".43s" }} aria-label="Participación">
+        <TarjetaLuz className="tarjeta--quieta">
+          <Dona titulo="Por categoría" partes={panel.data?.participacion?.categorias} />
+        </TarjetaLuz>
+        <TarjetaLuz className="tarjeta--quieta">
+          <Dona titulo="Por medio de pago" partes={panel.data?.participacion?.medios} />
+        </TarjetaLuz>
+        <TarjetaLuz className="tarjeta--quieta">
+          <Dona titulo="Por tipo de orden" partes={panel.data?.participacion?.tipos} />
+        </TarjetaLuz>
+      </section>
 
       {/* ---------------- Avisos ---------------- */}
       <section id="avisos" className="dash-avisos reveal" style={{ "--d": ".445s" }} aria-label="Avisos">

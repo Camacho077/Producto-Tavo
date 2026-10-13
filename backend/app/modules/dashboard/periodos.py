@@ -32,7 +32,7 @@ from datetime import datetime, timedelta
 from app.core.tiempo import ahora_utc as _ahora_utc
 from app.core.validaciones import ZONA_NEGOCIO
 
-PERIODOS = ("hoy", "mes", "anio")
+PERIODOS = ("hoy", "semana", "mes", "anio")
 RANGOS_GRAFICA = ("1d", "1s", "1m", "6m", "1a")
 
 # Cuántos puntos tiene cada rango y de qué tamaño es cada punto. Son los
@@ -123,6 +123,8 @@ def ventana_de_periodo(periodo: str, ahora: datetime | None = None) -> Ventana:
     `ahora` es UTC naive; "hoy" es el día calendario de Bogotá.
 
     - hoy:  desde las 00:00 de hoy hasta las 00:00 de mañana, contra ayer.
+    - semana: desde el lunes hasta mañana, contra el mismo número de días de
+            la semana anterior arrancando en su lunes (fase 8).
     - mes:  desde el día 1 del mes hasta mañana, contra el mismo número de
             días del mes anterior arrancando en su día 1.
     - anio: desde el 1 de enero hasta mañana, contra el mismo número de días
@@ -135,6 +137,9 @@ def ventana_de_periodo(periodo: str, ahora: datetime | None = None) -> Ventana:
 
     if periodo == "hoy":
         desde, desde_anterior = hoy, hoy - timedelta(days=1)
+    elif periodo == "semana":
+        desde = hoy - timedelta(days=hoy.weekday())
+        desde_anterior = desde - timedelta(days=7)
     elif periodo == "mes":
         desde = hoy.replace(day=1)
         desde_anterior = avanzar_meses(desde, -1)

@@ -195,3 +195,38 @@ def generar_documento_pdf(
 
     doc.build(contenido)
     return buffer.getvalue()
+
+
+def generar_reporte_pdf(*, titulo: str, empresa: str, subtitulo: str, resumen: list[tuple[str, str]], secciones: list[tuple[str, list[str], list[list[str]]]]) -> bytes:
+    """Reporte de varias tablas (fase 8): cabecera, cuadro de cifras y una
+    tabla por sección, con el mismo estilo monocromo de los documentos."""
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=letter, leftMargin=16 * mm, rightMargin=16 * mm, topMargin=14 * mm, bottomMargin=14 * mm,
+                            title=f"{titulo} · {empresa}", author=empresa)
+    estilos = getSampleStyleSheet()
+    st_titulo = ParagraphStyle("t", parent=estilos["Title"], fontSize=16, leading=20, alignment=0, textColor=TINTA)
+    st_sub = ParagraphStyle("s", parent=estilos["Normal"], fontSize=9, textColor=SECUNDARIO)
+    st_seccion = ParagraphStyle("h", parent=estilos["Heading3"], fontSize=11, textColor=TINTA, spaceBefore=10, spaceAfter=4)
+    st_celda = ParagraphStyle("c", parent=estilos["Normal"], fontSize=8, leading=10, textColor=TINTA)
+    historia = [Paragraph(f"{empresa} · {titulo}", st_titulo), Paragraph(subtitulo, st_sub), Spacer(1, 6)]
+
+    def tabla(encabezados, filas, anchos=None):
+        datos = [[Paragraph(f"<b>{e}</b>", st_celda) for e in encabezados]] + [[Paragraph(str(c), st_celda) for c in f] for f in filas]
+        t = Table(datos, colWidths=anchos, repeatRows=1)
+        t.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, 0), RELLENO),
+            ("LINEBELOW", (0, 0), (-1, -1), 0.4, BORDE),
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("TOPPADDING", (0, 0), (-1, -1), 3),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+        ]))
+        return t
+
+    historia.append(tabla(["Cifra", "Valor"], [[a, b] for a, b in resumen], anchos=[80 * mm, 60 * mm]))
+    for nombre, encabezados, filas in secciones:
+        historia.append(Paragraph(nombre, st_seccion))
+        historia.append(tabla(encabezados, filas or [["Sin datos en el periodo"] + [""] * (len(encabezados) - 1)]))
+    historia.append(Spacer(1, 8))
+    historia.append(Paragraph(f"Generado con {NOMBRE_PRODUCTO} · {EMPRESA_PROVEEDORA}", st_sub))
+    doc.build(historia)
+    return buffer.getvalue()

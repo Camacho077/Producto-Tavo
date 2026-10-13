@@ -1,0 +1,85 @@
+/* Reportes (CSS de ruta: cada selector empieza por una clase propia, ver
+   css-por-ruta.test.js). */
+@layer components {
+  .reportes__periodo {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: var(--hueco);
+  }
+  .reportes__periodo > .pildoras {
+    max-width: 100%;
+    overflow-x: auto;
+  }
+  .reportes__fechas {
+    display: flex;
+    gap: 8px;
+  }
+  .reportes__donas,
+  .reportes__pares {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: var(--hueco);
+  }
+  .reporte-cifras {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+    gap: 12px;
+  }
+  .reporte-cifra {
+    padding: 12px 14px;
+    border: var(--borde-fino) solid var(--borde);
+    border-radius: var(--radio-bloque);
+  }
+  .reporte-cifra--fuerte {
+    border-color: var(--texto);
+  }
+  .reporte-cifra__etiqueta {
+    margin: 0;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--texto-secundario);
+  }
+  .reporte-cifra__valor {
+    margin: 4px 0 0;
+    font-size: 20px;
+    font-weight: 600;
+  }
+  .reporte-cifra__detalle {
+    margin: 2px 0 0;
+    font-size: 12px;
+    color: var(--texto-secundario);
+  }
+  .reporte-barras {
+    display: grid;
+    gap: 6px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    font-size: 12.5px;
+  }
+  .reporte-barras li {
+    display: grid;
+    grid-template-columns: 5.5rem minmax(0, 1fr) 6.5rem;
+    align-items: center;
+    gap: 8px;
+  }
+  .reporte-barras__pista {
+    height: 8px;
+    border-radius: var(--radio-pastilla);
+    background: var(--relleno);
+    overflow: hidden;
+  }
+  .reporte-barras__barra {
+    display: block;
+    height: 100%;
+    background: var(--texto);
+    transform-origin: left;
+    transition: transform var(--resorte-duracion) var(--resorte);
+  }
+  .reporte-barras__valor {
+    text-align: right;
+  }
+}

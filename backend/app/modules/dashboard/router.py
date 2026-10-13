@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy import case, func
 from sqlalchemy.orm import Session
 
-from app.core.permisos import tenant_con_permiso
+from app.core.permisos import tenant_con_permiso, tiene_permiso, usuario_con_permiso
 from app.db.session import get_db
 from app.modules.catalogo.models import Categoria, Producto
 from app.modules.compras.models import Compra
@@ -29,6 +29,8 @@ from app.modules.dashboard.periodos import (
 )
 from app.modules.ordenes.models import Orden
 from app.modules.caja.models import Venta, VentaItem
+from app.modules.reportes import consultas as reportes
+from app.modules.seguridad.models import Usuario
 
 router = APIRouter(prefix="/dashboard", tags=["Dashboard"])
 
@@ -75,32 +77,15 @@ def _totales_del_periodo(db: Session, tenant_id, v: Ventana) -> dict:
     ventas, ventas_anterior = _sumar_en_ventana(db, tenant_id, Venta, "completada", v)
     compras, compras_anterior = _sumar_en_ventana(db, tenant_id, Compra, "confirmada", v)
 
-    fila = (
-        db.query(
-            func.count(Venta.id).label("numero"),
-            func.count(func.distinct(func.lower(Venta.cliente_nombre))).label("clientes"),
-        )
-        .filter(
-            Venta.tenant_id == tenant_id,
-            Venta.estado == "completada",
-            Venta.fecha >= v.desde,
-            Venta.fecha < v.hasta,
-        )
-        .one()
-    )
-    productos_vendidos = (
-        db.query(func.coalesce(func.sum(VentaItem.cantidad), 0))
-        .join(Venta, Venta.id == VentaItem.venta_id)
-        .filter(
-            Venta.tenant_id == tenant_id,
-            Venta.estado == "completada",
-            Venta.fecha >= v.desde,
-            Venta.fecha < v.hasta,
-        )
-        .scalar()
-    )
+    # Finanzas del tramo y del anterior (fase 8): ingresos sin impuesto, costo
+    # por receta, gastos y las dos utilidades (app/modules/reportes/consultas.py).
+    actual = reportes.resumen(db, tenant_id, v.desde, v.hasta)
+    anterior = reportes.resumen(db, tenant_id, v.desde_anterior, v.hasta_anterior)
 
     return {
+        **{clave: actual[clave] for clave in ("ingresos", "impuesto", "propinas", "costo", "utilidad_bruta", "gastos", "utilidad_real", "margen_bruto_pct", "ordenes", "ticket_promedio")},
+        "utilidad_real_anterior": anterior["utilidad_real"],
+        "utilidad_variacion": variacion(actual["utilidad_real"], anterior["utilidad_real"]) if anterior["utilidad_real"] > 0 else None,
         "ventas": ventas,
         "ventas_anterior": ventas_anterior,
         "ventas_variacion": variacion(ventas, ventas_anterior),
@@ -108,9 +93,8 @@ def _totales_del_periodo(db: Session, tenant_id, v: Ventana) -> dict:
         "compras_anterior": compras_anterior,
         "compras_variacion": variacion(compras, compras_anterior),
         "saldo": ventas - compras,
-        "numero_ventas": int(fila.numero or 0),
-        "numero_clientes": int(fila.clientes or 0),
-        "productos_vendidos": int(productos_vendidos or 0),
+        "numero_ventas": actual["cobros"],
+        "productos_vendidos": actual["platos"],
     }
 
 
@@ -282,17 +266,22 @@ def _proyeccion_mensual(db: Session, tenant_id, ahora: datetime) -> dict:
     }
 
 
+CIFRAS_DE_COSTO = ("costo", "utilidad_bruta", "gastos", "utilidad_real", "utilidad_real_anterior", "utilidad_variacion", "margen_bruto_pct")
+
+
 @router.get("/panel")
 def panel(
-    periodo: str = Query(default="mes", pattern="^(hoy|mes|anio)$"),
+    periodo: str = Query(default="mes", pattern="^(" + "|".join(PERIODOS) + ")$"),
     db: Session = Depends(get_db),
-    tenant_id: uuid.UUID = Depends(tenant_con_permiso("dashboard", "ver")),
+    usuario: Usuario = Depends(usuario_con_permiso("dashboard", "ver")),
 ):
     """
     Las cifras del dashboard para el periodo elegido con las píldoras
-    Hoy / Mes / Año: totales con su variación, clientes y unidades vendidas,
-    los más vendidos, el inventario (agregados y rejilla por categoría) y la
-    proyección del mes siguiente.
+    Hoy / Semana / Mes / Año: totales con su variación, ingresos, costo,
+    gastos y utilidad (solo con costos.ver), órdenes y ticket promedio, los
+    más vendidos, la participación por categoría, medio de pago y tipo de
+    orden (donas de máximo 6 partes), el inventario y la proyección del mes
+    siguiente.
 
     La SERIE de la gráfica no va aquí: vive en /dashboard/serie y tiene sus
     propios rangos, para que mover la gráfica no vuelva a pedir las cifras
@@ -300,6 +289,10 @@ def panel(
     """
     ahora = ahora_utc()
     v = ventana_de_periodo(periodo, ahora)
+    tenant_id = usuario.tenant_id
+    totales = _totales_del_periodo(db, tenant_id, v)
+    if not tiene_permiso(usuario, "costos", "ver"):
+        totales.update({clave: None for clave in CIFRAS_DE_COSTO})
 
     return {
         "periodo": periodo,
@@ -310,8 +303,9 @@ def panel(
             "hasta_anterior": v.hasta_anterior.isoformat(),
             "dias": v.dias,
         },
-        "totales": _totales_del_periodo(db, tenant_id, v),
+        "totales": totales,
         "mas_vendidos": _mas_vendidos(db, tenant_id, v),
+        "participacion": reportes.participacion(db, tenant_id, v.desde, v.hasta),
         "inventario": _inventario(db, tenant_id, v),
         "proyeccion": _proyeccion_mensual(db, tenant_id, ahora),
     }

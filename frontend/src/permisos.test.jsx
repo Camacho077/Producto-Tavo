@@ -53,7 +53,7 @@ describe("sidebar según el rol", () => {
   });
 
   it("sin `puede` (plan solamente) se ve todo lo del plan", () => {
-    expect(modulosVisibles("pro_ia", []).length).toBe(9);
+    expect(modulosVisibles("pro_ia", []).length).toBe(10);
   });
 });
 

@@ -22,6 +22,7 @@ export const MIGAS = {
   conteos: [{ etiqueta: "Inventario", a: "/inventario/insumos" }, { etiqueta: "Conteos", a: "/inventario/conteos" }],
   cargaInicial: [{ etiqueta: "Inventario", a: "/inventario/insumos" }, { etiqueta: "Carga inicial", a: "/inventario/carga-inicial" }],
   caja: [{ etiqueta: "Caja", a: "/caja" }],
+  reportes: [{ etiqueta: "Reportes", a: "/reportes" }],
   comprobantes: [{ etiqueta: "Caja", a: "/caja" }, { etiqueta: "Comprobantes", a: "/caja/ventas" }],
   cierres: [{ etiqueta: "Caja", a: "/caja" }, { etiqueta: "Cierres", a: "/caja/cierres" }],
   gastos: [{ etiqueta: "Caja", a: "/caja" }, { etiqueta: "Gastos", a: "/gastos" }],

@@ -3,6 +3,7 @@ import {
   ChefHat,
   ClipboardCheck,
   ClipboardList,
+  FileBarChart,
   FileUp,
   HandPlatter,
   History,
@@ -36,6 +37,14 @@ export const MODULES = [
     label: "Dashboard",
     path: "/",
     icon: LayoutDashboard,
+    plan: "basico",
+  },
+  {
+    // Reportes (fase 8, 2026-10-12): cuánto entró, cuánto costó y cuánto gané.
+    key: "reportes",
+    label: "Reportes",
+    path: "/reportes",
+    icon: FileBarChart,
     plan: "basico",
   },
   {

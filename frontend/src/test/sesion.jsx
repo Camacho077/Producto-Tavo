@@ -11,6 +11,7 @@ import { AuthContext } from "@/context/AuthContext";
  */
 export const PERMISOS_ADMIN = {
   dashboard: ["ver"],
+  reportes: ["ver"],
   compras: ["ver", "crear", "cambiar_estado", "anular"],
   productos: ["ver", "crear", "editar", "cambiar_estado", "eliminar"],
   categorias: ["ver", "crear", "editar", "cambiar_estado", "eliminar"],

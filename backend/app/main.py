@@ -13,6 +13,7 @@ from app.modules.caja.router import router as caja_router
 from app.modules.gastos.router import router as gastos_router
 from app.modules.ordenes.router import router as ordenes_router
 from app.modules.cocina.router import router as cocina_router
+from app.modules.reportes.router import router as reportes_router
 from app.modules.seguridad.router import router as seguridad_router
 from app.modules.ia.router import router as ia_router
 from app.modules.ajustes.router import router as ajustes_router
@@ -71,6 +72,7 @@ app.include_router(caja_router, prefix=settings.API_V1_PREFIX)
 app.include_router(gastos_router, prefix=settings.API_V1_PREFIX)
 app.include_router(ordenes_router, prefix=settings.API_V1_PREFIX)
 app.include_router(cocina_router, prefix=settings.API_V1_PREFIX)
+app.include_router(reportes_router, prefix=settings.API_V1_PREFIX)
 app.include_router(ia_router, prefix=settings.API_V1_PREFIX)
 app.include_router(ajustes_router, prefix=settings.API_V1_PREFIX)
 app.include_router(imagenes_router, prefix=settings.API_V1_PREFIX)

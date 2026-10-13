@@ -17,6 +17,9 @@ dependencias de FastAPI y los tests sin riesgo de import circular.
 # modulo -> (nombre visible, objeto en las frases de error, acciones permitidas)
 CATALOGO: dict[str, tuple[str, str, tuple[str, ...]]] = {
     "dashboard": ("Dashboard", "el dashboard", ("ver",)),
+    # Reportes (fase 8): ingresos, costos, utilidad y su detalle; las cifras de
+    # costo exigen además costos.ver.
+    "reportes": ("Reportes", "los reportes", ("ver",)),
     "compras": ("Compras de insumos", "compras", ("ver", "crear", "cambiar_estado", "anular")),
     # Restaurante (2026-10-12): "productos" es la CARTA (platos y combos); la
     # clave se conserva para no reescribir los roles guardados.
@@ -58,6 +61,7 @@ ORDEN_PLANES: tuple[str, ...] = ("basico", "estandar", "pro_ia")
 NOMBRE_PLANES: dict[str, str] = {"basico": "Básico", "estandar": "Estándar", "pro_ia": "Pro + IA"}
 GRUPO_DE_MODULO: dict[str, str] = {
     "dashboard": "dashboard",
+    "reportes": "reportes",
     "productos": "carta",
     "categorias": "carta",
     "insumos": "inventario",
@@ -81,6 +85,7 @@ GRUPO_DE_MODULO: dict[str, str] = {
 # que van desde Básico; el inventario con recetas y costos, desde Estándar.
 PLAN_MINIMO_DE_GRUPO: dict[str, str] = {
     "dashboard": "basico",
+    "reportes": "basico",
     "seguridad": "basico",
     "carta": "basico",
     "inventario": "estandar",
@@ -92,6 +97,7 @@ PLAN_MINIMO_DE_GRUPO: dict[str, str] = {
 }
 NOMBRE_GRUPO: dict[str, str] = {
     "dashboard": "el Dashboard",
+    "reportes": "los Reportes",
     "seguridad": "Seguridad",
     "carta": "la Carta",
     "inventario": "el Inventario",

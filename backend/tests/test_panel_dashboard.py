@@ -219,7 +219,7 @@ def test_panel_sin_token(client):
 
 def test_panel_rechaza_un_periodo_inventado(sesion):
     client, headers = sesion
-    assert client.get(f"{URL_PANEL}?periodo=semana", headers=headers).status_code == 422
+    assert client.get(f"{URL_PANEL}?periodo=quincena", headers=headers).status_code == 422
 
 
 @pytest.mark.parametrize("periodo", PERIODOS)
@@ -257,20 +257,44 @@ def test_panel_suma_solo_lo_del_periodo_y_calcula_la_variacion(sesion):
     assert t["ventas_variacion"] == 50.0
     assert t["numero_ventas"] == 1
     assert t["productos_vendidos"] == 6
-    assert t["numero_clientes"] == 1
+    assert t["ordenes"] == 1
 
 
-def test_panel_cuenta_clientes_distintos_sin_importar_mayusculas(sesion):
+def test_panel_responde_cuanto_entro_cuanto_costo_y_cuanto_gane(sesion):
+    """Fase 8: ingresos SIN el impuesto al consumo (incluido en la carta),
+    costo por receta, gastos del día y las dos utilidades."""
     client, headers = sesion
-    producto = crear_producto(client, headers, "Lampara Onix", "SKU-LAMP")
-    comprar(client, headers, producto["id"], 50)
+    plato = crear_producto(client, headers, "Bandeja", "BAN-1", precio="10800")
+    comprar(client, headers, plato["id"], 10, precio="3000")  # costo 3.000 por porción
+    vender(client, headers, plato["id"], 2)  # 21.600 con el 8 % incluido
+    hoy = (ahora_utc() - timedelta(hours=5)).date().isoformat()
+    assert client.post("/api/v1/gastos", headers=headers, json={"fecha": hoy, "categoria": "gas", "descripcion": "Pipeta", "valor": "5000"}).status_code == 201
 
-    vender(client, headers, producto["id"], 1, cliente="Maria Perez")
-    vender(client, headers, producto["id"], 1, cliente="maria perez")
-    vender(client, headers, producto["id"], 1, cliente="Juan Gomez")
+    t = client.get(f"{URL_PANEL}?periodo=hoy", headers=headers).json()["totales"]
+    assert (t["ventas"], t["ingresos"], t["impuesto"]) == (21600.0, 20000.0, 1600.0)
+    assert (t["costo"], t["utilidad_bruta"], t["gastos"], t["utilidad_real"]) == (6000.0, 14000.0, 5000.0, 9000.0)
+    assert t["ordenes"] == 1 and t["ticket_promedio"] == 21600.0 and t["margen_bruto_pct"] == 70.0
 
-    body = client.get(f"{URL_PANEL}?periodo=hoy", headers=headers).json()
-    assert body["totales"]["numero_clientes"] == 2
+
+def test_semana_y_donas_de_participacion(sesion):
+    client, headers = sesion
+    a = crear_producto(client, headers, "Arepa", "ARE-1", precio="5000", categoria_id=crear_categoria(client, headers, "Desayunos")["id"])
+    comprar(client, headers, a["id"], 20)
+    vender(client, headers, a["id"], 2)
+    body = client.get(f"{URL_PANEL}?periodo=semana", headers=headers).json()
+    assert body["periodo"] == "semana" and body["totales"]["ventas"] == 10000.0
+    p = body["participacion"]
+    assert p["categorias"] == [{"nombre": "Desayunos", "valor": 10000.0}]
+    assert p["medios"] == [{"nombre": "Efectivo", "valor": 10000.0}]
+    assert p["tipos"] == [{"nombre": "Para llevar", "valor": 10000.0}]
+
+
+def test_sin_costos_ver_el_panel_no_trae_costo_ni_utilidad(client, tenant_factory, rol_factory, usuario_factory, auth_headers_factory):
+    tenant = tenant_factory()
+    h = auth_headers_factory(usuario_factory(tenant, rol=rol_factory(tenant, nombre="Gerente", permisos={"dashboard": ["ver"]})))
+    t = client.get(f"{URL_PANEL}?periodo=mes", headers=h).json()["totales"]
+    assert t["costo"] is None and t["utilidad_real"] is None and t["gastos"] is None
+    assert t["ventas"] == 0.0
 
 
 def test_mas_vendidos_trae_categoria_monto_y_variacion(sesion):

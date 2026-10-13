@@ -5,6 +5,7 @@
  */
 const OBJETO = {
   dashboard: "el dashboard",
+  reportes: "los reportes",
   compras: "compras de insumos",
   productos: "platos y combos",
   insumos: "insumos",

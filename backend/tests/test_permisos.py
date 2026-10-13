@@ -124,6 +124,9 @@ ESPERADO = {
     ("POST", "/ordenes/{orden_id}/anular"): ("ordenes", "anular"),
     ("POST", "/ordenes/{orden_id}/entregar"): ("ordenes", "cambiar_estado"),
     ("POST", "/ordenes/agotados"): ("ordenes", "crear"),
+    ("GET", "/reportes"): ("reportes", "ver"),
+    ("GET", "/reportes/csv"): ("reportes", "ver"),
+    ("GET", "/reportes/pdf"): ("reportes", "ver"),
     ("GET", "/cocina/comandas"): ("cocina", "ver"),
     ("POST", "/cocina/comandas/{comanda_id}/tomar"): ("cocina", "cambiar_estado"),
     ("POST", "/cocina/comandas/{comanda_id}/finalizar"): ("cocina", "cambiar_estado"),
@@ -141,7 +144,7 @@ SIN_PERMISO = {
 
 
 def _rutas_de_negocio():
-    for modulo in ("seguridad", "dashboard", "catalogo", "inventario", "compras", "caja", "gastos", "ordenes", "cocina", "ia", "ajustes", "imagenes"):
+    for modulo in ("seguridad", "dashboard", "catalogo", "inventario", "compras", "caja", "gastos", "ordenes", "cocina", "reportes", "ia", "ajustes", "imagenes"):
         router = importlib.import_module(f"app.modules.{modulo}.router").router
         for ruta in router.routes:
             for metodo in ruta.methods - {"HEAD", "OPTIONS"}:

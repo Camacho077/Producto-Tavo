@@ -1,4 +1,14 @@
 @layer components {
+  /* Participación (fase 8): tres donas lado a lado; una por fila en móvil. */
+  .dash-participacion {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: var(--hueco);
+  }
+  .dash-participacion > * {
+    padding: 16px 18px;
+  }
+
   /* ==========================================================================
      DASHBOARD — rediseño monocromático (2026-10-01) sobre la maqueta aprobada
      (docs/dashboard-referencia.html): misma información y mismo movimiento,

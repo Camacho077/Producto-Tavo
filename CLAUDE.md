@@ -52,7 +52,9 @@ código. Nombre provisional del producto: "JS Restaurante".
   `ventas`: cobro = venta con comprobante INTERNO, varios medios, propina,
   impuesto desglosado, dividir cuenta, apertura/cierre con cuadre; módulo
   `gastos`); fase 7 (inicio y menú por rol con `inicioDeRol`, modo enfocado
-  para un rol de una sola pantalla, PWA con `public/sw.js` solo en build).
+  para un rol de una sola pantalla, PWA con `public/sw.js` solo en build);
+  fase 8 (`app/modules/reportes/consultas.py` define vendido, ingresos,
+  costo y utilidades para dashboard y Reportes; donas de máx. 6 partes).
   Lo de "Stock = suma de movimientos" y "Proveedores ↔
   Productos" de abajo es HISTÓRICO: hoy aplica a los insumos.
 
