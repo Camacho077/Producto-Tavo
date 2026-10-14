@@ -43,8 +43,14 @@ if ($LASTEXITCODE -ne 0 -or -not $PUERTO) {
     exit 1
 }
 Write-Host "    puerto configurado: $PUERTO"
-if ($PUERTO -ne $MAPA_PUERTOS.backend.Puerto) {
-    Write-Host "  ! PORT=$PUERTO en backend/.env no es el del mapa ($($MAPA_PUERTOS.backend.Puerto)): el frontend no lo encontrará." -ForegroundColor Yellow
+# El frontend debe llamar a ESTE puerto (VITE_API_URL en frontend/.env). En
+# una máquina donde el 8002 no se puede usar, el setup elige otro y escribe
+# los dos archivos (automatizaciones/dev/puertos.py).
+$envFrontend = Join-Path $raiz "frontend\.env"
+$apiFrontend = if (Test-Path $envFrontend) { ((Get-Content $envFrontend -Encoding UTF8 | Select-String "^VITE_API_URL=").Line -replace "^VITE_API_URL=", "") } else { "" }
+if ($apiFrontend -and $apiFrontend -notmatch ":$PUERTO/") {
+    Write-Host "  ! El frontend llama a $apiFrontend pero el backend usará el ${PUERTO}: el login dará ERR_CONNECTION_REFUSED." -ForegroundColor Yellow
+    Write-Host "    Arreglo: corre automatizaciones\setup.ps1 (alinea backend/.env y frontend/.env) y reinicia el frontend." -ForegroundColor Yellow
 }
 
 Write-Host "==> Cerrando el backend viejo de este producto (solo el que escucha en el $PUERTO)" -ForegroundColor Cyan
@@ -78,7 +84,8 @@ try {
 } catch {
     Write-Host "✘ Windows no deja abrir el puerto $PUERTO (¿rango reservado?)." -ForegroundColor Red
     Write-Host "  Revisa: netsh interface ipv4 show excludedportrange protocol=tcp" -ForegroundColor Red
-    Write-Host "  Arreglo (PowerShell como administrador): net stop winnat; net start winnat" -ForegroundColor Red
+    Write-Host "  Arreglo: corre automatizaciones\setup.ps1, que elige otro puerto libre y actualiza los .env;" -ForegroundColor Red
+    Write-Host "  o libera las reservas (PowerShell como administrador): net stop winnat; net start winnat" -ForegroundColor Red
     exit 1
 }
 

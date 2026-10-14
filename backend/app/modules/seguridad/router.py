@@ -29,7 +29,7 @@ router = APIRouter(prefix="/seguridad", tags=["Seguridad"])
 def login(payload: schemas.LoginRequest, db: Session = Depends(get_db)):
     usuario = db.query(models.Usuario).filter(models.Usuario.email == payload.email).first()
     if not usuario or not verify_password(payload.password, usuario.hashed_password):
-        raise AuthError("Credenciales inválidas")
+        raise AuthError("Correo o contraseña incorrectos.")
     if not usuario.activo:
         raise ForbiddenError("Usuario inactivo")
 

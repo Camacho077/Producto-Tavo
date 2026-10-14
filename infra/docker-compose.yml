@@ -20,20 +20,31 @@
 #   docker compose -f infra/docker-compose.yml up -d             # db + backend + n8n
 #   docker compose -f infra/docker-compose.yml --profile frontend up -d
 # Antes de arrancar: automatizaciones/dev/verificar-puertos.ps1
+#
+# Puertos por máquina (2026-10-13): los puertos PUBLICADOS y el nombre del
+# proyecto salen de infra/.env (no se versiona; lo escribe
+# automatizaciones/dev/puertos.py desde el setup). Sin ese archivo valen los
+# del mapa: tavo / 5433 / 8002 / 5175 / 5679. Si en una máquina el 8002 está
+# reservado u ocupado, el setup elige otro y lo escribe aquí Y en los .env
+# de backend y frontend, para que todos apunten al mismo. Dentro de Docker
+# los puertos no cambian (db:5432, backend:8002, frontend:5175).
+# TAVO_PROYECTO permite una segunda copia aislada en la misma máquina (otros
+# contenedores y volúmenes); se usó para probar el setup como un compañero
+# nuevo sin tocar los datos de esta copia.
 # =============================================================================
-name: tavo
+name: ${TAVO_PROYECTO:-tavo}
 
 services:
   db:
     image: postgres:16-alpine
-    container_name: tavo-db
+    container_name: ${TAVO_PROYECTO:-tavo}-db
     restart: unless-stopped
     environment:
       POSTGRES_USER: tavo_admin
       POSTGRES_PASSWORD: tavo_admin
       POSTGRES_DB: tavo_erp
     ports:
-      - "5433:5432"
+      - "${DB_PORT:-5433}:5432"
     volumes:
       - tavo_db_data:/var/lib/postgresql/data
     healthcheck:
@@ -45,36 +56,46 @@ services:
   backend:
     build:
       context: ../backend
-    image: tavo-backend
-    container_name: tavo-backend
+    image: ${TAVO_PROYECTO:-tavo}-backend
+    container_name: ${TAVO_PROYECTO:-tavo}-backend
     restart: unless-stopped
     env_file:
-      - ../backend/.env
+      # Opcional: si falta, el backend sale con el mensaje en español de
+      # app/core/config.py (qué copiar), no con un error de Docker.
+      - path: ../backend/.env
+        required: false
     environment:
       DATABASE_URL: postgresql://tavo_admin:tavo_admin@db:5432/tavo_erp
+      # Dentro del contenedor el backend escucha SIEMPRE en el 8002
+      # (app/core/arranque.py exige que uvicorn use Settings.PORT); afuera se
+      # publica en BACKEND_PORT.
       PORT: "8002"
     ports:
-      # Mismo puerto dentro y fuera: app/core/arranque.py exige que uvicorn
-      # escuche en Settings.PORT.
-      - "8002:8002"
+      - "${BACKEND_PORT:-8002}:8002"
     depends_on:
       db:
         condition: service_healthy
-    command: >
-      sh -c "alembic upgrade head &&
-             uvicorn app.main:app --host 0.0.0.0 --port 8002"
+    # Espera a Postgres, migra y recién entonces arranca uvicorn --port 8002;
+    # si algo falla, termina con la causa en español (app/inicio_docker.py).
+    command: ["python", "-m", "app.inicio_docker"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8002/health', timeout=3)"]
+      interval: 5s
+      timeout: 5s
+      retries: 6
+      start_period: 90s
 
   n8n:
     image: n8nio/n8n:2.42.7
-    container_name: tavo-n8n
+    container_name: ${TAVO_PROYECTO:-tavo}-n8n
     restart: unless-stopped
     environment:
       N8N_PORT: "5678"
       N8N_HOST: localhost
       N8N_PROTOCOL: http
       # URL con la que n8n arma sus webhooks: el puerto PUBLICADO (5679).
-      WEBHOOK_URL: http://localhost:5679/
-      N8N_EDITOR_BASE_URL: http://localhost:5679/
+      WEBHOOK_URL: http://localhost:${N8N_PORT:-5679}/
+      N8N_EDITOR_BASE_URL: http://localhost:${N8N_PORT:-5679}/
       # Solo en local por http: sin esto n8n exige https para la cookie.
       N8N_SECURE_COOKIE: "false"
       GENERIC_TIMEZONE: America/Bogota
@@ -82,7 +103,7 @@ services:
       N8N_DIAGNOSTICS_ENABLED: "false"
       N8N_VERSION_NOTIFICATIONS_ENABLED: "false"
     ports:
-      - "5679:5678"
+      - "${N8N_PORT:-5679}:5678"
     volumes:
       - tavo_n8n_data:/home/node/.n8n
 
@@ -90,18 +111,20 @@ services:
     profiles: ["frontend"]
     build:
       context: ../frontend
-    image: tavo-frontend
-    container_name: tavo-frontend
+    image: ${TAVO_PROYECTO:-tavo}-frontend
+    container_name: ${TAVO_PROYECTO:-tavo}-frontend
     restart: unless-stopped
     environment:
-      VITE_API_URL: http://localhost:8002/api/v1
+      # El navegador llama al backend por el puerto PUBLICADO en esta máquina.
+      VITE_API_URL: http://localhost:${BACKEND_PORT:-8002}/api/v1
     ports:
-      - "5175:5175"
+      - "${FRONTEND_PORT:-5175}:5175"
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
 
 volumes:
   tavo_db_data:
-    name: tavo_db_data
+    name: ${TAVO_PROYECTO:-tavo}_db_data
   tavo_n8n_data:
-    name: tavo_n8n_data
+    name: ${TAVO_PROYECTO:-tavo}_n8n_data

@@ -126,7 +126,7 @@ def test_login_con_credenciales_malas_trae_header_cors(client, tenant_factory, u
     )
 
     assert resp.status_code == 401
-    assert resp.json() == {"detail": "Credenciales inválidas"}
+    assert resp.json() == {"detail": "Correo o contraseña incorrectos."}
     assert resp.headers.get("access-control-allow-origin") == ORIGIN
 
 

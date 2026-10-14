@@ -53,18 +53,37 @@ def test_docker_compose_aislado_del_producto_js():
     compose = leer("infra/docker-compose.yml")
     # Sin nombre propio, Docker usaría el de la carpeta ("infra"), el mismo
     # que el compose del Producto JS: compartirían contenedores y volumen.
-    assert re.search(r"(?m)^name: tavo$", compose)
-    for nombre in ("tavo-db", "tavo-backend", "tavo-n8n"):
-        assert f"container_name: {nombre}" in compose
+    # Desde el 2026-10-13 nombre y puertos publicados se pueden cambiar por
+    # máquina (infra/.env, lo escribe automatizaciones/dev/puertos.py), pero
+    # SIN ese archivo deben valer exactamente los del mapa.
+    assert re.search(r"(?m)^name: \$\{TAVO_PROYECTO:-tavo\}$", compose)
+    for servicio in ("db", "backend", "n8n", "frontend"):
+        assert f"container_name: ${{TAVO_PROYECTO:-tavo}}-{servicio}" in compose
     for volumen in ("tavo_db_data", "tavo_n8n_data"):
-        assert re.search(rf"(?m)^  {volumen}:\n    name: {volumen}$", compose)
-    publicados = {int(p) for p in re.findall(r'-\s*"(\d+):\d+"', compose)}
-    assert publicados == {TAVO["postgres"], TAVO["backend"], TAVO["n8n"], TAVO["frontend"]}
+        sufijo = volumen.removeprefix("tavo_")
+        assert re.search(rf"(?m)^  {volumen}:\n    name: \$\{{TAVO_PROYECTO:-tavo\}}_{sufijo}$", compose)
+    publicados = dict(re.findall(r'-\s*"\$\{(\w+):-(\d+)\}:\d+"', compose))
+    assert {k: int(v) for k, v in publicados.items()} == {
+        "DB_PORT": TAVO["postgres"], "BACKEND_PORT": TAVO["backend"], "N8N_PORT": TAVO["n8n"], "FRONTEND_PORT": TAVO["frontend"]}
+    assert not re.findall(r'-\s*"\d+:\d+"', compose), "ningún puerto publicado fijo: todos con su variable y su valor del mapa"
     assert "POSTGRES_DB: tavo_erp" in compose and "POSTGRES_USER: tavo_admin" in compose
     assert "js_company_erp" not in compose and "js_admin" not in compose
-    # Dentro de Docker el backend habla con Postgres por el nombre del servicio.
+    # Dentro de Docker el backend habla con Postgres por el nombre del servicio
+    # y escucha SIEMPRE en el 8002 (arranque.py exige uvicorn == Settings.PORT).
     assert "@db:5432/tavo_erp" in compose
-    assert "--port 8002" in compose
+    assert 'PORT: "8002"' in compose and '"${BACKEND_PORT:-8002}:8002"' in compose
+    assert "http://localhost:${BACKEND_PORT:-8002}/api/v1" in compose
+
+
+def test_backend_en_docker_espera_migra_y_tiene_healthcheck():
+    compose = leer("infra/docker-compose.yml")
+    backend = compose.split("\n  backend:", 1)[1].split("\n  n8n:", 1)[0]
+    assert 'command: ["python", "-m", "app.inicio_docker"]' in backend
+    assert "healthcheck:" in backend and "8002/health" in backend
+    assert "condition: service_healthy" in backend  # espera a que Postgres esté listo
+    assert "required: false" in backend  # sin backend/.env: mensaje en español, no error de Docker
+    inicio = leer("backend/app/inicio_docker.py")
+    assert '"alembic", "upgrade", "head"' in inicio and '"--port", str(settings.PORT)' in inicio
 
 
 def test_scripts_y_lanzadores():

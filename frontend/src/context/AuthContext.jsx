@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { api, setLogoutHandler } from "@/lib/api";
+import { mensajeDeError, mensajeDeLogin } from "@/lib/errores";
 
 const TOKEN_KEY = "js_company_token";
 
@@ -72,7 +73,7 @@ export function AuthProvider({ children }) {
       setToken(data.access_token);
       return true;
     } catch (err) {
-      setError(err.response?.data?.detail || "No se pudo iniciar sesión. Intenta de nuevo.");
+      setError(mensajeDeLogin(err));
       return false;
     }
   }, []);
@@ -93,7 +94,7 @@ export function AuthProvider({ children }) {
       setToken(data.access_token);
       return true;
     } catch (err) {
-      setError(err.response?.data?.detail || "No se pudo completar el registro. Intenta de nuevo.");
+      setError(mensajeDeError(err, "completar el registro"));
       return false;
     }
   }, []);

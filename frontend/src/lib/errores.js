@@ -50,6 +50,23 @@ export function mensajeDeError(err, accion) {
   return `${prefijo}${causa}`;
 }
 
+/**
+ * Mensaje del inicio de sesión, distinto según la causa (2026-10-13): un
+ * compañero veía "No se pudo iniciar sesión" cuando en realidad su backend
+ * no estaba corriendo, y buscaba el error en su contraseña.
+ *   - sin respuesta: el backend no está (o está en otro puerto);
+ *   - 401: correo o contraseña;
+ *   - cualquier otro: el motivo que devuelve el backend.
+ */
+export function mensajeDeLogin(err) {
+  if (!err?.response) {
+    if (err?.code === "ECONNABORTED") return "El servidor tardó demasiado en responder. Intenta otra vez en unos segundos.";
+    return `No se pudo conectar con el servidor en ${api.defaults.baseURL}. Verifica que el backend esté corriendo.`;
+  }
+  if (err.response.status === 401) return "Correo o contraseña incorrectos.";
+  return mensajeDeError(err);
+}
+
 /** "cliente_nombre" → "Cliente nombre" para que el 422 se lea en español. */
 function etiquetaDeCampo(campo) {
   const limpio = campo.replaceAll("_", " ").replace(/\.\d+\./g, " ");

@@ -3,7 +3,7 @@ import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
 vi.mock("@/lib/api", () => ({
-  api: { get: vi.fn(), post: vi.fn() },
+  api: { get: vi.fn(), post: vi.fn(), defaults: { baseURL: "http://localhost:8002/api/v1" } },
   setLogoutHandler: vi.fn(),
 }));
 
@@ -27,17 +27,35 @@ beforeEach(() => {
 });
 
 describe("LoginPage", () => {
-  it("muestra un mensaje de error cuando las credenciales son inválidas", async () => {
-    api.post.mockRejectedValueOnce({ response: { data: { detail: "Credenciales inválidas" } } });
+  // Un error distinto según la causa (2026-10-13): sin backend, el compañero
+  // veía "No se pudo iniciar sesión" y revisaba su contraseña.
+  const intentarEntrar = () => {
     renderLoginPage();
-
     fireEvent.change(screen.getByLabelText(/correo electrónico/i), {
       target: { value: "admin@empresa.com" },
     });
     fireEvent.change(screen.getByLabelText(/contraseña/i), { target: { value: "clave-mala" } });
     fireEvent.click(screen.getByRole("button", { name: /ingresar/i }));
+  };
 
-    expect(await screen.findByText("Credenciales inválidas")).toBeInTheDocument();
+  it("credenciales malas (401): 'Correo o contraseña incorrectos.'", async () => {
+    api.post.mockRejectedValueOnce({ response: { status: 401, data: { detail: "Correo o contraseña incorrectos." } } });
+    intentarEntrar();
+    expect(await screen.findByText("Correo o contraseña incorrectos.")).toBeInTheDocument();
+  });
+
+  it("sin conexión: dice a qué URL intentó llegar y que el backend no está corriendo", async () => {
+    api.post.mockRejectedValueOnce({ code: "ERR_NETWORK", message: "Network Error" });
+    intentarEntrar();
+    expect(
+      await screen.findByText("No se pudo conectar con el servidor en http://localhost:8002/api/v1. Verifica que el backend esté corriendo."),
+    ).toBeInTheDocument();
+  });
+
+  it("otro error: el motivo que devuelve el backend, tal cual", async () => {
+    api.post.mockRejectedValueOnce({ response: { status: 403, data: { detail: "Usuario inactivo" } } });
+    intentarEntrar();
+    expect(await screen.findByText("Usuario inactivo")).toBeInTheDocument();
   });
 
   it("envía recordarme=false por defecto y true al marcar la casilla", async () => {
