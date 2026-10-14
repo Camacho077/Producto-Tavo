@@ -25,9 +25,9 @@ producto-tavo/
 
 ## Requisitos
 
+- Docker Desktop (encendido): Postgres, backend y frontend corren ahí
 - Python 3.11+
 - Node.js 20+ (18 como mínimo)
-- PostgreSQL 16 (o Docker Desktop, para no instalarlo local)
 
 ## Empezar desde cero (Windows)
 
@@ -39,7 +39,7 @@ abajo lo hace por ti.
 > (órdenes, cobros, ajustes, usuarios que creó) **no viaja por git**: git solo
 > lleva el código. Tu Postgres empieza vacío y el script le carga los mismos
 > datos de demostración. Si quieres empezar de nuevo, vuelve a cargarlos con
-> `seed_demo.py --reset` (ver el paso 4).
+> `seed_demo.py --reset` (paso 4).
 
 **0. Acepta la invitación.** Te llega un correo de GitHub ("invited you to
 collaborate on Camacho077/Producto-Tavo"): ábrelo y pulsa *Accept
@@ -49,23 +49,13 @@ con tu cuenta). El repositorio es privado: sin aceptar, no podrás clonarlo.
 **1. Instala los requisitos** (una sola vez; abre una terminal NUEVA después
 de instalar, para que tome el PATH):
 
-- Python 3.11 o superior: <https://www.python.org/downloads/> — marca
+- **Docker Desktop**: <https://www.docker.com/products/docker-desktop/>.
+  Ábrelo y espera a que diga *Engine running*: el setup lo necesita
+  encendido (corre ahí Postgres, el backend y el frontend).
+- **Python 3.11 o superior**: <https://www.python.org/downloads/> — marca
   *"Add python.exe to PATH"*.
-- Node.js 20 LTS: <https://nodejs.org>.
-- Git: <https://git-scm.com/download/win>.
-- **Postgres**, una de dos:
-  - **Docker Desktop** (recomendado): <https://www.docker.com/products/docker-desktop/>.
-    Solo tiene que estar abierto; el script arranca el contenedor de
-    Postgres (`infra/docker-compose.yml`, servicio `db`) si no hay uno.
-  - **PostgreSQL 16 instalado en Windows**: <https://www.postgresql.org/download/windows/>.
-    Crea el usuario que espera `backend/.env` (desde *SQL Shell (psql)*
-    como `postgres`):
-    ```sql
-    CREATE ROLE tavo_admin LOGIN PASSWORD 'tavo_admin' CREATEDB;
-    ```
-    La base `tavo_erp` la crea el script. Ojo: `backend/.env` apunta al
-    puerto **5433** (el del contenedor `tavo-db`); con un Postgres local en
-    el 5432, cambia el puerto en `DATABASE_URL`.
+- **Node.js 20 LTS**: <https://nodejs.org>.
+- **Git**: <https://git-scm.com/download/win>.
 
 **2. Clona y corre el setup** (PowerShell, desde la carpeta donde quieras el
 proyecto):
@@ -76,25 +66,39 @@ cd producto-tavo
 powershell -ExecutionPolicy Bypass -File automatizaciones\setup.ps1
 ```
 
+En Linux, macOS o Git Bash: `bash automatizaciones/setup.sh` (mismos pasos).
+
 `setup.ps1` es idempotente (se puede repetir sin romper nada) y hace, en
-orden: revisa requisitos → copia `backend/.env.example` y
-`frontend/.env.example` a `.env` si faltan (con una `SECRET_KEY` aleatoria)
-→ crea `backend/venv` e instala dependencias → `npm ci` → arranca Postgres
-con Docker si hace falta y crea la base → `alembic upgrade head` → carga los
-datos de demostración (`seed_demo.py`: el restaurante "Donde Tavo" con 90
-días de historia y "Café Central" para probar el aislamiento; tarda unos
-5 minutos) → corre el diagnóstico. Al final imprime las URLs y las
-credenciales:
+orden:
 
-| | |
-|---|---|
-| Aplicación | <http://localhost:5175> |
-| API / documentación | <http://localhost:8002/docs> |
+1. Revisa Python, Node y que Docker esté **encendido**.
+2. Copia `backend/.env.example` y `frontend/.env.example` a `.env` si faltan
+   (con una `SECRET_KEY` aleatoria).
+3. **Elige los puertos de tu máquina** (`automatizaciones/dev/puertos.py`):
+   8002 para el backend, 5433 para Postgres y 5175 para el frontend, salvo
+   que Windows los tenga reservados u otro programa los use; entonces toma
+   el siguiente libre, **avisa** y lo escribe en `backend/.env`,
+   `frontend/.env` e `infra/.env`, para que backend y frontend apunten al
+   mismo.
+4. Crea `backend/venv` con sus dependencias y corre `npm ci`.
+5. Levanta Postgres en Docker (espera a que esté listo) y aplica las
+   migraciones.
+6. **Si tu base está vacía**, carga los datos de demostración: el
+   restaurante "Donde Tavo" con 90 días de historia y "Café Central" para
+   probar el aislamiento. Tarda unos 5 minutos y nunca se hace con
+   `ENV=production`.
+7. Levanta el backend y el frontend en Docker. El backend espera a Postgres,
+   migra y tiene *healthcheck*.
+8. **Comprueba de verdad** que `/health` responde, que el login con
+   `admin@dondetavo.demo` entra y que la página carga. Solo entonces dice
+   **"Listo"** e imprime la URL y la tabla de cuentas. Si algo falla, dice la
+   causa y qué hacer.
 
-**Cuentas de la demo** (existen SOLO en desarrollo; con `ENV=production` el
-script se niega a crearlas). Cada rol entra a su propia pantalla y solo ve
-lo suyo; ábrelo en el dispositivo de cada rol (o con el modo de dispositivo
-del navegador):
+**3. Ábrelo** en la URL que imprime el setup (normalmente
+<http://localhost:5175>) y entra con una cuenta de la demo. Existen **solo
+en desarrollo**: con `ENV=production` el script se niega a crearlas. Cada rol
+entra a su propia pantalla y solo ve lo suyo; ábrelo en el dispositivo de
+cada rol, o con el modo de dispositivo del navegador:
 
 | Rol | Correo | Contraseña | Entra a | Dispositivo |
 |---|---|---|---|---|
@@ -104,82 +108,85 @@ del navegador):
 | Cocinero | `cocina@dondetavo.demo` | `Tavo2026*Cocina` | Cocina | tablet |
 | Admin de otra empresa | `admin@cafecentral.demo` | `Central2026*Admin` | Dashboard de Café Central | escritorio |
 
-También existen `mesero2@` y `mesero3@dondetavo.demo` (`Tavo2026*Mesero`),
-`cocina2@dondetavo.demo` (`Tavo2026*Cocina`) y una empresa vacía de prueba
-`demo@jscompany.co` / `Demo2026!`.
+También existen `mesero2@` y `mesero3@dondetavo.demo` (`Tavo2026*Mesero`) y
+`cocina2@dondetavo.demo` (`Tavo2026*Cocina`).
 
-En Linux, macOS o Git Bash: `bash automatizaciones/setup.sh` (mismos pasos).
-
-**3. Arranca** backend y frontend, cada uno en su terminal (o agrega
-`-Arrancar` al setup y los abre en dos ventanas):
+**4. Recargar los datos demo** cuando quieras. Las fechas son relativas al
+día en que se cargan: para que "Hoy" tenga órdenes en cocina, mesas
+ocupadas y caja abierta, recárgalos el día que vayas a mostrarlo (desde
+`backend/`):
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File automatizaciones\dev\start-backend.ps1    # 8002
+venv\Scripts\python ..\automatizaciones\deploy\seed_demo.py --reset   # borra y recrea las dos empresas demo
+venv\Scripts\python ..\automatizaciones\deploy\seed_demo.py           # solo carga si hoy no hay datos
+```
+
+**Para programar con recarga en caliente** (opcional): detén los
+contenedores de backend y frontend
+(`docker compose -f infra/docker-compose.yml --profile frontend stop backend frontend`)
+y arranca cada parte en su terminal:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File automatizaciones\dev\start-backend.ps1    # puerto de PORT en backend/.env
 powershell -ExecutionPolicy Bypass -File automatizaciones\dev\start-frontend.ps1   # 5175
 ```
 
-**Comando recomendado para el backend: `start-backend.ps1`** (activa el
-venv, lee el puerto de la configuración, cierra instancias viejas, comprueba
-que Windows deje abrir el 8002 e imprime la URL). Sin el script:
-`cd backend` y `venv\Scripts\python -m app.main`. En VS Code, F5 →
-"Backend + Frontend" (`.vscode/launch.json`) o Ctrl+Mayús+B → "Arrancar
-backend y frontend" (`.vscode/tasks.json`). **`uvicorn app.main:app` sin
-`--port 8002` no arranca**: se detiene y dice cómo hacerlo (ver "Puertos").
+**`uvicorn app.main:app` a secas no sirve**: arranca en el 8000, donde el
+frontend no lo busca (por eso el proyecto lo detiene con un mensaje). Usa
+siempre `start-backend.ps1` (o `cd backend` y `venv\Scripts\python -m app.main`).
 
-**4. Ábrelo** en <http://localhost:5175> y entra con una de las cuentas de
-arriba. Las fechas de la demo son relativas al día en que se cargan: para
-que "Hoy" tenga órdenes en cocina, mesas ocupadas y caja abierta, vuelve a
-cargarla el día que la vayas a mostrar (desde `backend/`):
+## Si no puedes entrar
+
+Corre el diagnóstico. No cambia nada; revisa todo lo que tiene que estar
+bien para que el login funcione y dice qué arreglar en cada punto:
 
 ```powershell
-venv\Scripts\python ..\automatizaciones\deploy\seed_demo.py           # solo si hoy no hay datos
-venv\Scripts\python ..\automatizaciones\deploy\seed_demo.py --reset   # borra y recrea las dos empresas demo
+powershell -ExecutionPolicy Bypass -File automatizaciones\dev\diagnostico.ps1
 ```
 
-**Si algo no funciona, corre el diagnóstico** antes de tocar nada. Revisa
-los `.env`, las variables cargadas (sin mostrar secretos), la conexión a
-Postgres, las migraciones, los orígenes CORS y los puertos, y dice el
-arreglo concreto de cada problema:
+Revisa: Docker encendido; los tres `.env` y que el frontend apunte al MISMO
+puerto que el backend; los puertos (libres, ocupados por otro programa o
+reservados por Windows); los contenedores y su salud; `/health` del
+backend; que la página cargue; las migraciones; que existan las cuentas
+demo; y el login real con cada una. **Casi siempre basta con volver a
+correr `automatizaciones\setup.ps1`**: alinea los puertos, levanta lo que
+falte y carga la demo si la base está vacía.
 
-```powershell
-cd backend
-venv\Scripts\python -m app.diagnostico
-venv\Scripts\python -m app.diagnostico --origen http://192.168.1.50:5175   # ¿ese origen pasa CORS?
-```
+Qué significa cada mensaje del login:
 
-Con el backend arriba, el mismo informe está en
-<http://localhost:8002/diagnostico> (solo con `ENV=development`).
+| Mensaje | Causa | Qué hacer |
+|---|---|---|
+| *No se pudo conectar con el servidor en http://localhost:8002/api/v1. Verifica que el backend esté corriendo.* | Nada escucha en ese puerto: el backend no arrancó, se cayó, arrancó en otro puerto (`uvicorn` a secas usa el 8000) o el frontend apunta a otro (`VITE_API_URL`). | Corre el diagnóstico y luego `setup.ps1`. Si usas `npm run dev`, reinícialo después de cambiar `frontend/.env`. |
+| *Correo o contraseña incorrectos.* | El backend responde, pero esa cuenta no existe en TU base o la clave no coincide. | Si tu base no tiene la demo: `seed_demo.py --reset` (paso 4). |
+| Cualquier otro texto | Es el motivo exacto que devolvió el backend (p. ej. "Usuario inactivo"). | Lo que diga el mensaje. |
 
-**Problemas típicos:**
+Otros casos:
 
-- *El backend no arranca y dice "ERROR DE CONFIGURACIÓN"*: falta
-  `backend/.env` o una variable obligatoria (`DATABASE_URL`, `SECRET_KEY`).
-  El mensaje dice qué copiar; la plantilla con todas las variables
-  comentadas es `backend/.env.example`.
-- *`npm run dev` dice que falta `VITE_API_URL`*: copia
-  `frontend/.env.example` a `frontend/.env`.
-- *`ERR_CONNECTION_REFUSED` a `localhost:8002`*: el backend no está
-  corriendo (o arrancó en otro puerto). Arráncalo con `start-backend.ps1`.
-- *El puerto 8000 (o el 8002) está reservado* (`WinError 10013: Se intentó
-  acceder a un socket de una forma que no está permitida por sus permisos de
-  acceso`): Windows reserva rangos de puertos para Hyper-V/WSL/Docker al
-  arrancar. Por eso el proyecto usa el **8002**, no el 8000 — no lo
-  cambies. Para ver los rangos reservados:
-  `netsh interface ipv4 show excludedportrange protocol=tcp` (el
-  diagnóstico lo revisa solo). Si el 8002 también quedó dentro de un rango,
-  en una PowerShell **como administrador**: `net stop winnat` y luego
-  `net start winnat` (libera las reservas dinámicas; no toca tus datos).
-- *`OPTIONS /api/v1/seguridad/login` responde 400 Bad Request*: el origen
-  del frontend no está permitido por CORS. En desarrollo (`ENV=development`)
-  se acepta cualquier origen local en cualquier puerto; si ves esto, revisa
-  que `backend/.env` diga `ENV=development` (el diagnóstico lo muestra).
+- *El 8002 está reservado u ocupado en tu Windows* (`WinError 10013`): el
+  setup lo detecta y usa el siguiente libre, avisando. Para ver los rangos
+  reservados: `netsh interface ipv4 show excludedportrange protocol=tcp`.
+  Para liberarlos (PowerShell **como administrador**): `net stop winnat` y
+  luego `net start winnat`; no toca tus datos.
+- *El contenedor del backend se cae al arrancar*: mira su motivo con
+  `docker compose -f infra/docker-compose.yml logs backend`. Siempre dice
+  en español qué falta: el `.env`, Postgres que no respondió o una migración
+  que falló.
+- *La base está vacía*: es lo normal en una máquina nueva. **Tus datos no
+  viajan por git**, ni los de nadie. El setup carga la demo solo si la base
+  no tiene ningún usuario.
+- *`OPTIONS /api/v1/seguridad/login` responde 400*: el origen del frontend
+  no pasa CORS. En desarrollo (`ENV=development`) se acepta cualquier origen
+  local; revisa `ENV` en `backend/.env`.
+
+Diagnóstico de la configuración del backend (variables, CORS, Postgres),
+desde `backend/`: `venv\Scripts\python -m app.diagnostico`.
 
 ## Cómo levantar el proyecto en desarrollo
 
 ### Opción A — con Docker (Postgres + backend + n8n)
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File automatizaciones\deverificar-puertos.ps1
+powershell -ExecutionPolicy Bypass -File automatizaciones\dev\verificar-puertos.ps1
 docker compose -f infra/docker-compose.yml up -d --build
 ```
 
@@ -251,7 +258,7 @@ de Compose `tavo`. El compose del Producto JS no tiene nombre propio y
 Docker lo llama `infra` (como su carpeta): sin `name: tavo`, este compose
 habría usado sus mismos contenedores y su volumen de datos.
 
-**Antes de arrancar**, `automatizaciones\deverificar-puertos.ps1` revisa
+**Antes de arrancar**, `automatizaciones\dev\verificar-puertos.ps1` revisa
 los cinco puertos: libre, reservado por Windows (con el arreglo) u ocupado
 (con el proceso o contenedor que lo tiene). Los scripts de arranque lo
 llaman solos.

@@ -614,6 +614,77 @@ Paleta, tipografías y animaciones no se tocaron.
   sobre base vacía, backend, frontend y n8n en 200; el Producto JS siguió
   en sus puertos (5432 y 8001) sin tocarse.
 
+### 2026-10-13 — Un compañero clona y entra (rama `fix-arranque-colaborador`)
+
+Caso real: el compañero clonó, levantó backend y frontend y el login daba
+`ERR_CONNECTION_REFUSED` contra `http://localhost:8002/api/v1/seguridad/login`;
+y, una vez conectado, su base habría estado vacía (los datos de otra máquina
+no viajan por git). El setup anterior no comprobaba nada de eso.
+
+- **Puertos por máquina** (`automatizaciones/dev/puertos.py`, solo
+  biblioteca estándar): para Postgres, backend y frontend intenta el puerto
+  configurado (5433 / 8002 / 5175). Sirve si está libre y no reservado por
+  Windows, o si lo ocupa ESTE producto (su contenedor `<proyecto>-*` o un
+  proceso con la ruta de esta carpeta). Si no, toma el siguiente libre, sin
+  pisar nunca los del Producto JS ni 4175/5679, **avisa** y lo escribe en
+  `backend/.env` (`PORT` y el puerto de `DATABASE_URL`), `frontend/.env`
+  (`VITE_API_URL`) e `infra/.env` (nuevo, no versionado). Backend y
+  frontend leen siempre el mismo puerto.
+- **Compose parametrizado con los valores de siempre por defecto**:
+  `name: ${TAVO_PROYECTO:-tavo}`, contenedores y volúmenes
+  `${TAVO_PROYECTO:-tavo}-*`, puertos publicados `${DB_PORT:-5433}`,
+  `${BACKEND_PORT:-8002}`, `${FRONTEND_PORT:-5175}`, `${N8N_PORT:-5679}`.
+  Sin `infra/.env` todo es idéntico a antes (lo exige
+  `test_mapa_de_puertos.py`). Dentro de Docker nada cambia (db:5432,
+  backend:8002). `TAVO_PROYECTO` permite una copia aislada en la misma
+  máquina: así se probó el setup "como el compañero" sin tocar `tavo-db`.
+- **Backend en Docker que espera, migra y avisa**: `app/inicio_docker.py`
+  espera a Postgres (hasta 60 s), corre `alembic upgrade head` y recién
+  entonces lanza uvicorn. Si algo falla, termina con la causa y el arreglo
+  en español. Tiene *healthcheck* (`/health`) y el `.env` del backend es
+  opcional en el compose: si falta, sale el mensaje de `config.py` en vez de
+  un error de Docker. El frontend en Docker espera al backend sano y llama a
+  `localhost:${BACKEND_PORT}`.
+- **Login con un mensaje por causa** (`mensajeDeLogin` en `lib/errores.js`):
+  sin respuesta, "No se pudo conectar con el servidor en <URL>. Verifica que
+  el backend esté corriendo."; 401, "Correo o contraseña incorrectos." (el
+  backend dice lo mismo); cualquier otro, el `detail` del backend tal cual.
+  Antes, sin servidor, decía "No se pudo iniciar sesión" y el compañero
+  revisaba su contraseña.
+- **El setup comprueba antes de decir "Listo"** (`setup.ps1` y `setup.sh`):
+  exige Docker encendido, elige puertos, levanta Postgres con `--wait`,
+  migra, **carga la demo solo si la base no tiene usuarios** (nunca con
+  `ENV=production`; `automatizaciones/dev/estado_base.py`), levanta backend
+  y frontend en Docker con `--wait` (o usa los de esta carpeta si ya
+  corren), y hace GET `/health`, POST del login de `admin@dondetavo.demo` y
+  GET del frontend. Si algo falla, muestra los logs del contenedor y el
+  arreglo. Se quitó la cuenta vacía `demo@jscompany.co` del setup.
+- **`automatizaciones/dev/diagnostico.ps1`**: Docker, los tres `.env` (y que
+  frontend y backend usen el mismo puerto), puertos (libre / propio /
+  ocupado / reservado), contenedores y su salud, `/health`, el frontend,
+  migraciones, cuentas demo y login real con las cuatro; cada falla con su
+  arreglo. README: "Empezar desde cero" y "Si no puedes entrar".
+- **Probado como el compañero**: clon limpio de la rama en una carpeta
+  temporal, sin `.env`, venv, `node_modules` ni base, con
+  `TAVO_PROYECTO=tavo-prueba` y el **8002 ocupado a propósito** por otro
+  proceso (y el 5433 ocupado por `tavo-db` de esta copia). El setup eligió
+  5434 y 8003, cargó la demo (410 s), levantó backend y frontend en Docker,
+  comprobó `/health` y el login, y dijo "Listo". Por el navegador entraron
+  las cuatro cuentas, cada una a su pantalla (`/`, `/caja`,
+  `/ordenes/nueva`, `/cocina`) con la consola limpia. Con clave mala salió
+  "Correo o contraseña incorrectos."; con el backend detenido, "No se pudo
+  conectar con el servidor en http://localhost:8003/api/v1…", y
+  `diagnostico.ps1` señaló el backend caído con su arreglo. Volver a correr
+  el setup lo recuperó sin recargar la demo. El contenedor con una clave de
+  base mala terminó con "Postgres (db:5432) rechazó usuario o clave…". Se
+  borraron el clon, sus contenedores, volúmenes e imágenes; `tavo-db` y los
+  datos de esta copia no se tocaron.
+- Lo protegen `tests/test_arranque_colaborador.py` (elección y escritura
+  de puertos, espera a Postgres, que los setups comprueben el login),
+  `tests/test_mapa_de_puertos.py` y `LoginPage.test.jsx`.
+- Se corrigió además una ruta rota en el README (`\v` convertido en
+  tabulador vertical en `automatizaciones\dev\verificar-puertos.ps1`).
+
 ---
 
 ## 1. Configuración crítica que NO se borra
@@ -1519,6 +1590,7 @@ skill (Impeccable desaconseja Inter; aquí no se cambia).
 
 | Fecha | Decisión / hito |
 |---|---|
+| 2026-10-13 | Arranque del colaborador: puertos por máquina (setup elige otro si el 8002 no sirve y alinea los .env), backend en Docker que espera, migra y tiene healthcheck, login con mensaje por causa, setup que comprueba el login y carga la demo si la base está vacía, diagnostico.ps1 (§0) |
 | 2026-10-13 | Pulido final: horas en Colombia en pantalla y PDF, cifras sin partir, detalles a 720 px, objetivos táctiles de 40–44 px, cocina en tablet, cero avisos y 0 vulnerabilidades, revisión de secretos; repositorio compartido con el compañero (§0) |
 | 2026-10-12 | Datos de demostración: Donde Tavo con 90 días de historia y Café Central para el aislamiento, cuentas por rol solo en desarrollo, y reglas nuevas de la IA (temporadas, picos, carta, alzas, mermas, diferencias de caja) (§0) |
 | 2026-10-12 | Fase 8: utilidad real en el dashboard, periodo Semana, donas de participación (máx. 6 partes), pantalla de Reportes con CSV por sección y PDF (§0) |

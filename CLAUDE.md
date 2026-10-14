@@ -83,6 +83,14 @@ contenedor, volumen ni base se comparte:
 - Los scripts SOLO cierran procesos de este producto (por puerto o por la
   ruta de esta carpeta), nunca "todo uvicorn" o "todo vite".
 - `uvicorn app.main:app` a secas no arranca (`app/core/arranque.py`).
+- **Puertos por máquina (2026-10-13)**: el compose usa
+  `${TAVO_PROYECTO:-tavo}` y `${DB_PORT:-5433}` / `${BACKEND_PORT:-8002}` /
+  `${FRONTEND_PORT:-5175}` / `${N8N_PORT:-5679}`; sin `infra/.env` valen los
+  de la tabla. Si en una máquina el 8002 (o 5433 / 5175) está reservado u
+  ocupado por otro, `automatizaciones/dev/puertos.py` (lo llama el setup)
+  elige el siguiente libre y lo escribe en `backend/.env`, `frontend/.env`
+  e `infra/.env`. El setup comprueba `/health` y el login antes de decir
+  "Listo"; `automatizaciones/dev/diagnostico.ps1` dice qué arreglar.
 - Lo protegen `backend/tests/test_mapa_de_puertos.py`,
   `tests/test_arranque.py`, `tests/test_config.py` y
   `frontend/src/vite-config.test.js`.
@@ -495,7 +503,10 @@ contenedor, volumen ni base se comparte:
   `build` si falta `VITE_API_URL`. Cada variable nueva de `Settings` va
   documentada en `backend/.env.example` (lo exige `tests/test_config.py`).
   Arranque desde cero: `automatizaciones/setup.ps1` / `setup.sh`
-  (idempotentes; cuenta de prueba `demo@jscompany.co` / `Demo2026!`).
+  (idempotentes; Docker obligatorio; dejan backend y frontend en Docker,
+  cargan la demo si la base está vacía y comprueban el login de
+  `admin@dondetavo.demo`). "No puedo entrar":
+  `automatizaciones/dev/diagnostico.ps1`.
   Diagnóstico: `python -m app.diagnostico [--origen URL]` desde `backend/`,
   y `GET /diagnostico` solo con `ENV=development`.
 
